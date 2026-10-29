@@ -9,6 +9,10 @@ import javax.swing.SwingUtilities;
 import javax.swing.WindowConstants;
 
 import model.GameConfig;
+import model.Board;
+import screens.GameBoardScreen;
+import screens.GameHistoryScreen;
+import screens.AdminScreen;
 import screens.GameSetupScreen;
 import screens.OpeningScreen;
 
@@ -34,8 +38,8 @@ public class Main {
     private static void showOpening() {
         show(new OpeningScreen(new OpeningScreen.Listener() {
             @Override public void onStartGame()      { showSetup(); }
-            @Override public void onGameHistory()    { comingSoon("Game history screen"); }
-            @Override public void onQuestionWizard() { comingSoon("Admin login + Question wizard"); }
+            @Override public void onGameHistory()    { show(new GameHistoryScreen(Main::showOpening)); }
+            @Override public void onQuestionWizard() { show(new AdminScreen(Main::showOpening)); }
             @Override public void onExit()           { frame.dispose(); System.exit(0); }
         }));
     }
@@ -45,8 +49,7 @@ public class Main {
             @Override public void onBack() { showOpening(); }
 
             @Override public void onStart(GameConfig config) {
-                JOptionPane.showMessageDialog(frame, "Ready to play!\n\n" + config
-                        + "\n\nThe game board is our next step.");
+                show(new GameBoardScreen(config, new Board(config.getDifficulty())));
             }
         }));
     }

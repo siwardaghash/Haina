@@ -1,0 +1,243 @@
+<?xml version='1.0' encoding='utf-8'?>
+<questions>
+  <question id="E01" level="easy">
+    <text>What does SRS stand for?</text>
+    <answer>Software Requirements Specification</answer>
+    <answer>System Runtime Service</answer>
+    <answer>Software Review Summary</answer>
+    <answer>Secure Resource System</answer>
+    <correct>1</correct>
+  </question>
+  <question id="E02" level="easy">
+    <text>What does MVC stand for?</text>
+    <answer>Main View Class</answer>
+    <answer>Model View Controller</answer>
+    <answer>Module Version Control</answer>
+    <answer>Method View Code</answer>
+    <correct>2</correct>
+  </question>
+  <question id="E03" level="easy">
+    <text>Which tool is used for version control?</text>
+    <answer>Git</answer>
+    <answer>Excel</answer>
+    <answer>Paint</answer>
+    <answer>PowerPoint</answer>
+    <correct>1</correct>
+  </question>
+  <question id="E04" level="easy">
+    <text>What is a unit test designed to test?</text>
+    <answer>A complete company</answer>
+    <answer>A small unit of code</answer>
+    <answer>Network hardware only</answer>
+    <answer>A user manual</answer>
+    <correct>2</correct>
+  </question>
+  <question id="E05" level="easy">
+    <text>Which language is used for this Ludo project?</text>
+    <answer>Python</answer>
+    <answer>C</answer>
+    <answer>Java</answer>
+    <answer>SQL</answer>
+    <correct>3</correct>
+  </question>
+  <question id="E06" level="easy">
+    <text>What does GUI stand for?</text>
+    <answer>General User Input</answer>
+    <answer>Graphical User Interface</answer>
+    <answer>Game Utility Interface</answer>
+    <answer>Global User Index</answer>
+    <correct>2</correct>
+  </question>
+  <question id="E07" level="easy">
+    <text>What does QA mean?</text>
+    <answer>Quick Access</answer>
+    <answer>Quality Assurance</answer>
+    <answer>Query Analysis</answer>
+    <answer>Queue Allocation</answer>
+    <correct>2</correct>
+  </question>
+  <question id="E08" level="easy">
+    <text>Which practice helps detect defects?</text>
+    <answer>Testing</answer>
+    <answer>Deleting code</answer>
+    <answer>Ignoring errors</answer>
+    <answer>Disabling logs</answer>
+    <correct>1</correct>
+  </question>
+  <question id="E09" level="easy">
+    <text>What is a class in Java?</text>
+    <answer>A blueprint for objects</answer>
+    <answer>An image file</answer>
+    <answer>A network address</answer>
+    <answer>A database row only</answer>
+    <correct>1</correct>
+  </question>
+  <question id="E10" level="easy">
+    <text>What is a user story?</text>
+    <answer>A description of a user need</answer>
+    <answer>A stack trace</answer>
+    <answer>A binary file</answer>
+    <answer>A compiler option</answer>
+    <correct>1</correct>
+  </question>
+  <question id="M01" level="medium">
+    <text>Which SOLID principle calls for one responsibility per class?</text>
+    <answer>Open-Closed</answer>
+    <answer>Single Responsibility</answer>
+    <answer>Interface Segregation</answer>
+    <answer>Dependency Inversion</answer>
+    <correct>2</correct>
+  </question>
+  <question id="M02" level="medium">
+    <text>Which Scrum event reviews completed work with stakeholders?</text>
+    <answer>Sprint Review</answer>
+    <answer>Daily Scrum</answer>
+    <answer>Sprint Planning</answer>
+    <answer>Backlog Refinement</answer>
+    <correct>1</correct>
+  </question>
+  <question id="M03" level="medium">
+    <text>Which UML diagram represents interactions over time?</text>
+    <answer>Class diagram</answer>
+    <answer>Sequence diagram</answer>
+    <answer>Deployment diagram</answer>
+    <answer>Package diagram</answer>
+    <correct>2</correct>
+  </question>
+  <question id="M04" level="medium">
+    <text>What is regression testing?</text>
+    <answer>Testing only new hardware</answer>
+    <answer>Retesting after changes for broken behavior</answer>
+    <answer>Removing failed tests</answer>
+    <answer>Testing only the UI</answer>
+    <correct>2</correct>
+  </question>
+  <question id="M05" level="medium">
+    <text>What does encapsulation primarily protect?</text>
+    <answer>Internal object state</answer>
+    <answer>Network bandwidth</answer>
+    <answer>File names</answer>
+    <answer>Screen resolution</answer>
+    <correct>1</correct>
+  </question>
+  <question id="M06" level="medium">
+    <text>Which Git command incorporates remote changes locally?</text>
+    <answer>git pull</answer>
+    <answer>git init</answer>
+    <answer>git status</answer>
+    <answer>git branch</answer>
+    <correct>1</correct>
+  </question>
+  <question id="M07" level="medium">
+    <text>What is the purpose of an acceptance test?</text>
+    <answer>Verify user-facing requirements</answer>
+    <answer>Optimize compiler speed</answer>
+    <answer>Create a repository</answer>
+    <answer>Change the language</answer>
+    <correct>1</correct>
+  </question>
+  <question id="M08" level="medium">
+    <text>Which design pattern defines one shared instance?</text>
+    <answer>Observer</answer>
+    <answer>Factory Method</answer>
+    <answer>Singleton</answer>
+    <answer>Adapter</answer>
+    <correct>3</correct>
+  </question>
+  <question id="M09" level="medium">
+    <text>Which technique checks code without running it?</text>
+    <answer>Static analysis</answer>
+    <answer>Load testing</answer>
+    <answer>Stress testing</answer>
+    <answer>Usability testing</answer>
+    <correct>1</correct>
+  </question>
+  <question id="M10" level="medium">
+    <text>What does a requirements traceability matrix connect?</text>
+    <answer>Requirements to implementation and tests</answer>
+    <answer>Pixels to colors</answer>
+    <answer>Files to folders only</answer>
+    <answer>People to passwords</answer>
+    <correct>1</correct>
+  </question>
+  <question id="H01" level="hard">
+    <text>Which SOLID principle says clients should not depend on unused methods?</text>
+    <answer>Liskov Substitution</answer>
+    <answer>Interface Segregation</answer>
+    <answer>Single Responsibility</answer>
+    <answer>Open-Closed</answer>
+    <correct>2</correct>
+  </question>
+  <question id="H02" level="hard">
+    <text>What is the main purpose of the Strategy pattern?</text>
+    <answer>Swap algorithms through a common interface</answer>
+    <answer>Store only one object</answer>
+    <answer>Prevent all inheritance</answer>
+    <answer>Replace version control</answer>
+    <correct>1</correct>
+  </question>
+  <question id="H03" level="hard">
+    <text>Which test boundary is most relevant for a value allowed from 2 to 4?</text>
+    <answer>0,1,5,6</answer>
+    <answer>2,4 and adjacent invalid values</answer>
+    <answer>Only 3</answer>
+    <answer>Only 100</answer>
+    <correct>2</correct>
+  </question>
+  <question id="H04" level="hard">
+    <text>What is cyclomatic complexity based on?</text>
+    <answer>Independent control-flow paths</answer>
+    <answer>Number of Java files</answer>
+    <answer>Screen size</answer>
+    <answer>Git commit count</answer>
+    <correct>1</correct>
+  </question>
+  <question id="H05" level="hard">
+    <text>Which testing approach derives cases from code structure?</text>
+    <answer>White-box testing</answer>
+    <answer>Black-box testing</answer>
+    <answer>Exploratory testing only</answer>
+    <answer>Acceptance testing only</answer>
+    <correct>1</correct>
+  </question>
+  <question id="H06" level="hard">
+    <text>What does the Liskov Substitution Principle require?</text>
+    <answer>Subtypes must be usable in place of base types</answer>
+    <answer>All classes must be final</answer>
+    <answer>Interfaces are forbidden</answer>
+    <answer>All methods static</answer>
+    <correct>1</correct>
+  </question>
+  <question id="H07" level="hard">
+    <text>When is an integration test most useful?</text>
+    <answer>Checking communication between components</answer>
+    <answer>Checking only one getter</answer>
+    <answer>Drawing a diagram</answer>
+    <answer>Writing meeting notes</answer>
+    <correct>1</correct>
+  </question>
+  <question id="H08" level="hard">
+    <text>Which risk occurs when a change unintentionally breaks existing functionality?</text>
+    <answer>Regression risk</answer>
+    <answer>Color contrast risk only</answer>
+    <answer>Naming risk</answer>
+    <answer>Licensing approval</answer>
+    <correct>1</correct>
+  </question>
+  <question id="H09" level="hard">
+    <text>Which architecture separates domain data, presentation, and input handling?</text>
+    <answer>MVC</answer>
+    <answer>FIFO</answer>
+    <answer>TCP</answer>
+    <answer>CSV</answer>
+    <correct>1</correct>
+  </question>
+  <question id="H10" level="hard">
+    <text>What property makes a requirement objectively verifiable?</text>
+    <answer>Measurable acceptance criteria</answer>
+    <answer>Long paragraphs</answer>
+    <answer>Ambiguous phrasing</answer>
+    <answer>No test cases</answer>
+    <correct>1</correct>
+  </question>
+</questions>

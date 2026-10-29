@@ -1,1 +1,4 @@
 /bin/
+
+# Local administrator credentials
+data/admin.xml
