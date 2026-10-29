@@ -31,6 +31,15 @@ public final class Game {
     private boolean awaitingPiece;
     private boolean rollAvailable;
     private String message = "Roll the dice to begin.";
+    private QuestionBank questionBank;
+    private QuestionBank.Question pendingQuestion;
+    private Piece questionPiece;
+    private int questionChain;
+
+    /** Attach the bank at game start; no question window is shown in Easy mode. */
+    public void setQuestionBank(QuestionBank bank) { this.questionBank = bank; }
+    public QuestionBank.Question getPendingQuestion() { return pendingQuestion; }
+
 
     public Game(GameConfig config, Board board) { this(config, board, new Random()); }
     public Game(GameConfig config, Board board, Random random) {
@@ -51,7 +60,7 @@ public final class Game {
     public String getMessage() { return message; }
 
     public void roll() {
-        if (awaitingPiece) throw new IllegalStateException("Choose a piece first");
+        if (awaitingPiece || pendingQuestion != null) throw new IllegalStateException("Resolve the current action first");
         rollAvailable = true;
         stepDie = random.nextInt(6) + 1;
         extraDie = difficulty == Difficulty.EASY ? 0 : random.nextInt(difficulty == Difficulty.MEDIUM ? 3 : 6) + 1;
@@ -171,6 +180,61 @@ public final class Game {
         else if (piece.isOnHomePath()) message += " On the home path.";
         awaitingPiece = false;
         rollAvailable = false;
+        questionChain = 0;
+        if (!triggerQuestion(piece)) finishTurnAfterMove();
+    }
+
+    private boolean triggerQuestion(Piece piece) {
+        if (!piece.isOnCommonPath() || questionBank == null || questionChain >= 12) return false;
+        Board.SquareType type = board.getRings().get(0).get(piece.getBoardIndex()).getType();
+        String level;
+        switch (type) {
+            case QUESTION_EASY: level = "easy"; break;
+            case QUESTION_MEDIUM: level = "medium"; break;
+            case QUESTION_HARD: level = "hard"; break;
+            default: return false;
+        }
+        pendingQuestion = questionBank.next(level);
+        questionPiece = piece;
+        questionChain++;
+        message += " Question square: " + level + ".";
+        return true;
+    }
+
+    /** Answer a pending question. A correct answer moves forward; incorrect moves backward. */
+    public boolean answerQuestion(int chosenIndex) {
+        if (pendingQuestion == null || chosenIndex < 0 || chosenIndex > 3)
+            throw new IllegalStateException("No valid answer to submit");
+        QuestionBank.Question question = pendingQuestion;
+        boolean correct = question.getCorrect() == chosenIndex;
+        int distance = "easy".equals(question.getLevel()) ? 1 : "medium".equals(question.getLevel()) ? 2 : 3;
+        int direction = correct ? 1 : -1;
+        Piece moved = questionPiece;
+        pendingQuestion = null;
+        questionPiece = null;
+        int original = moved.getProgress();
+        int target = Math.max(0, original + direction * distance);
+        if (target > Piece.FINISH_PROGRESS) target = original; // exact finish only
+        // Backward and forward movement must stop before an opposing Double Block.
+        if (moved.isOnCommonPath()) {
+            int sign = target >= original ? 1 : -1;
+            for (int progress = original + sign; sign > 0 ? progress <= target : progress >= target; progress += sign) {
+                if (progress >= Piece.HOME_PATH_START) break;
+                int square = (moved.getColor().ordinal() * 13 + progress) % 52;
+                if (hasOpposingBlock(moved.getColor(), square)) { target = progress - sign; break; }
+            }
+        }
+        moved.setProgress(target);
+        int captured = captureOnLanding(moved);
+        message = correct ? "Correct! Moved forward " + (target-original) + " step(s)."
+                : "Incorrect. Correct answer: " + question.getAnswers()[question.getCorrect()]
+                    + ". Movement: " + (target-original) + " step(s).";
+        if (captured > 0) message += " Captured an opponent!";
+        if (!triggerQuestion(moved)) finishTurnAfterMove();
+        return correct;
+    }
+
+    private void finishTurnAfterMove() {
         if (stepDie != 6) advanceTurn();
         else message += " Rolled 6: roll again.";
     }

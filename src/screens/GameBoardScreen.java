@@ -12,6 +12,9 @@ import model.Piece;
 import model.Board;
 import model.GameConfig;
 import model.PlayerColor;
+import model.QuestionBank;
+import java.io.File;
+import java.util.Random;
 
 /** Polished responsive board view; all rules remain in model.Game. */
 public final class GameBoardScreen extends JPanel {
@@ -28,6 +31,15 @@ public final class GameBoardScreen extends JPanel {
 
     public GameBoardScreen(GameConfig config, Board board) {
         game = new Game(config, board);
+        try {
+            File file = new File("data/questions.xml");
+            if (!file.isFile()) file = new File("Haina-main/data/questions.xml");
+            game.setQuestionBank(new QuestionBank(file, new Random()));
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this,
+                    "Question bank could not be loaded: " + ex.getMessage(),
+                    "Question bank error", JOptionPane.ERROR_MESSAGE);
+        }
         setLayout(new BorderLayout(12, 8));
         setOpaque(false);
         setBorder(BorderFactory.createEmptyBorder(14, 26, 17, 26));
@@ -79,7 +91,7 @@ public final class GameBoardScreen extends JPanel {
         for (int i = 0; i < 4; i++) {
             final int index = i;
             pieceButtons[i] = new FancyButton("PIECE " + (i + 1), new Color(52, 74, 115), INK, false);
-            pieceButtons[i].addActionListener(e -> { game.move(index); refresh(); });
+            pieceButtons[i].addActionListener(e -> { game.move(index); resolveQuestions(); refresh(); });
             actions.add(pieceButtons[i]);
         }
         controls.add(actions, BorderLayout.CENTER);
@@ -89,6 +101,25 @@ public final class GameBoardScreen extends JPanel {
         controls.add(status, BorderLayout.SOUTH);
         add(controls, BorderLayout.SOUTH);
         refresh();
+    }
+
+    /** Answers are given by the player who just moved, before the turn advances. */
+    private void resolveQuestions() {
+        while (game.getPendingQuestion() != null) {
+            QuestionBank.Question q = game.getPendingQuestion();
+            String[] choices = q.getAnswers();
+            int selection = JOptionPane.showOptionDialog(this,
+                    q.getText(), "Question – " + q.getLevel().toUpperCase(),
+                    JOptionPane.DEFAULT_OPTION, JOptionPane.QUESTION_MESSAGE,
+                    null, choices, choices[0]);
+            if (selection < 0) {
+                // Do not leave an unanswerable pending state; reopen the same question.
+                JOptionPane.showMessageDialog(this, "Please select an answer to continue.");
+                continue;
+            }
+            game.answerQuestion(selection);
+            refresh();
+        }
     }
 
     private void refresh() {
