@@ -91,7 +91,7 @@ public final class GameBoardScreen extends JPanel {
         for (int i = 0; i < 4; i++) {
             final int index = i;
             pieceButtons[i] = new FancyButton("PIECE " + (i + 1), new Color(52, 74, 115), INK, false);
-            pieceButtons[i].addActionListener(e -> { game.move(index); resolveQuestions(); refresh(); });
+            pieceButtons[i].addActionListener(e -> { game.move(index); resolveSpecials(); refresh(); });
             actions.add(pieceButtons[i]);
         }
         controls.add(actions, BorderLayout.CENTER);
@@ -104,8 +104,34 @@ public final class GameBoardScreen extends JPanel {
     }
 
     /** Answers are given by the player who just moved, before the turn advances. */
-    private void resolveQuestions() {
-        while (game.getPendingQuestion() != null) {
+    private void resolveSpecials() {
+        int guard = 0;
+        while ((game.getPendingQuestion() != null || game.isAwaitingSurpriseTarget()) && guard++ < 40) {
+            if (game.isAwaitingSurpriseTarget()) {
+                java.util.List<int[]> targets = new java.util.ArrayList<>();
+                java.util.List<String> labels = new java.util.ArrayList<>();
+                for (int p = 0; p < game.getPlayers().size(); p++)
+                    for (int i = 0; i < 4; i++)
+                        if (game.canSelectSurpriseTarget(p, i)) {
+                            targets.add(new int[]{p, i});
+                            labels.add(game.getPlayers().get(p).getName() + " – Piece " + (i+1));
+                        }
+                if (targets.isEmpty()) break;
+                Object selection = JOptionPane.showInputDialog(this,
+                    "Surprise! Select an opponent piece to move backward:", "Choose an opponent",
+                    JOptionPane.QUESTION_MESSAGE, null, labels.toArray(), labels.get(0));
+                if (selection == null) {
+                    JOptionPane.showMessageDialog(this, "Select a piece to continue.");
+                    continue;
+                }
+                int[] chosen = targets.get(labels.indexOf(selection.toString()));
+                int die = game.selectSurpriseTarget(chosen[0], chosen[1]);
+                JOptionPane.showMessageDialog(this, "Opponent Step Die: " + die
+                    + "\nMoves backward " + ((die+1)/2) + " step(s), subject to blocks.");
+                refresh();
+                continue;
+            }
+
             QuestionBank.Question q = game.getPendingQuestion();
             String[] choices = q.getAnswers();
             int selection = JOptionPane.showOptionDialog(this,
@@ -131,7 +157,8 @@ public final class GameBoardScreen extends JPanel {
         playerTag.setText("●  " + current.getName().toUpperCase() + "'S TURN");
         playerTag.setForeground(BoardCanvas.playerColor(current.getColor()));
         status.setText(game.getMessage());
-        rollButton.setEnabled(!game.isAwaitingPiece());
+        rollButton.setEnabled(!game.isAwaitingPiece() && game.getPendingQuestion() == null
+                && !game.isAwaitingSurpriseTarget());
         for (int i = 0; i < 4; i++)
             pieceButtons[i].setEnabled(game.isAwaitingPiece() && game.canMove(i));
         canvas.repaint();
