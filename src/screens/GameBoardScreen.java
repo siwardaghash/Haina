@@ -178,8 +178,12 @@ public final class GameBoardScreen extends JPanel {
         int step = game.getStepDie();
 
         dice.setText(step == 0
-            ? "DICE / READY"
-            : diceFaces[step] + "  STEP " + step + "  •  MOVES " + game.getSteps());
+        	    ? "DICE / READY"
+        	    : diceFaces[step] + "  STEP " + step
+        	        + (game.getExtraDie() > 0
+        	            ? "  •  BOOST " + game.getExtraDie()
+        	            : "")
+        	        + "  •  MOVES " + game.getSteps());
         Game.Player current = game.getCurrentPlayer();
         playerTag.setText("●  " + current.getName().toUpperCase() + "'S TURN");
         playerTag.setForeground(BoardCanvas.playerColor(current.getColor()));
