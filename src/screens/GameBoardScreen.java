@@ -247,8 +247,7 @@ public final class GameBoardScreen extends JPanel {
             int size = 15 * cell;
             int left = (getWidth() - size) / 2;
             int top = (getHeight() - size) / 2;
-            // Draw additional difficulty tracks as a visual preview only.
-            // Their exact movement topology must be implemented with path mapping.
+            // Draw the actual outer tracks used by the movement model.
             if (extra >= 1) drawOuterTrack(g, board.getRings().get(1), left - cell * 1.0, top - cell * 1.0, size + 2.0 * cell, cell * .64);
             if (extra >= 2) drawOuterTrack(g, board.getRings().get(2), left - cell * 1.8, top - cell * 1.8, size + 3.6 * cell, cell * .56);
 
@@ -294,6 +293,20 @@ public final class GameBoardScreen extends JPanel {
                         g.fillOval(x - size / 2, y - size / 2, size, size);
                         g.setColor(Color.BLACK);
                         g.drawOval(x - size / 2, y - size / 2, size, size);
+                        continue;
+                    }
+                    if (piece.isOnCommonPath() && piece.getRing() > 0) {
+                        double inset = piece.getRing() == 1 ? 1.0 : 1.8;
+                        double ox = left - cell * inset;
+                        double oy = top - cell * inset;
+                        double side = 15 * cell + 2 * cell * inset;
+                        double[] pos = outerPoint(piece.getBoardIndex(),
+                                board.getRings().get(piece.getRing()).size(), ox, oy, side);
+                        int diameter = Math.max(8, cell / 2);
+                        g.setColor(playerColor(piece.getColor()));
+                        g.fillOval((int)pos[0] - diameter / 2, (int)pos[1] - diameter / 2, diameter, diameter);
+                        g.setColor(new Color(12, 20, 39));
+                        g.drawOval((int)pos[0] - diameter / 2, (int)pos[1] - diameter / 2, diameter, diameter);
                         continue;
                     }
                     int[] point = piece.isOnHomePath()
@@ -362,21 +375,38 @@ public final class GameBoardScreen extends JPanel {
             }
         }
 
+        /** Ring indices are clockwise from the top-left corner. */
+        private static double[] outerPoint(int index, int count, double x, double y, double size) {
+            int perSide = count / 4;
+            int side = index / perSide;
+            int offset = index % perSide;
+            double step = size / perSide;
+            switch (side) {
+                case 0: return new double[]{x + (offset + .5) * step, y + step / 2};
+                case 1: return new double[]{x + size - step / 2, y + (offset + .5) * step};
+                case 2: return new double[]{x + size - (offset + .5) * step, y + size - step / 2};
+                default: return new double[]{x + step / 2, y + size - (offset + .5) * step};
+            }
+        }
+
         private void drawOuterTrack(Graphics2D g, List<Board.Square> ring,
-                                    double x, double y, double size, double diameter) {
+                                    double x, double y, double size, double unusedDiameter) {
             int n = ring.size();
-            double perimeter = size * 4;
+            int cellSize = Math.max(6, (int)Math.round(size / (n / 4)) - 2);
             for (int i = 0; i < n; i++) {
-                double t = perimeter * i / n;
-                double px, py;
-                if (t < size) {px = x + t; py = y;}
-                else if (t < size * 2) {px = x + size; py = y + (t - size);}
-                else if (t < size * 3) {px = x + size - (t - size * 2); py = y + size;}
-                else {px = x; py = y + size - (t - size * 3);}
+                double[] point = outerPoint(i, n, x, y, size);
                 Board.Square square = ring.get(i);
+                int cx = (int)Math.round(point[0]), cy = (int)Math.round(point[1]);
                 g.setColor(squareColor(square));
-                int r = Math.max(5, (int)diameter);
-                g.fillRoundRect((int)px - r / 2, (int)py - r / 2, r, r, 3, 3);
+                g.fillRoundRect(cx - cellSize/2, cy - cellSize/2, cellSize, cellSize, 4, 4);
+                g.setColor(OUTLINE);
+                g.drawRoundRect(cx - cellSize/2, cy - cellSize/2, cellSize, cellSize, 4, 4);
+                String label = symbol(square);
+                if (!label.isEmpty()) {
+                    g.setFont(new Font("SansSerif", Font.BOLD, Math.max(8, cellSize / 2)));
+                    g.setColor(new Color(18, 28, 48));
+                    drawCentered(g, label, cx, cy + cellSize/5);
+                }
             }
         }
 
