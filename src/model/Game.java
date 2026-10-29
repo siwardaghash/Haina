@@ -6,8 +6,8 @@ import java.util.List;
 import java.util.Random;
 
 /**
- * First playable increment: dice, turns, castle entry and common-path movement.
- * Home paths, arrows, captures, blocks and special-square effects are not active yet.
+ * Playable increment: dice, turns, castle entry, home paths and exact finish.
+ * Extra-ring transitions, captures, blocks and special effects remain future steps.
  */
 public final class Game {
     public static final class Player {
@@ -31,6 +31,7 @@ public final class Game {
     private int extraDie;
     private int steps;
     private boolean awaitingPiece;
+    private boolean rollAvailable;
     private String message = "Roll the dice to begin.";
 
     public Game(GameConfig config) { this(config, new Random()); }
@@ -51,6 +52,7 @@ public final class Game {
 
     public void roll() {
         if (awaitingPiece) throw new IllegalStateException("Choose a piece first");
+        rollAvailable = true;
         stepDie = random.nextInt(6) + 1;
         extraDie = difficulty == Difficulty.EASY ? 0 : random.nextInt(difficulty == Difficulty.MEDIUM ? 3 : 6) + 1;
         steps = difficulty == Difficulty.EASY ? stepDie : stepDie * (extraDie - 1);
@@ -76,12 +78,15 @@ public final class Game {
     }
 
     public boolean canMove(int index) {
-        if (!awaitingPiece && stepDie == 0) return false;
+        if (!rollAvailable) return false;
         if (index < 0 || index >= 4) return false;
         Piece p = getCurrentPlayer().pieces.get(index);
+        if (p.isFinished()) return false;
         if (p.isInCastle()) return stepDie == 6;
-        // Only common-path movement is available in this increment.
-        return steps > 0 && p.getProgress() + steps <= 50;
+        // FR-19: already on the personal home path -> step die only.
+        // Pieces on the common path use the difficulty's normal result.
+        int movement = p.isOnHomePath() ? stepDie : steps;
+        return movement > 0 && p.getProgress() + movement <= Piece.FINISH_PROGRESS;
     }
 
     private boolean hasAnyLegalMove() {
@@ -94,9 +99,15 @@ public final class Game {
         Player player = getCurrentPlayer();
         Piece piece = player.pieces.get(index);
         if (piece.isInCastle()) piece.setProgress(0);
-        else piece.setProgress(piece.getProgress() + steps);
+        else {
+            int movement = piece.isOnHomePath() ? stepDie : steps;
+            piece.setProgress(piece.getProgress() + movement);
+        }
         message = player.getName() + " moved piece " + piece.getNumber() + ".";
+        if (piece.isFinished()) message += " Reached FINISH HOME!";
+        else if (piece.isOnHomePath()) message += " Entered the home path.";
         awaitingPiece = false;
+        rollAvailable = false;
         if (stepDie != 6) advanceTurn();
         else message += " Rolled 6: roll again.";
     }
@@ -105,5 +116,6 @@ public final class Game {
         current = (current + 1) % players.size();
         consecutiveSixes = 0;
         awaitingPiece = false;
+        rollAvailable = false;
     }
 }

@@ -72,7 +72,7 @@ public final class GameBoardScreen extends JPanel {
         result.append(" | Movement: ").append(game.getSteps());
         dice.setText(game.getStepDie() == 0 ? "Dice: not rolled" : result.toString());
         status.setText("Current: " + game.getCurrentPlayer().getName()
-            + " | " + game.getMessage() + " | Partial movement demo");
+            + " | " + game.getMessage() + " | Home-path movement enabled");
         rollButton.setEnabled(!game.isAwaitingPiece());
         for (int i = 0; i < 4; i++) pieceButtons[i].setEnabled(game.isAwaitingPiece() && game.canMove(i));
         canvas.repaint();
@@ -162,7 +162,19 @@ public final class GameBoardScreen extends JPanel {
             for (Game.Player player : game.getPlayers()) {
                 for (Piece piece : player.getPieces()) {
                     if (piece.isInCastle()) continue;
-                    int[] point = PATH[piece.getBoardIndex()];
+                    if (piece.isFinished()) {
+                        int size = Math.max(9, cell / 3);
+                        int x = left + 7 * cell + (piece.getNumber() % 2) * size;
+                        int y = top + 7 * cell + (piece.getNumber() / 2) * size;
+                        g.setColor(playerColor(piece.getColor()));
+                        g.fillOval(x - size / 2, y - size / 2, size, size);
+                        g.setColor(Color.BLACK);
+                        g.drawOval(x - size / 2, y - size / 2, size, size);
+                        continue;
+                    }
+                    int[] point = piece.isOnHomePath()
+                        ? homeCoordinates(piece.getColor(), piece.getHomePathIndex())
+                        : PATH[piece.getBoardIndex()];
                     int offsetX = ((piece.getNumber() - 1) % 2) * Math.max(3, cell / 7);
                     int offsetY = ((piece.getNumber() - 1) / 2) * Math.max(3, cell / 7);
                     int diameter = Math.max(9, cell * 2 / 3);
@@ -212,14 +224,17 @@ public final class GameBoardScreen extends JPanel {
 
         private void drawHomePath(Graphics2D g, int left, int top, int cell, PlayerColor color) {
             for (int i = 0; i < 6; i++) {
-                int x, y;
-                switch (color) {
-                    case RED: x = i + 1; y = 7; break;
-                    case GREEN: x = 7; y = i + 1; break;
-                    case YELLOW: x = 13 - i; y = 7; break;
-                    default: x = 7; y = 13 - i; break;
-                }
-                drawCell(g, left + x * cell, top + y * cell, cell, playerColor(color), "");
+                int[] point = homeCoordinates(color, i);
+                drawCell(g, left + point[0] * cell, top + point[1] * cell, cell, playerColor(color), "");
+            }
+        }
+
+        private static int[] homeCoordinates(PlayerColor color, int index) {
+            switch (color) {
+                case RED: return new int[]{index + 1, 7};
+                case GREEN: return new int[]{7, index + 1};
+                case YELLOW: return new int[]{13 - index, 7};
+                default: return new int[]{7, 13 - index};
             }
         }
 
