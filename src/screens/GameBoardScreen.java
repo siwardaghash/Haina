@@ -82,8 +82,7 @@ public final class GameBoardScreen extends JPanel {
         information.add(playerTag, BorderLayout.WEST);
         dice = new JLabel("Dice: not rolled", SwingConstants.RIGHT);
         dice.setForeground(INK);
-        dice.setFont(new Font("SansSerif", Font.BOLD, 14));
-        information.add(dice, BorderLayout.EAST);
+        dice.setFont(new Font("SansSerif", Font.BOLD, 24));        information.add(dice, BorderLayout.EAST);
         controls.add(information, BorderLayout.NORTH);
 
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 2));
@@ -155,7 +154,13 @@ public final class GameBoardScreen extends JPanel {
         StringBuilder result = new StringBuilder("STEP  ").append(game.getStepDie());
         if (game.getExtraDie() > 0) result.append("   •   BOOST  ").append(game.getExtraDie());
         result.append("   •   MOVES  ").append(game.getSteps());
-        dice.setText(game.getStepDie() == 0 ? "DICE  /  READY" : result.toString());
+        String[] diceFaces = {"", "⚀", "⚁", "⚂", "⚃", "⚄", "⚅"};
+
+        int step = game.getStepDie();
+
+        dice.setText(step == 0
+            ? "DICE / READY"
+            : diceFaces[step] + "  STEP " + step + "  •  MOVES " + game.getSteps());
         Game.Player current = game.getCurrentPlayer();
         playerTag.setText("●  " + current.getName().toUpperCase() + "'S TURN");
         playerTag.setForeground(BoardCanvas.playerColor(current.getColor()));
