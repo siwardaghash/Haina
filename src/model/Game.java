@@ -24,6 +24,10 @@ public final class Game {
     private final Difficulty difficulty;
     private final Random random;
     private final List<Player> players = new ArrayList<>();
+    private final long startedAtMillis = System.currentTimeMillis();
+    private final List<Player> finishingOrder = new ArrayList<>();
+    private boolean gameOver;
+    private long finishedAtMillis;
     private int current;
     private int consecutiveSixes;
     private int stepDie;
@@ -70,6 +74,38 @@ public final class Game {
         for (GameConfig.PlayerSetup p : config.getPlayers()) players.add(new Player(p, difficulty));
         Collections.shuffle(players, random);
     }
+    public boolean isGameOver() { return gameOver; }
+    public long getStartedAtMillis() { return startedAtMillis; }
+    public long getFinishedAtMillis() { return finishedAtMillis; }
+    public long getDurationSeconds() {
+        long end = gameOver ? finishedAtMillis : System.currentTimeMillis();
+        return Math.max(0, (end - startedAtMillis) / 1000);
+    }
+    public List<Player> getFinishingOrder() { return Collections.unmodifiableList(finishingOrder); }
+    public Difficulty getDifficulty() { return difficulty; }
+
+    private void updateFinishingOrder() {
+        if (gameOver) return;
+        for (Player player : players) {
+            if (!finishingOrder.contains(player)) {
+                boolean allFinished = true;
+                for (Piece piece : player.pieces) if (!piece.isFinished()) { allFinished = false; break; }
+                if (allFinished) finishingOrder.add(player);
+            }
+        }
+        if (finishingOrder.size() == players.size() - 1) {
+            for (Player player : players) if (!finishingOrder.contains(player)) finishingOrder.add(player);
+            gameOver = true;
+            finishedAtMillis = System.currentTimeMillis();
+            awaitingPiece = false;
+            rollAvailable = false;
+            bonusRollReady = false;
+            pendingQuestion = null;
+            awaitingSurpriseTarget = false;
+            message = "Game finished! View the final rankings.";
+        }
+    }
+
     public List<Player> getPlayers() { return Collections.unmodifiableList(players); }
     public Player getCurrentPlayer() { return players.get(current); }
     public int getStepDie() { return stepDie; }
@@ -79,6 +115,7 @@ public final class Game {
     public String getMessage() { return message; }
 
     public void roll() {
+        if (gameOver) throw new IllegalStateException("Game already finished");
         if (awaitingPiece || pendingQuestion != null || awaitingSurpriseTarget) throw new IllegalStateException("Resolve the current action first");
         currentRollIsBonus = bonusRollReady;
         bonusRollReady = false;
@@ -150,7 +187,7 @@ public final class Game {
 
     /** A truncated move is allowed only if no piece can complete a full move. */
     public boolean canMove(int index) {
-        if (!rollAvailable || index < 0 || index >= 4) return false;
+        if (gameOver || !rollAvailable || index < 0 || index >= 4) return false;
         Piece piece = getCurrentPlayer().pieces.get(index);
         int reachable = reachableMovement(piece);
         if (reachable < 0) return false;
@@ -186,7 +223,7 @@ public final class Game {
     }
 
     public void move(int index) {
-        if (!awaitingPiece || !canMove(index)) throw new IllegalArgumentException("Illegal piece selection");
+        if (gameOver || !awaitingPiece || !canMove(index)) throw new IllegalArgumentException("Illegal piece selection");
         lastSurprise = null;
         Player player = getCurrentPlayer();
         Piece piece = player.pieces.get(index);
@@ -195,6 +232,7 @@ public final class Game {
         if (piece.isInCastle()) piece.setProgress(0);
         else piece.setProgress(piece.getProgress() + reachable);
         int captured = captureOnLanding(piece);
+        updateFinishingOrder();
         message = player.getName() + " moved piece " + piece.getNumber() + ".";
         if (shortened) message += " Stopped before an opposing Double Block.";
         if (captured > 0) message += " Captured opponent piece!";
@@ -203,7 +241,7 @@ public final class Game {
         awaitingPiece = false;
         rollAvailable = false;
         specialChain = 0;
-        if (!triggerSpecial(piece)) finishTurnAfterMove();
+        if (!gameOver && !triggerSpecial(piece)) finishTurnAfterMove();
     }
 
     private boolean triggerSpecial(Piece piece) {
@@ -259,7 +297,8 @@ public final class Game {
                 : "Incorrect. Correct answer: " + question.getAnswers()[question.getCorrect()]
                     + ". Movement: " + (target-original) + " step(s).";
         if (captured > 0) message += " Captured an opponent!";
-        if (!triggerSpecial(moved)) finishTurnAfterMove();
+        updateFinishingOrder();
+        if (!gameOver && !triggerSpecial(moved)) finishTurnAfterMove();
         return correct;
     }
 
@@ -275,6 +314,7 @@ public final class Game {
         switch (lastSurprise) {
             case DIRECT_FINISH:
                 piece.setProgress(piece.getFinishProgress());
+                updateFinishingOrder();
                 message += " Surprise: piece sent directly to FINISH!";
                 finishTurnAfterMove();
                 break;
@@ -351,6 +391,8 @@ public final class Game {
     }
 
     private void finishTurnAfterMove() {
+        updateFinishingOrder();
+        if (gameOver) return;
         if (bonusRollReady) {
             message += " Bonus UltraBoost roll available!";
             return;
@@ -360,6 +402,8 @@ public final class Game {
     }
 
     private void advanceTurn() {
+        updateFinishingOrder();
+        if (gameOver) return;
         consecutiveSixes = 0;
         awaitingPiece = false;
         rollAvailable = false;
@@ -367,6 +411,7 @@ public final class Game {
         currentRollIsBonus = false;
         for (int i = 0; i < players.size(); i++) {
             current = (current + 1) % players.size();
+            if (finishingOrder.contains(players.get(current))) continue;
             if (players.get(current).skipNextTurn) {
                 players.get(current).skipNextTurn = false;
                 continue;

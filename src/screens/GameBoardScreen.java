@@ -13,6 +13,8 @@ import model.Board;
 import model.GameConfig;
 import model.PlayerColor;
 import model.QuestionBank;
+import model.GameHistory;
+import java.nio.file.Paths;
 import java.io.File;
 import java.util.Random;
 
@@ -22,6 +24,7 @@ public final class GameBoardScreen extends JPanel {
     private static final Color MUTED = new Color(166, 184, 217);
     private static final Color GOLD = new Color(255, 199, 92);
     private final Game game;
+    private boolean resultShown; 
     private final BoardCanvas canvas;
     private final JLabel status;
     private final JLabel dice;
@@ -157,11 +160,32 @@ public final class GameBoardScreen extends JPanel {
         playerTag.setText("●  " + current.getName().toUpperCase() + "'S TURN");
         playerTag.setForeground(BoardCanvas.playerColor(current.getColor()));
         status.setText(game.getMessage());
-        rollButton.setEnabled(!game.isAwaitingPiece() && game.getPendingQuestion() == null
+        rollButton.setEnabled(!game.isGameOver() && !game.isAwaitingPiece() && game.getPendingQuestion() == null
                 && !game.isAwaitingSurpriseTarget());
         for (int i = 0; i < 4; i++)
             pieceButtons[i].setEnabled(game.isAwaitingPiece() && game.canMove(i));
         canvas.repaint();
+        if (game.isGameOver() && !resultShown) {
+            resultShown = true;
+            SwingUtilities.invokeLater(this::showFinalResults);
+        }
+    }
+
+    private void showFinalResults() {
+        StringBuilder results = new StringBuilder("FINAL RANKINGS\n\n");
+        int rank = 1;
+        for (Game.Player player : game.getFinishingOrder())
+            results.append(rank++).append(". ").append(player.getName()).append(" (")
+                   .append(player.getColor()).append(")\n");
+        long sec = game.getDurationSeconds();
+        results.append("\nDuration: ").append(String.format("%02d:%02d:%02d", sec/3600, sec/60%60, sec%60));
+        try {
+            new GameHistory(Paths.get("data", "history.csv")).append(game);
+            results.append("\n\nResult saved to data/history.csv");
+        } catch (java.io.IOException ex) {
+            results.append("\n\nUnable to save result: ").append(ex.getMessage());
+        }
+        JOptionPane.showMessageDialog(this, results.toString(), "Game completed", JOptionPane.INFORMATION_MESSAGE);
     }
 
     @Override protected void paintComponent(Graphics g) {
