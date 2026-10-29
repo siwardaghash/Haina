@@ -25,6 +25,7 @@ public final class GameBoardScreen extends JPanel {
     private static final Color GOLD = new Color(255, 199, 92);
     private final Game game;
     private boolean resultShown; 
+    private final Runnable onBackToMenu;
     private final BoardCanvas canvas;
     private final JLabel status;
     private final JLabel dice;
@@ -32,7 +33,8 @@ public final class GameBoardScreen extends JPanel {
     private final FancyButton rollButton;
     private final FancyButton[] pieceButtons = new FancyButton[4];
 
-    public GameBoardScreen(GameConfig config, Board board) {
+    public GameBoardScreen(GameConfig config, Board board, Runnable onBackToMenu) {
+        this.onBackToMenu = onBackToMenu;
         game = new Game(config, board);
         try {
             File file = new File("data/questions.xml");
@@ -63,7 +65,24 @@ public final class GameBoardScreen extends JPanel {
         heading.add(title);
         heading.add(Box.createVerticalStrut(5));
         heading.add(subtitle);
-        add(heading, BorderLayout.NORTH);
+
+        JPanel topBar = new JPanel(new BorderLayout());
+        topBar.setOpaque(false);
+        topBar.add(heading, BorderLayout.CENTER);
+
+        JButton exitButton = new JButton("EXIT GAME");
+        exitButton.setFont(new Font("SansSerif", Font.BOLD, 13));
+        exitButton.setBackground(new Color(241, 91, 105));
+        exitButton.setForeground(Color.WHITE);
+        exitButton.setFocusPainted(false);
+        exitButton.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+
+        exitButton.addActionListener(e -> {
+        	showExitConfirmation();
+        });
+
+        topBar.add(exitButton, BorderLayout.EAST);
+        add(topBar, BorderLayout.NORTH);
 
         canvas = new BoardCanvas(board, config, game);
         RoundedCard boardCard = new RoundedCard(new Color(20, 34, 67, 242), 30);
@@ -82,8 +101,7 @@ public final class GameBoardScreen extends JPanel {
         information.add(playerTag, BorderLayout.WEST);
         dice = new JLabel("Dice: not rolled", SwingConstants.RIGHT);
         dice.setForeground(INK);
-        dice.setFont(new Font("SansSerif", Font.BOLD, 14));
-        information.add(dice, BorderLayout.EAST);
+        dice.setFont(new Font("SansSerif", Font.BOLD, 24));        information.add(dice, BorderLayout.EAST);
         controls.add(information, BorderLayout.NORTH);
 
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 2));
@@ -155,7 +173,17 @@ public final class GameBoardScreen extends JPanel {
         StringBuilder result = new StringBuilder("STEP  ").append(game.getStepDie());
         if (game.getExtraDie() > 0) result.append("   •   BOOST  ").append(game.getExtraDie());
         result.append("   •   MOVES  ").append(game.getSteps());
-        dice.setText(game.getStepDie() == 0 ? "DICE  /  READY" : result.toString());
+        String[] diceFaces = {"", "⚀", "⚁", "⚂", "⚃", "⚄", "⚅"};
+
+        int step = game.getStepDie();
+
+        dice.setText(step == 0
+        	    ? "DICE / READY"
+        	    : diceFaces[step] + "  STEP " + step
+        	        + (game.getExtraDie() > 0
+        	            ? "  •  BOOST " + game.getExtraDie()
+        	            : "")
+        	        + "  •  MOVES " + game.getSteps());
         Game.Player current = game.getCurrentPlayer();
         playerTag.setText("●  " + current.getName().toUpperCase() + "'S TURN");
         playerTag.setForeground(BoardCanvas.playerColor(current.getColor()));
@@ -185,8 +213,10 @@ public final class GameBoardScreen extends JPanel {
         } catch (java.io.IOException ex) {
             results.append("\n\nUnable to save result: ").append(ex.getMessage());
         }
-        JOptionPane.showMessageDialog(this, results.toString(), "Game completed", JOptionPane.INFORMATION_MESSAGE);
-    }
+        JFrame frame = (JFrame) SwingUtilities.getWindowAncestor(this);
+        frame.setContentPane(new EndGameScreen(results.toString(), onBackToMenu));
+        frame.revalidate();
+        frame.repaint();    }
 
     @Override protected void paintComponent(Graphics g) {
         Graphics2D g2 = (Graphics2D) g.create();
@@ -195,6 +225,71 @@ public final class GameBoardScreen extends JPanel {
         g2.fillRect(0, 0, getWidth(), getHeight());
         g2.dispose();
         super.paintComponent(g);
+    }
+
+    private void showExitConfirmation() {
+    	JDialog dialog = new JDialog(
+    			SwingUtilities.getWindowAncestor(this),
+    			"Exit Game",
+    			Dialog.ModalityType.APPLICATION_MODAL
+    			);
+    	
+    	dialog.setUndecorated(true);
+    	dialog.setSize(440, 260);
+    	dialog.setLocationRelativeTo(this);
+
+    	Color navy = new Color(17, 31, 62);
+    	Color text = new Color(245, 248, 255);
+    	Color muted = new Color(166, 184, 217);
+
+    	JPanel panel = new JPanel(new BorderLayout(15, 18));
+    	panel.setBackground(navy);
+    	panel.setBorder(BorderFactory.createCompoundBorder(
+    			BorderFactory.createLineBorder(new Color(85, 112, 165), 2),
+    			BorderFactory.createEmptyBorder(28, 30, 25, 30)
+    			));
+
+    	JLabel title = new JLabel("EXIT CURRENT GAME?", SwingConstants.CENTER);
+    	title.setFont(new Font("SansSerif", Font.BOLD, 23));
+    	title.setForeground(new Color(241, 91, 105));
+    	panel.add(title, BorderLayout.NORTH);
+
+    	JLabel message = new JLabel(
+    			"<html><div style='text-align:center;'>"
+    					+ "Your progress will be lost.<br>"
+    					+ "This unfinished game will not be saved."
+    					+ "</div></html>",
+    					SwingConstants.CENTER
+    			);
+    	message.setFont(new Font("SansSerif", Font.PLAIN, 16));
+    	message.setForeground(muted);
+    	panel.add(message, BorderLayout.CENTER);
+
+    	JPanel buttons = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 0));
+    	buttons.setOpaque(false);
+
+    	FancyButton cancel = new FancyButton("KEEP PLAYING",
+    			new Color(77, 198, 149), navy, true);
+
+    	FancyButton exit = new FancyButton("EXIT GAME",
+    			new Color(241, 91, 105), text, true);
+
+    	cancel.setPreferredSize(new Dimension(160, 45));
+    	exit.setPreferredSize(new Dimension(160, 45));
+
+    	cancel.addActionListener(e -> dialog.dispose());
+
+    	exit.addActionListener(e -> {
+    		dialog.dispose();
+    			onBackToMenu.run();
+    	});
+
+    	buttons.add(cancel);
+    	buttons.add(exit);
+    	panel.add(buttons, BorderLayout.SOUTH);
+
+    	dialog.setContentPane(panel);
+    	dialog.setVisible(true);
     }
 
     private static final class RoundedCard extends JPanel {
@@ -507,4 +602,5 @@ public final class GameBoardScreen extends JPanel {
             }
         }
     }
+    
 }
