@@ -58,6 +58,7 @@ public class OpeningScreen extends JPanel {
     /** Callbacks implemented by the controller. */
     public interface Listener {
         void onStartGame();
+        void onHowToPlay();
         void onGameHistory();
         void onQuestionWizard();   // restricted (admin) area - the controller will ask for credentials
         void onExit();
@@ -89,12 +90,16 @@ public class OpeningScreen extends JPanel {
         }
 
         startBtn = new NeonButton("Start Game", GREEN, NeonButton.Glyph.PLAY, null);
+        NeonButton howToPlayBtn = new NeonButton("How to Play", new Color(174, 139, 245), NeonButton.Glyph.DICE, null);
         NeonButton historyBtn = new NeonButton("Game History", BLUE, NeonButton.Glyph.HISTORY, null);
         NeonButton wizardBtn = new NeonButton("Question Wizard", YELLOW, NeonButton.Glyph.LOCK, "ADMIN");
         exitBtn = new NeonButton("Exit", RED, NeonButton.Glyph.POWER, null);
-        buttons = new NeonButton[] {startBtn, historyBtn, wizardBtn, exitBtn};
+        buttons = new NeonButton[] {startBtn, howToPlayBtn, historyBtn, wizardBtn, exitBtn};
 
         startBtn.addActionListener(e -> { if (listener != null) listener.onStartGame(); });
+        howToPlayBtn.addActionListener(e -> {
+            if (listener != null) listener.onHowToPlay();
+        });
         historyBtn.addActionListener(e -> { if (listener != null) listener.onGameHistory(); });
         wizardBtn.addActionListener(e -> { if (listener != null) listener.onQuestionWizard(); });
         exitBtn.addActionListener(e -> { if (listener != null) listener.onExit(); });
