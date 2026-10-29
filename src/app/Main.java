@@ -2,38 +2,62 @@ package app;
 
 import java.awt.Dimension;
 
+import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 import javax.swing.WindowConstants;
 
+import model.GameConfig;
+import screens.GameSetupScreen;
 import screens.OpeningScreen;
 
+
 public class Main {
+
+    private static JFrame frame;
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(Main::launch);
     }
 
     private static void launch() {
-        JFrame frame = new JFrame("LUDO \u2022 Code Quest");
+        frame = new JFrame("LUDO • Code Quest");
         frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
-
-        OpeningScreen opening = new OpeningScreen(new OpeningScreen.Listener() {
-            @Override public void onStartGame()      { comingSoon(frame, "Game setup screen"); }
-            @Override public void onGameHistory()    { comingSoon(frame, "Game history screen"); }
-            @Override public void onQuestionWizard() { comingSoon(frame, "Admin login + Question wizard"); }
-            @Override public void onExit()           { frame.dispose(); System.exit(0); }
-        });
-
-        frame.setContentPane(opening);
+        showOpening();
         frame.pack();
         frame.setMinimumSize(new Dimension(1000, 700));
         frame.setLocationRelativeTo(null);
         frame.setVisible(true);
     }
 
-    private static void comingSoon(JFrame parent, String what) {
-        JOptionPane.showMessageDialog(parent, what + " - coming in the next step!");
+    private static void showOpening() {
+        show(new OpeningScreen(new OpeningScreen.Listener() {
+            @Override public void onStartGame()      { showSetup(); }
+            @Override public void onGameHistory()    { comingSoon("Game history screen"); }
+            @Override public void onQuestionWizard() { comingSoon("Admin login + Question wizard"); }
+            @Override public void onExit()           { frame.dispose(); System.exit(0); }
+        }));
+    }
+
+    private static void showSetup() {
+        show(new GameSetupScreen(new GameSetupScreen.Listener() {
+            @Override public void onBack() { showOpening(); }
+
+            @Override public void onStart(GameConfig config) {
+                JOptionPane.showMessageDialog(frame, "Ready to play!\n\n" + config
+                        + "\n\nThe game board is our next step.");
+            }
+        }));
+    }
+
+    private static void show(JComponent screen) {
+        frame.setContentPane(screen);
+        frame.revalidate();
+        frame.repaint();
+    }
+
+    private static void comingSoon(String what) {
+        JOptionPane.showMessageDialog(frame, what + " - coming in a next step!");
     }
 }
