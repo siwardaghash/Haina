@@ -12,6 +12,7 @@ import model.GameConfig;
 import model.Board;
 import screens.GameBoardScreen;
 import screens.GameHistoryScreen;
+import screens.AdminScreen;
 import screens.GameSetupScreen;
 import screens.OpeningScreen;
 
@@ -38,7 +39,7 @@ public class Main {
         show(new OpeningScreen(new OpeningScreen.Listener() {
             @Override public void onStartGame()      { showSetup(); }
             @Override public void onGameHistory()    { show(new GameHistoryScreen(Main::showOpening)); }
-            @Override public void onQuestionWizard() { comingSoon("Admin login + Question wizard"); }
+            @Override public void onQuestionWizard() { show(new AdminScreen(Main::showOpening)); }
             @Override public void onExit()           { frame.dispose(); System.exit(0); }
         }));
     }
