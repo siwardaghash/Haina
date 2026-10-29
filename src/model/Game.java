@@ -5,11 +5,12 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
-/** Turn management and basic 52-square movement, with capture and Double Block rules. */
+/** Turn management, multi-track movement, questions, captures, blocks and surprise events. */
 public final class Game {
     public static final class Player {
         private final GameConfig.PlayerSetup setup;
         private final List<Piece> pieces = new ArrayList<>();
+        private boolean skipNextTurn;
         private Player(GameConfig.PlayerSetup setup, Difficulty difficulty) {
             this.setup = setup;
             for (int i = 1; i <= 4; i++) pieces.add(new Piece(setup.getColor(), i, difficulty));
@@ -35,6 +36,24 @@ public final class Game {
     private QuestionBank.Question pendingQuestion;
     private Piece questionPiece;
     private int questionChain;
+    public enum SurpriseEvent {
+        DIRECT_FINISH, OPPONENT_BACK, RETURN_CASTLE, BACK_THREE, SKIP_NEXT_TURN, BONUS_ULTRABOOST
+    }
+    private SurpriseEvent lastSurprise;
+    private boolean awaitingSurpriseTarget;
+    private boolean bonusRollReady;
+    private boolean currentRollIsBonus;
+    private int specialChain;
+    public SurpriseEvent getLastSurprise() { return lastSurprise; }
+    public boolean isAwaitingSurpriseTarget() { return awaitingSurpriseTarget; }
+    public boolean isBonusRollReady() { return bonusRollReady; }
+    public boolean canSelectSurpriseTarget(int playerIndex, int pieceIndex) {
+        if (!awaitingSurpriseTarget || playerIndex < 0 || playerIndex >= players.size() || playerIndex == current
+                || pieceIndex < 0 || pieceIndex >= 4) return false;
+        Piece candidate = players.get(playerIndex).pieces.get(pieceIndex);
+        return !candidate.isInCastle() && !candidate.isFinished();
+    }
+
 
     /** Attach the bank at game start; no question window is shown in Easy mode. */
     public void setQuestionBank(QuestionBank bank) { this.questionBank = bank; }
@@ -60,14 +79,18 @@ public final class Game {
     public String getMessage() { return message; }
 
     public void roll() {
-        if (awaitingPiece || pendingQuestion != null) throw new IllegalStateException("Resolve the current action first");
+        if (awaitingPiece || pendingQuestion != null || awaitingSurpriseTarget) throw new IllegalStateException("Resolve the current action first");
+        currentRollIsBonus = bonusRollReady;
+        bonusRollReady = false;
         rollAvailable = true;
         stepDie = random.nextInt(6) + 1;
-        extraDie = difficulty == Difficulty.EASY ? 0 : random.nextInt(difficulty == Difficulty.MEDIUM ? 3 : 6) + 1;
-        steps = difficulty == Difficulty.EASY ? stepDie : stepDie * (extraDie - 1);
-        if (stepDie == 6) consecutiveSixes++;
-        else consecutiveSixes = 0;
-        if (consecutiveSixes == 3) {
+        extraDie = currentRollIsBonus ? random.nextInt(6) + 1 : difficulty == Difficulty.EASY ? 0 : random.nextInt(difficulty == Difficulty.MEDIUM ? 3 : 6) + 1;
+        steps = difficulty == Difficulty.EASY && !currentRollIsBonus ? stepDie : stepDie * (extraDie - 1);
+        if (!currentRollIsBonus) {
+            if (stepDie == 6) consecutiveSixes++;
+            else consecutiveSixes = 0;
+        }
+        if (!currentRollIsBonus && consecutiveSixes == 3) {
             message = getCurrentPlayer().getName() + " rolled a third 6: turn cancelled.";
             advanceTurn();
             return;
@@ -76,7 +99,7 @@ public final class Game {
         if (!awaitingPiece) {
             rollAvailable = false;
             String name = getCurrentPlayer().getName();
-            if (stepDie == 6) message = name + ": no legal move, but a 6 grants another roll.";
+            if (!currentRollIsBonus && stepDie == 6) message = name + ": no legal move, but a 6 grants another roll.";
             else {
                 advanceTurn();
                 message = name + ": no legal move. Next player: " + getCurrentPlayer().getName();
@@ -164,6 +187,7 @@ public final class Game {
 
     public void move(int index) {
         if (!awaitingPiece || !canMove(index)) throw new IllegalArgumentException("Illegal piece selection");
+        lastSurprise = null;
         Player player = getCurrentPlayer();
         Piece piece = player.pieces.get(index);
         int reachable = reachableMovement(piece);
@@ -178,13 +202,20 @@ public final class Game {
         else if (piece.isOnHomePath()) message += " On the home path.";
         awaitingPiece = false;
         rollAvailable = false;
-        questionChain = 0;
-        if (!triggerQuestion(piece)) finishTurnAfterMove();
+        specialChain = 0;
+        if (!triggerSpecial(piece)) finishTurnAfterMove();
     }
 
-    private boolean triggerQuestion(Piece piece) {
-        if (!piece.isOnCommonPath() || questionBank == null || questionChain >= 12) return false;
+    private boolean triggerSpecial(Piece piece) {
+        if (!piece.isOnCommonPath() || specialChain >= 12) return false;
         Board.SquareType type = board.getRings().get(piece.getRing()).get(piece.getBoardIndex()).getType();
+        if (type == Board.SquareType.SURPRISE) {
+            specialChain++;
+            startSurprise(piece);
+            return true;
+        }
+        if (questionBank == null) return false;
+
         String level;
         switch (type) {
             case QUESTION_EASY: level = "easy"; break;
@@ -194,7 +225,7 @@ public final class Game {
         }
         pendingQuestion = questionBank.next(level);
         questionPiece = piece;
-        questionChain++;
+        specialChain++;
         message += " Question square: " + level + ".";
         return true;
     }
@@ -203,6 +234,7 @@ public final class Game {
     public boolean answerQuestion(int chosenIndex) {
         if (pendingQuestion == null || chosenIndex < 0 || chosenIndex > 3)
             throw new IllegalStateException("No valid answer to submit");
+        lastSurprise = null;
         QuestionBank.Question question = pendingQuestion;
         boolean correct = question.getCorrect() == chosenIndex;
         int distance = "easy".equals(question.getLevel()) ? 1 : "medium".equals(question.getLevel()) ? 2 : 3;
@@ -227,19 +259,119 @@ public final class Game {
                 : "Incorrect. Correct answer: " + question.getAnswers()[question.getCorrect()]
                     + ". Movement: " + (target-original) + " step(s).";
         if (captured > 0) message += " Captured an opponent!";
-        if (!triggerQuestion(moved)) finishTurnAfterMove();
+        if (!triggerSpecial(moved)) finishTurnAfterMove();
         return correct;
     }
 
+    /** Weighted outcomes: 10%, 10%, 10%, 30%, 30%, 10%. */
+    private void startSurprise(Piece piece) {
+        int roll = random.nextInt(100);
+        lastSurprise = roll < 10 ? SurpriseEvent.DIRECT_FINISH
+                : roll < 20 ? SurpriseEvent.OPPONENT_BACK
+                : roll < 30 ? SurpriseEvent.RETURN_CASTLE
+                : roll < 60 ? SurpriseEvent.BACK_THREE
+                : roll < 90 ? SurpriseEvent.SKIP_NEXT_TURN
+                : SurpriseEvent.BONUS_ULTRABOOST;
+        switch (lastSurprise) {
+            case DIRECT_FINISH:
+                piece.setProgress(piece.getFinishProgress());
+                message += " Surprise: piece sent directly to FINISH!";
+                finishTurnAfterMove();
+                break;
+            case OPPONENT_BACK:
+                awaitingSurpriseTarget = false;
+                for (int p = 0; p < players.size(); p++)
+                    for (int i = 0; i < 4; i++)
+                        if (p != current && !players.get(p).pieces.get(i).isInCastle()
+                                && !players.get(p).pieces.get(i).isFinished()) awaitingSurpriseTarget = true;
+                if (!awaitingSurpriseTarget) {
+                    message += " Surprise cancelled: no movable opponent piece.";
+                    finishTurnAfterMove();
+                } else message += " Surprise: choose an opponent's piece to move backward.";
+                break;
+            case RETURN_CASTLE:
+                piece.setProgress(-1);
+                message += " Surprise: piece returned to castle.";
+                finishTurnAfterMove();
+                break;
+            case BACK_THREE:
+                int before = piece.getProgress();
+                moveBackwardWithBlock(piece, 3);
+                message += " Surprise: piece moved backward up to 3 steps.";
+                if (piece.getProgress() != before && triggerSpecial(piece)) break;
+                finishTurnAfterMove();
+                break;
+            case SKIP_NEXT_TURN:
+                if (stepDie == 6 && !currentRollIsBonus) {
+                    message += " Surprise: extra turn after 6 cancelled.";
+                    advanceTurn();
+                } else {
+                    getCurrentPlayer().skipNextTurn = true;
+                    message += " Surprise: next turn will be skipped.";
+                    finishTurnAfterMove();
+                }
+                break;
+            case BONUS_ULTRABOOST:
+                bonusRollReady = true;
+                message += " Surprise: immediate Step + UltraBoost roll!";
+                break;
+            default: throw new IllegalStateException("Unknown surprise");
+        }
+    }
+
+    /** Resolve the 10% opponent-back event after the active player selects a target. */
+    public int selectSurpriseTarget(int playerIndex, int pieceIndex) {
+        if (!canSelectSurpriseTarget(playerIndex, pieceIndex))
+            throw new IllegalArgumentException("Choose a movable opponent piece");
+        awaitingSurpriseTarget = false;
+        lastSurprise = null;
+        Piece target = players.get(playerIndex).pieces.get(pieceIndex);
+        int die = random.nextInt(6) + 1;
+        int backward = (die + 1) / 2;
+        int before = target.getProgress();
+        moveBackwardWithBlock(target, backward);
+        message = "Surprise: opponent rolled " + die + "; piece moved backward up to " + backward + " steps.";
+        if (target.getProgress() == before || !triggerSpecial(target)) finishTurnAfterMove();
+        return die;
+    }
+
+    /** Reverse route traversal; home-path positions can move back onto the common route. */
+    private void moveBackwardWithBlock(Piece piece, int distance) {
+        int original = piece.getProgress();
+        int target = Math.max(0, original - distance);
+        for (int progress = original - 1; progress >= target; progress--) {
+            if (progress < piece.getCommonLength() && hasOpposingBlock(piece.getColor(),
+                    piece.ringAt(progress), piece.indexAt(progress))) {
+                target = progress + 1;
+                break;
+            }
+        }
+        piece.setProgress(target);
+        captureOnLanding(piece);
+    }
+
     private void finishTurnAfterMove() {
-        if (stepDie != 6) advanceTurn();
+        if (bonusRollReady) {
+            message += " Bonus UltraBoost roll available!";
+            return;
+        }
+        if (currentRollIsBonus || stepDie != 6) advanceTurn();
         else message += " Rolled 6: roll again.";
     }
 
     private void advanceTurn() {
-        current = (current + 1) % players.size();
         consecutiveSixes = 0;
         awaitingPiece = false;
         rollAvailable = false;
+        bonusRollReady = false;
+        currentRollIsBonus = false;
+        for (int i = 0; i < players.size(); i++) {
+            current = (current + 1) % players.size();
+            if (players.get(current).skipNextTurn) {
+                players.get(current).skipNextTurn = false;
+                continue;
+            }
+            return;
+        }
     }
 }
