@@ -25,6 +25,7 @@ public final class GameBoardScreen extends JPanel {
     private static final Color GOLD = new Color(255, 199, 92);
     private final Game game;
     private boolean resultShown; 
+    private final Runnable onBackToMenu;
     private final BoardCanvas canvas;
     private final JLabel status;
     private final JLabel dice;
@@ -32,7 +33,8 @@ public final class GameBoardScreen extends JPanel {
     private final FancyButton rollButton;
     private final FancyButton[] pieceButtons = new FancyButton[4];
 
-    public GameBoardScreen(GameConfig config, Board board) {
+    public GameBoardScreen(GameConfig config, Board board, Runnable onBackToMenu) {
+        this.onBackToMenu = onBackToMenu;
         game = new Game(config, board);
         try {
             File file = new File("data/questions.xml");
@@ -190,8 +192,10 @@ public final class GameBoardScreen extends JPanel {
         } catch (java.io.IOException ex) {
             results.append("\n\nUnable to save result: ").append(ex.getMessage());
         }
-        JOptionPane.showMessageDialog(this, results.toString(), "Game completed", JOptionPane.INFORMATION_MESSAGE);
-    }
+        JFrame frame = (JFrame) SwingUtilities.getWindowAncestor(this);
+        frame.setContentPane(new EndGameScreen(results.toString(), onBackToMenu));
+        frame.revalidate();
+        frame.repaint();    }
 
     @Override protected void paintComponent(Graphics g) {
         Graphics2D g2 = (Graphics2D) g.create();

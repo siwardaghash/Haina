@@ -54,8 +54,11 @@ public class Main {
             @Override public void onBack() { showOpening(); }
 
             @Override public void onStart(GameConfig config) {
-                show(new GameBoardScreen(config, new Board(config.getDifficulty())));
-            }
+            	show(new GameBoardScreen(
+            		    config,
+            		    new Board(config.getDifficulty()),
+            		    Main::showOpening
+            		));            }
         }));
     }
 
