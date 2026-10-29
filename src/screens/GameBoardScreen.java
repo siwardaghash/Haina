@@ -14,35 +14,80 @@ import javax.swing.BorderFactory;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.SwingConstants;
+import javax.swing.JButton;
+import model.Game;
+import model.Piece;
 import model.Board;
 import model.GameConfig;
 import model.PlayerColor;
 
 /** Board visualization. The movement engine will be added in a later step. */
 public final class GameBoardScreen extends JPanel {
+    private final Game game;
+    private final BoardCanvas canvas;
+    private final JLabel status;
+    private final JLabel dice;
+    private final JButton rollButton;
+    private final JButton[] pieceButtons = new JButton[4];
+
     public GameBoardScreen(GameConfig config, Board board) {
-        setLayout(new BorderLayout());
+        game = new Game(config);
+        setLayout(new BorderLayout(8, 8));
         setBackground(new Color(13, 16, 32));
         JLabel title = new JLabel("LUDO  |  " + config.getDifficulty().getLabel(), SwingConstants.CENTER);
         title.setFont(new Font("SansSerif", Font.BOLD, 24));
         title.setForeground(Color.WHITE);
-        title.setBorder(BorderFactory.createEmptyBorder(14, 8, 8, 8));
+        title.setBorder(BorderFactory.createEmptyBorder(10, 8, 4, 8));
         add(title, BorderLayout.NORTH);
-        add(new BoardCanvas(board, config), BorderLayout.CENTER);
-        JLabel note = new JLabel("BOARD PREVIEW  •  Dice and piece movement are the next step", SwingConstants.CENTER);
-        note.setForeground(new Color(203, 213, 231));
-        note.setBorder(BorderFactory.createEmptyBorder(8, 8, 14, 8));
-        add(note, BorderLayout.SOUTH);
+        canvas = new BoardCanvas(board, config, game);
+        add(canvas, BorderLayout.CENTER);
+
+        JPanel controls = new JPanel(new java.awt.GridLayout(3, 1, 3, 3));
+        controls.setBackground(getBackground());
+        dice = new JLabel("Dice: not rolled", SwingConstants.CENTER);
+        dice.setForeground(Color.WHITE);
+        controls.add(dice);
+        JPanel buttons = new JPanel();
+        buttons.setOpaque(false);
+        rollButton = new JButton("ROLL DICE");
+        rollButton.addActionListener(e -> { game.roll(); refresh(); });
+        buttons.add(rollButton);
+        for (int i = 0; i < 4; i++) {
+            final int index = i;
+            pieceButtons[i] = new JButton("Piece " + (i + 1));
+            pieceButtons[i].addActionListener(e -> { game.move(index); refresh(); });
+            buttons.add(pieceButtons[i]);
+        }
+        controls.add(buttons);
+        status = new JLabel("", SwingConstants.CENTER);
+        status.setForeground(new Color(203, 213, 231));
+        controls.add(status);
+        add(controls, BorderLayout.SOUTH);
+        refresh();
+    }
+
+    private void refresh() {
+        StringBuilder result = new StringBuilder("Step: ").append(game.getStepDie());
+        if (game.getExtraDie() > 0) result.append(" | Boost: ").append(game.getExtraDie());
+        result.append(" | Movement: ").append(game.getSteps());
+        dice.setText(game.getStepDie() == 0 ? "Dice: not rolled" : result.toString());
+        status.setText("Current: " + game.getCurrentPlayer().getName()
+            + " | " + game.getMessage() + " | Partial movement demo");
+        rollButton.setEnabled(!game.isAwaitingPiece());
+        for (int i = 0; i < 4; i++) pieceButtons[i].setEnabled(game.isAwaitingPiece() && game.canMove(i));
+        canvas.repaint();
     }
 
     private static final class BoardCanvas extends JPanel {
         private final Board board;
         private final GameConfig config;
+        private final Game game;
         private static final Color EMPTY = new Color(244, 247, 252);
         private static final Color OUTLINE = new Color(115, 132, 160);
         private static final int[][] PATH = makePath();
 
-        BoardCanvas(Board board, GameConfig config) {
+        BoardCanvas(Board board, GameConfig config, Game game) {
+            this.game = game;
             this.board = board;
             this.config = config;
             setOpaque(false);
@@ -109,7 +154,28 @@ public final class GameBoardScreen extends JPanel {
                 drawCell(g, left + point[0] * cell, top + point[1] * cell,
                     cell, squareColor(square), symbol(square));
             }
+            drawPieces(g, left, top, cell);
             g.dispose();
+        }
+
+        private void drawPieces(Graphics2D g, int left, int top, int cell) {
+            for (Game.Player player : game.getPlayers()) {
+                for (Piece piece : player.getPieces()) {
+                    if (piece.isInCastle()) continue;
+                    int[] point = PATH[piece.getBoardIndex()];
+                    int offsetX = ((piece.getNumber() - 1) % 2) * Math.max(3, cell / 7);
+                    int offsetY = ((piece.getNumber() - 1) / 2) * Math.max(3, cell / 7);
+                    int diameter = Math.max(9, cell * 2 / 3);
+                    int x = left + point[0] * cell + (cell - diameter) / 2 + offsetX;
+                    int y = top + point[1] * cell + (cell - diameter) / 2 + offsetY;
+                    g.setColor(playerColor(piece.getColor()));
+                    g.fillOval(x, y, diameter, diameter);
+                    g.setColor(Color.BLACK);
+                    g.drawOval(x, y, diameter, diameter);
+                    g.setFont(new Font("SansSerif", Font.BOLD, Math.max(9, diameter / 2)));
+                    drawCentered(g, Integer.toString(piece.getNumber()), x + diameter / 2, y + diameter * 2 / 3);
+                }
+            }
         }
 
         private void drawCastle(Graphics2D g, int left, int top, int cell, int x, int y, PlayerColor color) {
@@ -123,6 +189,13 @@ public final class GameBoardScreen extends JPanel {
                 if (p.getColor() == color) active = true;
             }
             for (int i = 0; i < 4; i++) {
+                if (active) {
+                    boolean inCastle = false;
+                    for (Game.Player player : game.getPlayers()) {
+                        if (player.getColor() == color) inCastle = player.getPieces().get(i).isInCastle();
+                    }
+                    if (!inCastle) continue;
+                }
                 int tx = px + (i % 2 == 0 ? 2 : 4) * cell;
                 int ty = py + (i / 2 == 0 ? 2 : 4) * cell;
                 int radius = Math.max(5, cell / 2);
