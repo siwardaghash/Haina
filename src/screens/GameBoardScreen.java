@@ -1,81 +1,174 @@
 package screens;
 
-import java.awt.BasicStroke;
-import java.awt.BorderLayout;
-import java.awt.Color;
-import java.awt.Dimension;
-import java.awt.Font;
-import java.awt.Graphics;
-import java.awt.Graphics2D;
-import java.awt.RenderingHints;
+import java.awt.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.awt.geom.RoundRectangle2D;
 import java.util.ArrayList;
 import java.util.List;
-import javax.swing.BorderFactory;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.SwingConstants;
-import javax.swing.JButton;
+import javax.swing.*;
 import model.Game;
 import model.Piece;
 import model.Board;
 import model.GameConfig;
 import model.PlayerColor;
 
-/** Board visualization. The movement engine will be added in a later step. */
+/** Polished responsive board view; all rules remain in model.Game. */
 public final class GameBoardScreen extends JPanel {
+    private static final Color INK = new Color(245, 248, 255);
+    private static final Color MUTED = new Color(166, 184, 217);
+    private static final Color GOLD = new Color(255, 199, 92);
     private final Game game;
     private final BoardCanvas canvas;
     private final JLabel status;
     private final JLabel dice;
-    private final JButton rollButton;
-    private final JButton[] pieceButtons = new JButton[4];
+    private final JLabel playerTag;
+    private final FancyButton rollButton;
+    private final FancyButton[] pieceButtons = new FancyButton[4];
 
     public GameBoardScreen(GameConfig config, Board board) {
-        game = new Game(config);
-        setLayout(new BorderLayout(8, 8));
-        setBackground(new Color(13, 16, 32));
-        JLabel title = new JLabel("LUDO  |  " + config.getDifficulty().getLabel(), SwingConstants.CENTER);
-        title.setFont(new Font("SansSerif", Font.BOLD, 24));
-        title.setForeground(Color.WHITE);
-        title.setBorder(BorderFactory.createEmptyBorder(10, 8, 4, 8));
-        add(title, BorderLayout.NORTH);
-        canvas = new BoardCanvas(board, config, game);
-        add(canvas, BorderLayout.CENTER);
+        game = new Game(config, board);
+        setLayout(new BorderLayout(12, 8));
+        setOpaque(false);
+        setBorder(BorderFactory.createEmptyBorder(14, 26, 17, 26));
 
-        JPanel controls = new JPanel(new java.awt.GridLayout(3, 1, 3, 3));
-        controls.setBackground(getBackground());
-        dice = new JLabel("Dice: not rolled", SwingConstants.CENTER);
-        dice.setForeground(Color.WHITE);
-        controls.add(dice);
-        JPanel buttons = new JPanel();
-        buttons.setOpaque(false);
-        rollButton = new JButton("ROLL DICE");
+        JPanel heading = new JPanel();
+        heading.setOpaque(false);
+        heading.setLayout(new BoxLayout(heading, BoxLayout.Y_AXIS));
+        heading.setBorder(BorderFactory.createEmptyBorder(4, 0, 6, 0));
+        JLabel title = new JLabel("LUDO  /  CODE QUEST");
+        title.setAlignmentX(Component.CENTER_ALIGNMENT);
+        title.setFont(new Font("SansSerif", Font.BOLD, 29));
+        title.setForeground(INK);
+        JLabel subtitle = new JLabel(config.getDifficulty().getLabel().toUpperCase()
+                + " MODE   •   " + config.getPlayers().size() + " PLAYERS");
+        subtitle.setAlignmentX(Component.CENTER_ALIGNMENT);
+        subtitle.setForeground(MUTED);
+        subtitle.setFont(new Font("SansSerif", Font.BOLD, 12));
+        heading.add(title);
+        heading.add(Box.createVerticalStrut(5));
+        heading.add(subtitle);
+        add(heading, BorderLayout.NORTH);
+
+        canvas = new BoardCanvas(board, config, game);
+        RoundedCard boardCard = new RoundedCard(new Color(20, 34, 67, 242), 30);
+        boardCard.setLayout(new BorderLayout());
+        boardCard.setBorder(BorderFactory.createEmptyBorder(12, 14, 12, 14));
+        boardCard.add(canvas, BorderLayout.CENTER);
+        add(boardCard, BorderLayout.CENTER);
+
+        RoundedCard controls = new RoundedCard(new Color(17, 31, 62, 245), 25);
+        controls.setLayout(new BorderLayout(5, 8));
+        controls.setBorder(BorderFactory.createEmptyBorder(13, 16, 14, 16));
+        JPanel information = new JPanel(new BorderLayout(10, 0));
+        information.setOpaque(false);
+        playerTag = new JLabel("", SwingConstants.LEFT);
+        playerTag.setFont(new Font("SansSerif", Font.BOLD, 15));
+        information.add(playerTag, BorderLayout.WEST);
+        dice = new JLabel("Dice: not rolled", SwingConstants.RIGHT);
+        dice.setForeground(INK);
+        dice.setFont(new Font("SansSerif", Font.BOLD, 14));
+        information.add(dice, BorderLayout.EAST);
+        controls.add(information, BorderLayout.NORTH);
+
+        JPanel actions = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 2));
+        actions.setOpaque(false);
+        rollButton = new FancyButton("ROLL DICE", GOLD, new Color(35, 39, 53), true);
         rollButton.addActionListener(e -> { game.roll(); refresh(); });
-        buttons.add(rollButton);
+        actions.add(rollButton);
         for (int i = 0; i < 4; i++) {
             final int index = i;
-            pieceButtons[i] = new JButton("Piece " + (i + 1));
+            pieceButtons[i] = new FancyButton("PIECE " + (i + 1), new Color(52, 74, 115), INK, false);
             pieceButtons[i].addActionListener(e -> { game.move(index); refresh(); });
-            buttons.add(pieceButtons[i]);
+            actions.add(pieceButtons[i]);
         }
-        controls.add(buttons);
+        controls.add(actions, BorderLayout.CENTER);
         status = new JLabel("", SwingConstants.CENTER);
-        status.setForeground(new Color(203, 213, 231));
-        controls.add(status);
+        status.setForeground(MUTED);
+        status.setFont(new Font("SansSerif", Font.PLAIN, 13));
+        controls.add(status, BorderLayout.SOUTH);
         add(controls, BorderLayout.SOUTH);
         refresh();
     }
 
     private void refresh() {
-        StringBuilder result = new StringBuilder("Step: ").append(game.getStepDie());
-        if (game.getExtraDie() > 0) result.append(" | Boost: ").append(game.getExtraDie());
-        result.append(" | Movement: ").append(game.getSteps());
-        dice.setText(game.getStepDie() == 0 ? "Dice: not rolled" : result.toString());
-        status.setText("Current: " + game.getCurrentPlayer().getName()
-            + " | " + game.getMessage() + " | Home-path movement enabled");
+        StringBuilder result = new StringBuilder("STEP  ").append(game.getStepDie());
+        if (game.getExtraDie() > 0) result.append("   •   BOOST  ").append(game.getExtraDie());
+        result.append("   •   MOVES  ").append(game.getSteps());
+        dice.setText(game.getStepDie() == 0 ? "DICE  /  READY" : result.toString());
+        Game.Player current = game.getCurrentPlayer();
+        playerTag.setText("●  " + current.getName().toUpperCase() + "'S TURN");
+        playerTag.setForeground(BoardCanvas.playerColor(current.getColor()));
+        status.setText(game.getMessage());
         rollButton.setEnabled(!game.isAwaitingPiece());
-        for (int i = 0; i < 4; i++) pieceButtons[i].setEnabled(game.isAwaitingPiece() && game.canMove(i));
+        for (int i = 0; i < 4; i++)
+            pieceButtons[i].setEnabled(game.isAwaitingPiece() && game.canMove(i));
         canvas.repaint();
+    }
+
+    @Override protected void paintComponent(Graphics g) {
+        Graphics2D g2 = (Graphics2D) g.create();
+        g2.setPaint(new GradientPaint(0, 0, new Color(14, 25, 55),
+                0, Math.max(1, getHeight()), new Color(5, 10, 25)));
+        g2.fillRect(0, 0, getWidth(), getHeight());
+        g2.dispose();
+        super.paintComponent(g);
+    }
+
+    private static final class RoundedCard extends JPanel {
+        private final Color color;
+        private final int arc;
+        RoundedCard(Color color, int arc) {
+            this.color = color; this.arc = arc; setOpaque(false);
+        }
+        @Override protected void paintComponent(Graphics g) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setColor(new Color(0, 0, 0, 50));
+            g2.fillRoundRect(4, 5, Math.max(0, getWidth()-8), Math.max(0, getHeight()-8), arc, arc);
+            g2.setColor(color);
+            g2.fillRoundRect(1, 1, Math.max(0, getWidth()-5), Math.max(0, getHeight()-7), arc, arc);
+            g2.setColor(new Color(123, 158, 217, 72));
+            g2.setStroke(new BasicStroke(1.2f));
+            g2.drawRoundRect(1, 1, Math.max(0, getWidth()-6), Math.max(0, getHeight()-8), arc, arc);
+            g2.dispose();
+            super.paintComponent(g);
+        }
+    }
+
+    private static final class FancyButton extends JButton {
+        private final Color background;
+        private final Color foreground;
+        private boolean hovering;
+        FancyButton(String text, Color background, Color foreground, boolean primary) {
+            super(text);
+            this.background=background; this.foreground=foreground;
+            setFont(new Font("SansSerif", Font.BOLD, primary ? 13 : 12));
+            setPreferredSize(new Dimension(primary ? 140 : 107, 39));
+            setBorder(BorderFactory.createEmptyBorder(8, 12, 8, 12));
+            setContentAreaFilled(false);
+            setFocusPainted(false);
+            setOpaque(false);
+            setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            addMouseListener(new MouseAdapter() {
+                @Override public void mouseEntered(MouseEvent e) { hovering=true; repaint(); }
+                @Override public void mouseExited(MouseEvent e) { hovering=false; repaint(); }
+            });
+        }
+        @Override protected void paintComponent(Graphics g) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            Color fill = isEnabled() ? (hovering ? background.brighter() : background)
+                    : new Color(37, 49, 75);
+            g2.setColor(fill);
+            g2.fillRoundRect(0, 0, getWidth()-1, getHeight()-1, 16, 16);
+            g2.setColor(isEnabled() ? foreground : new Color(115, 132, 160));
+            g2.setFont(getFont());
+            FontMetrics fm = g2.getFontMetrics();
+            g2.drawString(getText(), (getWidth()-fm.stringWidth(getText()))/2,
+                    (getHeight()-fm.getHeight())/2+fm.getAscent());
+            g2.dispose();
+        }
     }
 
     private static final class BoardCanvas extends JPanel {
@@ -83,7 +176,7 @@ public final class GameBoardScreen extends JPanel {
         private final GameConfig config;
         private final Game game;
         private static final Color EMPTY = new Color(244, 247, 252);
-        private static final Color OUTLINE = new Color(115, 132, 160);
+        private static final Color OUTLINE = new Color(143, 162, 185);
         private static final int[][] PATH = makePath();
 
         BoardCanvas(Board board, GameConfig config, Game game) {
@@ -91,7 +184,7 @@ public final class GameBoardScreen extends JPanel {
             this.board = board;
             this.config = config;
             setOpaque(false);
-            setPreferredSize(new Dimension(740, 640));
+            setPreferredSize(new Dimension(620, 520));
         }
 
         /** A classic 52-square clockwise path on a 15 by 15 Ludo grid. */
@@ -119,7 +212,7 @@ public final class GameBoardScreen extends JPanel {
             Graphics2D g = (Graphics2D) graphics.create();
             g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             int extra = board.getRings().size() - 1;
-            int cell = Math.max(13, Math.min(39, Math.min((getWidth() - 110) / 19, (getHeight() - 75) / 19)));
+            int cell = Math.max(10, Math.min(39, Math.min((getWidth() - 100) / 19, (getHeight() - 25) / 19)));
             int size = 15 * cell;
             int left = (getWidth() - size) / 2;
             int top = (getHeight() - size) / 2;
@@ -193,9 +286,9 @@ public final class GameBoardScreen extends JPanel {
         private void drawCastle(Graphics2D g, int left, int top, int cell, int x, int y, PlayerColor color) {
             int px = left + x * cell, py = top + y * cell;
             g.setColor(playerColor(color));
-            g.fillRoundRect(px + 2, py + 2, 6 * cell - 4, 6 * cell - 4, 14, 14);
+            g.fillRoundRect(px + 2, py + 2, 6 * cell - 4, 6 * cell - 4, 19, 19);
             g.setColor(new Color(255, 255, 255, 220));
-            g.fillRoundRect(px + cell, py + cell, 4 * cell, 4 * cell, 12, 12);
+            g.fillRoundRect(px + cell, py + cell, 4 * cell, 4 * cell, 16, 16);
             boolean active = false;
             for (GameConfig.PlayerSetup p : config.getPlayers()) {
                 if (p.getColor() == color) active = true;
@@ -258,10 +351,10 @@ public final class GameBoardScreen extends JPanel {
 
         private void drawCell(Graphics2D g, int x, int y, int cell, Color color, String symbol) {
             g.setColor(color);
-            g.fillRect(x, y, cell, cell);
+            g.fillRoundRect(x + 1, y + 1, cell - 2, cell - 2, 5, 5);
             g.setColor(OUTLINE);
             g.setStroke(new BasicStroke(1f));
-            g.drawRect(x, y, cell, cell);
+            g.drawRoundRect(x + 1, y + 1, cell - 2, cell - 2, 5, 5);
             if (!symbol.isEmpty()) {
                 g.setColor(new Color(24, 32, 51));
                 g.setFont(new Font("SansSerif", Font.BOLD, Math.max(10, cell / 2)));
@@ -292,7 +385,7 @@ public final class GameBoardScreen extends JPanel {
                 default: return "";
             }
         }
-        private Color playerColor(PlayerColor color) {
+        private static Color playerColor(PlayerColor color) {
             if (color == null) return EMPTY;
             switch (color) {
                 case RED: return new Color(241, 91, 105);
