@@ -28,7 +28,8 @@ public final class GameBoardScreen extends JPanel {
     private final Runnable onBackToMenu;
     private final BoardCanvas canvas;
     private final JLabel status;
-    private final JLabel dice;
+    private final DiceView dice;
+    private JLabel movementInfo;
     private final JLabel playerTag;
     private final FancyButton rollButton;
     private final FancyButton[] pieceButtons = new FancyButton[4];
@@ -96,18 +97,50 @@ public final class GameBoardScreen extends JPanel {
         controls.setBorder(BorderFactory.createEmptyBorder(13, 16, 14, 16));
         JPanel information = new JPanel(new BorderLayout(10, 0));
         information.setOpaque(false);
-        playerTag = new JLabel("", SwingConstants.LEFT);
+        playerTag = new JLabel("", SwingConstants.LEFT) {
+            @Override
+            protected void paintComponent(java.awt.Graphics g) {
+                java.awt.Graphics2D g2 = (java.awt.Graphics2D) g.create();
+
+                g2.setRenderingHint(
+                    java.awt.RenderingHints.KEY_ANTIALIASING,
+                    java.awt.RenderingHints.VALUE_ANTIALIAS_ON
+                );
+
+                g2.setColor(getBackground());
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 18, 18);
+
+                g2.dispose();
+                super.paintComponent(g);
+            }
+        };
         playerTag.setFont(new Font("SansSerif", Font.BOLD, 15));
         information.add(playerTag, BorderLayout.WEST);
-        dice = new JLabel("Dice: not rolled", SwingConstants.RIGHT);
-        dice.setForeground(INK);
-        dice.setFont(new Font("SansSerif", Font.BOLD, 24));        information.add(dice, BorderLayout.EAST);
-        controls.add(information, BorderLayout.NORTH);
+        dice = new DiceView();
+        dice.setForeground(new Color(24, 36, 60));
+        dice.setOpaque(false);
+        dice.setPreferredSize(new Dimension(58, 58));        dice.setFont(new Font("Segoe UI Symbol", Font.BOLD, 32));
+        dice.setBorder(
+            BorderFactory.createEmptyBorder(5, 15, 5, 10)
+        );
+        
+        movementInfo = new JLabel("", SwingConstants.CENTER);
+        movementInfo.setForeground(INK);
+        movementInfo.setFont(new Font("SansSerif", Font.BOLD, 15));
+        
+        JPanel dicePanel = new JPanel(new BorderLayout(12, 0));
+        dicePanel.setOpaque(false);
 
-        JPanel actions = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 2));
+        dicePanel.add(dice, BorderLayout.WEST);
+        dicePanel.add(movementInfo, BorderLayout.EAST);
+        information.add(dicePanel, BorderLayout.EAST);
+        controls.add(information, BorderLayout.NORTH);
+  
+        JPanel actions = new JPanel(new FlowLayout(FlowLayout.CENTER, 16, 8));
         actions.setOpaque(false);
         rollButton = new FancyButton("ROLL DICE", GOLD, new Color(35, 39, 53), true);
-        rollButton.addActionListener(e -> { game.roll(); refresh(); });
+        rollButton.setFont(new Font("SansSerif", Font.BOLD, 18));
+        rollButton.setPreferredSize(new Dimension(175, 48));        rollButton.addActionListener(e -> { game.roll(); refresh(); });
         actions.add(rollButton);
         for (int i = 0; i < 4; i++) {
             final int index = i;
@@ -173,20 +206,21 @@ public final class GameBoardScreen extends JPanel {
         StringBuilder result = new StringBuilder("STEP  ").append(game.getStepDie());
         if (game.getExtraDie() > 0) result.append("   •   BOOST  ").append(game.getExtraDie());
         result.append("   •   MOVES  ").append(game.getSteps());
-        String[] diceFaces = {"", "⚀", "⚁", "⚂", "⚃", "⚄", "⚅"};
 
         int step = game.getStepDie();
-
-        dice.setText(step == 0
-        	    ? "DICE / READY"
-        	    : diceFaces[step] + "  STEP " + step
-        	        + (game.getExtraDie() > 0
-        	            ? "  •  BOOST " + game.getExtraDie()
-        	            : "")
-        	        + "  •  MOVES " + game.getSteps());
-        Game.Player current = game.getCurrentPlayer();
+        movementInfo.setText(result.toString());
+        dice.setValue(step == 0 ? 1 : step);        Game.Player current = game.getCurrentPlayer();
         playerTag.setText("●  " + current.getName().toUpperCase() + "'S TURN");
         playerTag.setForeground(BoardCanvas.playerColor(current.getColor()));
+        Color playerColor = BoardCanvas.playerColor(current.getColor());
+        rollButton.setButtonColor(playerColor);
+        playerTag.setOpaque(false);
+        playerTag.setBackground(playerColor);
+        playerTag.setForeground(Color.WHITE);
+        playerTag.setFont(new Font("SansSerif", Font.BOLD, 22));
+        playerTag.setBorder(
+            BorderFactory.createEmptyBorder(10, 20, 10, 20)
+        );
         status.setText(game.getMessage());
         rollButton.setEnabled(!game.isGameOver() && !game.isAwaitingPiece() && game.getPendingQuestion() == null
                 && !game.isAwaitingSurpriseTarget());
@@ -313,9 +347,86 @@ public final class GameBoardScreen extends JPanel {
         }
     }
 
+    private static final class DiceView extends JComponent {
+
+        private int value = 1;
+
+        DiceView() {
+            setPreferredSize(new Dimension(72, 72));
+        }
+
+        void setValue(int value) {
+            this.value = Math.max(1, Math.min(6, value));
+            repaint();
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            Graphics2D g2 = (Graphics2D) g.create();
+
+            g2.setRenderingHint(
+                RenderingHints.KEY_ANTIALIASING,
+                RenderingHints.VALUE_ANTIALIAS_ON
+            );
+
+            int size = Math.min(getWidth(), getHeight()) - 10;
+            int x = (getWidth() - size) / 2;
+            int y = (getHeight() - size) / 2;
+
+            // Soft shadow
+            g2.setColor(new Color(0, 0, 0, 55));
+            g2.fillRoundRect(x + 3, y + 4, size, size, 18, 18);
+
+            // Dice body
+            g2.setColor(new Color(250, 251, 255));
+            g2.fillRoundRect(x, y, size, size, 18, 18);
+
+            // Subtle border
+            g2.setColor(new Color(210, 220, 240));
+            g2.drawRoundRect(x, y, size, size, 18, 18);
+
+            // Dice dots
+            g2.setColor(new Color(32, 45, 75));
+
+            int left = x + size / 4;
+            int center = x + size / 2;
+            int right = x + size * 3 / 4;
+
+            int top = y + size / 4;
+            int middle = y + size / 2;
+            int bottom = y + size * 3 / 4;
+
+            int dotSize = Math.max(7, size / 8);
+
+            if (value == 1 || value == 3 || value == 5) {
+                drawDot(g2, center, middle, dotSize);
+            }
+
+            if (value >= 2) {
+                drawDot(g2, left, top, dotSize);
+                drawDot(g2, right, bottom, dotSize);
+            }
+
+            if (value >= 4) {
+                drawDot(g2, right, top, dotSize);
+                drawDot(g2, left, bottom, dotSize);
+            }
+
+            if (value == 6) {
+                drawDot(g2, left, middle, dotSize);
+                drawDot(g2, right, middle, dotSize);
+            }
+
+            g2.dispose();
+        }
+
+        private void drawDot(Graphics2D g, int x, int y, int size) {
+            g.fillOval(x - size / 2, y - size / 2, size, size);
+        }
+    }
     private static final class FancyButton extends JButton {
-        private final Color background;
-        private final Color foreground;
+    	private Color background;
+    	private final Color foreground;
         private boolean hovering;
         FancyButton(String text, Color background, Color foreground, boolean primary) {
             super(text);
@@ -331,6 +442,10 @@ public final class GameBoardScreen extends JPanel {
                 @Override public void mouseEntered(MouseEvent e) { hovering=true; repaint(); }
                 @Override public void mouseExited(MouseEvent e) { hovering=false; repaint(); }
             });
+        }
+        void setButtonColor(Color color) {
+            this.background = color;
+            repaint();
         }
         @Override protected void paintComponent(Graphics g) {
             Graphics2D g2 = (Graphics2D) g.create();
@@ -389,7 +504,13 @@ public final class GameBoardScreen extends JPanel {
             Graphics2D g = (Graphics2D) graphics.create();
             g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             int extra = board.getRings().size() - 1;
-            int cell = Math.max(10, Math.min(39, Math.min((getWidth() - 100) / 19, (getHeight() - 25) / 19)));
+
+            int maxCell = extra == 0 ? 48 : 39;
+            int gridSize = extra == 0 ? 15 : 19;
+
+            int cell = Math.max(10, Math.min(maxCell,
+                    Math.min((getWidth() - 100) / gridSize,
+                             (getHeight() - 25) / gridSize)));
             int size = 15 * cell;
             int left = (getWidth() - size) / 2;
             int top = (getHeight() - size) / 2;
