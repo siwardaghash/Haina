@@ -24,7 +24,6 @@ public final class GameHistoryScreen extends JPanel {
         JLabel heading = new JLabel("GAME HISTORY");
         heading.setFont(new Font("SansSerif", Font.BOLD, 30));
         heading.setForeground(Color.WHITE);
-        add(heading, BorderLayout.NORTH);
         String[] headers = {"ID", "Difficulty", "Date / Time", "1st", "2nd", "3rd", "4th", "Duration"};
         DefaultTableModel model = new DefaultTableModel(headers, 0) {
             @Override public boolean isCellEditable(int r, int c) { return false; }
@@ -44,14 +43,28 @@ public final class GameHistoryScreen extends JPanel {
         table.setRowHeight(30);
         table.setAutoCreateRowSorter(true);
         add(new JScrollPane(table), BorderLayout.CENTER);
-        JButton backButton = new JButton("Back to menu");
+        JButton backButton = new JButton("← Back to Menu");
+        JPanel header = new JPanel(new BorderLayout());
+        header.setOpaque(false);
+        header.add(heading, BorderLayout.WEST);
+
+        add(header, BorderLayout.NORTH);
+        backButton.setFont(new Font("SansSerif", Font.BOLD, 15));
+        backButton.setBackground(new Color(55, 85, 140));
+        backButton.setForeground(Color.WHITE);
+        backButton.setFocusPainted(false);
+        backButton.setCursor(
+            java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR)
+        );
+
         backButton.addActionListener(e -> back.run());
+        header.add(backButton, BorderLayout.EAST);
         JPanel footer = new JPanel(new BorderLayout());
         footer.setOpaque(false);
         footer.add(message, BorderLayout.CENTER);
-        footer.add(backButton, BorderLayout.EAST);
         add(footer, BorderLayout.SOUTH);
-    }
+    
+        }
 
     private static java.util.List<String> parseCsv(String row) {
         java.util.List<String> values = new java.util.ArrayList<>();

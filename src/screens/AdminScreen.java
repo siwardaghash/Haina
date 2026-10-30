@@ -21,12 +21,22 @@ public final class AdminScreen extends JPanel {
         this.back=back;
         setBackground(BG); setLayout(new BorderLayout(12,12));
         setBorder(BorderFactory.createEmptyBorder(22,28,22,28));
-        JButton returnButton = new JButton("← Main menu");
+        JButton returnButton = new JButton("← Back to Menu");
+
+        returnButton.setFont(new Font("SansSerif", Font.BOLD, 15));
+        returnButton.setBackground(new Color(55, 85, 140));
+        returnButton.setForeground(Color.WHITE);
+        returnButton.setFocusPainted(false);
+        returnButton.setCursor(
+            Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)
+        );
+
         returnButton.addActionListener(e -> back.run());
         JLabel title = new JLabel("QUESTION BANK  /  ADMIN",SwingConstants.CENTER);
         title.setFont(new Font("SansSerif",Font.BOLD,27)); title.setForeground(TEXT);
         JPanel header=new JPanel(new BorderLayout());header.setOpaque(false);
-        header.add(returnButton,BorderLayout.WEST);header.add(title,BorderLayout.CENTER);
+        header.add(returnButton, BorderLayout.EAST);
+        header.add(title,BorderLayout.CENTER);
         add(header,BorderLayout.NORTH);
         SwingUtilities.invokeLater(this::authenticate);
     }
