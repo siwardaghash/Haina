@@ -17,7 +17,6 @@ import screens.GameSetupScreen;
 import screens.OpeningScreen;
 import screens.HowToPlayScreen;
 
-
 public class Main {
 
     private static JFrame frame;
