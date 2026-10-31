@@ -33,10 +33,8 @@ public class HowToPlayScreen extends JPanel {
         back.setBackground(new Color(55, 85, 140));
         back.setForeground(Color.WHITE);
         back.setFocusPainted(false);
-        // Without these the Mac look and feel paints a white button and the white text disappears.
-        back.setOpaque(true);
-        back.setBorderPainted(false);
         back.setBorder(new EmptyBorder(10, 18, 10, 18));
+        Theme.solidButton(back);
         back.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         back.addActionListener(e -> onBack.run());
         header.add(back, BorderLayout.EAST);
