@@ -37,13 +37,16 @@ public final class Board {
         }
         // Starts are on the outermost ring. Each arrow is the last square
         // before its owner's next inner track (or home path for the base ring).
+        // On the base ring it is the middle square at the tip of the arm, two squares
+        // before the start, as in the project document's board pictures.
         PlayerColor[] colors = {PlayerColor.RED, PlayerColor.GREEN,
                 PlayerColor.YELLOW, PlayerColor.BLUE};
         for (int r = 0; r < rings.size(); r++) {
             List<Square> ring = rings.get(r);
             for (int i = 0; i < colors.length; i++) {
                 int start = i * ring.size() / 4;
-                Square arrow = ring.get((start + ring.size() - 1) % ring.size());
+                int before = r == 0 ? 2 : 1;
+                Square arrow = ring.get((start + ring.size() - before) % ring.size());
                 arrow.type = SquareType.ARROW;
                 arrow.owner = colors[i];
                 if (r == rings.size() - 1) {
