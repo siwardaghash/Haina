@@ -30,6 +30,7 @@ public final class AdminScreen extends JPanel {
         returnButton.setCursor(
             Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)
         );
+        Theme.solidButton(returnButton);
 
         returnButton.addActionListener(e -> back.run());
         JLabel title = new JLabel("QUESTION BANK  /  ADMIN",SwingConstants.CENTER);
@@ -43,43 +44,14 @@ public final class AdminScreen extends JPanel {
 
     private void authenticate() {
         try {
+            // SRS 3.6.3: a single predefined administrator; players cannot create accounts.
             if (!auth.isInitialized()) {
-                int choice=JOptionPane.showConfirmDialog(this,
-                    "No administrator has been provisioned. Set up the single local administrator now?",
-                    "Administrator setup",JOptionPane.YES_NO_OPTION);
-                if (choice!=JOptionPane.YES_OPTION) {back.run();return;}
-                JTextField username = new JTextField(20);
-                JPasswordField password = new JPasswordField(20);
-
-                JPanel loginPanel = new JPanel(new GridLayout(4, 1, 8, 8));
-                loginPanel.setBackground(new Color(17, 31, 62));
-                loginPanel.setBorder(BorderFactory.createEmptyBorder(20, 25, 20, 25));
-
-                JLabel usernameLabel = new JLabel("USERNAME");
-                JLabel passwordLabel = new JLabel("PASSWORD");
-
-                usernameLabel.setForeground(TEXT);
-                passwordLabel.setForeground(TEXT);
-
-                usernameLabel.setFont(new Font("SansSerif", Font.BOLD, 13));
-                passwordLabel.setFont(new Font("SansSerif", Font.BOLD, 13));
-
-                loginPanel.add(usernameLabel);
-                loginPanel.add(username);
-                loginPanel.add(passwordLabel);
-                loginPanel.add(password);
-
-                int result = JOptionPane.showConfirmDialog(
-                    this,
-                    loginPanel,
-                    "Administrator Login",
-                    JOptionPane.OK_CANCEL_OPTION,
-                    JOptionPane.PLAIN_MESSAGE
-                );
-                if (result!=JOptionPane.OK_OPTION) {back.run();return;}
-                char[] pwd=password.getPassword();
-                try { auth.initialize(username.getText(),pwd); }
-                finally { Arrays.fill(pwd,'\0'); }
+                JOptionPane.showMessageDialog(this,
+                    "The administrator file (data/admin.xml) is missing.\n"
+                    + "Question management is not available.",
+                    "Administrator not found", JOptionPane.ERROR_MESSAGE);
+                back.run();
+                return;
             }
             JTextField username = new JTextField(20);
             JPasswordField password = new JPasswordField(20);
@@ -153,12 +125,14 @@ public final class AdminScreen extends JPanel {
         cancel.setForeground(Color.WHITE);
         cancel.setFont(new Font("SansSerif", Font.BOLD, 14));
         cancel.setFocusPainted(false);
+        Theme.solidButton(cancel);
 
         JButton login = new JButton("LOGIN");
         login.setBackground(green);
         login.setForeground(new Color(17, 31, 62));
         login.setFont(new Font("SansSerif", Font.BOLD, 14));
         login.setFocusPainted(false);
+        Theme.solidButton(login);
 
         final int[] result = {JOptionPane.CANCEL_OPTION};
 
@@ -385,6 +359,7 @@ public final class AdminScreen extends JPanel {
             BorderFactory.createLineBorder(bg.brighter(), 1),
             BorderFactory.createEmptyBorder(10, 16, 10, 16)
         ));
+        Theme.solidButton(button);
     }
     private JLabel formLabel(String text) {
         JLabel label = new JLabel(text);

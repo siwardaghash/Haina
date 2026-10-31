@@ -26,6 +26,20 @@ public final class Theme {
     private Theme() {
     }
 
+    /**
+     * Makes a button paint its own background colour. The Mac look and feel ignores
+     * setBackground and draws a white button, so white text becomes invisible.
+     */
+    public static void solidButton(javax.swing.AbstractButton button) {
+        javax.swing.border.Border border = button.getBorder();
+        button.setUI(new javax.swing.plaf.basic.BasicButtonUI());
+        button.setOpaque(true);
+        button.setContentAreaFilled(true);
+        button.setBorderPainted(true);
+        button.setBorder(border == null || border instanceof javax.swing.plaf.UIResource
+                ? javax.swing.BorderFactory.createEmptyBorder(10, 18, 10, 18) : border);
+    }
+
     // ------------------------------------------------------------------ palette
     public static final Color RED    = new Color(0xFF4D6D);
     public static final Color GREEN  = new Color(0x2EE59D);
