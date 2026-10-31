@@ -46,6 +46,9 @@ public final class GameBoardScreen extends JPanel {
     private String notice;
     private boolean captureSoundPending;
     private final Timer hintTimer;
+    /** FR-9: the total game time, updated every second. */
+    private final JLabel gameClock = new JLabel("", SwingConstants.CENTER);
+    private final Timer clockTimer = new Timer(1000, e -> updateClock());
 
     public GameBoardScreen(GameConfig config, Board board, Runnable onBackToMenu) {
         this.onBackToMenu = onBackToMenu;
@@ -139,6 +142,11 @@ public final class GameBoardScreen extends JPanel {
         playerTag.setFont(new Font("SansSerif", Font.BOLD, 22));
         playerTag.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20));
         information.add(playerTag, BorderLayout.WEST);
+        gameClock.setForeground(INK);
+        gameClock.setFont(new Font("SansSerif", Font.BOLD, 20));
+        gameClock.setToolTipText("Total game time");
+        updateClock();
+        information.add(gameClock, BorderLayout.CENTER);
         dice = new DiceView();
         dice.setForeground(new Color(24, 36, 60));
         dice.setOpaque(false);
@@ -195,8 +203,13 @@ public final class GameBoardScreen extends JPanel {
         refresh();
     }
 
-    @Override public void addNotify() { super.addNotify(); hintTimer.start(); Sound.startMusic(); }
-    @Override public void removeNotify() { hintTimer.stop(); Sound.stopMusic(); super.removeNotify(); }
+    @Override public void addNotify() { super.addNotify(); hintTimer.start(); clockTimer.start(); Sound.startMusic(); }
+    @Override public void removeNotify() { hintTimer.stop(); clockTimer.stop(); Sound.stopMusic(); super.removeNotify(); }
+
+    private void updateClock() {
+        long sec = game.getDurationSeconds();   // stops counting when the game is over
+        gameClock.setText(String.format("GAME TIME  %02d:%02d:%02d", sec / 3600, sec / 60 % 60, sec % 60));
+    }
 
     private boolean canRoll() {
         return !animating && !game.isGameOver() && !game.isAwaitingPiece()
