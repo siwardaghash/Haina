@@ -49,6 +49,9 @@ public final class Game {
     private boolean currentRollIsBonus;
     private int specialChain;
     public SurpriseEvent getLastSurprise() { return lastSurprise; }
+    /** Where the last moved piece landed from the dice, before any surprise moved it again. */
+    public int getLastLanding() { return lastLanding; }
+    private int lastLanding = -1;
     public boolean isAwaitingSurpriseTarget() { return awaitingSurpriseTarget; }
     public boolean isBonusRollReady() { return bonusRollReady; }
     public boolean canSelectSurpriseTarget(int playerIndex, int pieceIndex) {
@@ -231,6 +234,7 @@ public final class Game {
         boolean shortened = !piece.isInCastle() && reachable < requestedMovement(piece);
         if (piece.isInCastle()) piece.setProgress(0);
         else piece.setProgress(piece.getProgress() + reachable);
+        lastLanding = piece.getProgress();
         int captured = captureOnLanding(piece);
         updateFinishingOrder();
         message = player.getName() + " moved piece " + piece.getNumber() + ".";
