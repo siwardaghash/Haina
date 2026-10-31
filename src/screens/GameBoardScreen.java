@@ -744,9 +744,7 @@ public final class GameBoardScreen extends JPanel {
         private int hopProgress;
         private double pulse;
         /** Repaints only while a piece is waiting to be chosen, so the board is idle otherwise. */
-        private final Timer pulseTimer = new Timer(90, e -> {
-            if (hopPiece == null && BoardCanvas.this.game.isAwaitingPiece()) { pulse += .35; repaint(); }
-        });
+        private final Timer pulseTimer;
 
         /** Pieces that can be clicked this frame: bounds and the piece index (0-3) of the current player. */
         private final List<Rectangle> hitBoxes = new ArrayList<>();
@@ -758,6 +756,10 @@ public final class GameBoardScreen extends JPanel {
             this.game = game;
             this.board = board;
             this.config = config;
+            // Created after game is set: Eclipse rejects a field initializer that reads game.
+            pulseTimer = new Timer(90, e -> {
+                if (hopPiece == null && game.isAwaitingPiece()) { pulse += .35; repaint(); }
+            });
             setOpaque(false);
             setPreferredSize(new Dimension(620, 520));
             addMouseListener(new MouseAdapter() {
