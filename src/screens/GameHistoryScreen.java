@@ -109,6 +109,7 @@ public final class GameHistoryScreen extends JPanel {
         backButton.setCursor(
             java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR)
         );
+        Theme.solidButton(backButton);
 
         backButton.addActionListener(e -> back.run());
         header.add(backButton, BorderLayout.EAST);

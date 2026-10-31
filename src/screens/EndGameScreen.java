@@ -54,6 +54,7 @@ public class EndGameScreen extends JPanel {
         backButton.setForeground(new Color(15, 25, 52));
         backButton.setFocusPainted(false);
         backButton.setPreferredSize(new Dimension(260, 55));
+        Theme.solidButton(backButton);
         backButton.addActionListener(e -> {
             if (onBack != null) onBack.run();
         });

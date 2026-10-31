@@ -18,45 +18,77 @@ import javax.xml.transform.stream.StreamResult;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
-/** Application-level administrator authentication with PBKDF2 password hashing. */
+/** Administrator authentication (one account per team member) with PBKDF2 password hashing. */
 public final class AdminAuth {
     private static final int ITERATIONS = 160000;
     private static final int KEY_BITS = 256;
     private final File file;
     public AdminAuth(File file) { this.file = file; }
 
-    public boolean isInitialized() { return file.isFile(); }
+    /** True when at least one administrator exists. */
+    public boolean isInitialized() {
+        try { return !entries(load()).isEmpty(); }
+        catch (Exception ex) { return false; }
+    }
 
-    public void initialize(String username, char[] password) throws Exception {
-        if (isInitialized()) throw new IllegalStateException("Administrator already initialized");
+    /**
+     * Adds an administrator (one per team member). Only the team tool app.CreateAdmin calls this;
+     * the game itself never creates accounts.
+     */
+    public void addAdministrator(String username, char[] password) throws Exception {
         if (username == null || username.trim().isEmpty() || password == null || password.length < 8)
             throw new IllegalArgumentException("Username and password (at least 8 characters) required");
+        Document document = file.isFile() ? load() : null;
+        if (document == null || !"administrators".equals(document.getDocumentElement().getTagName())) {
+            Document fresh = secureFactory().newDocumentBuilder().newDocument();
+            Element root = fresh.createElement("administrators");
+            fresh.appendChild(root);
+            if (document != null)   // keep an administrator from the old single-account format
+                for (Element old : entries(document)) root.appendChild(fresh.importNode(old, true));
+            document = fresh;
+        }
+        for (Element entry : entries(document))
+            if (entry.getAttribute("username").equals(username.trim()))
+                throw new IllegalArgumentException("Administrator \"" + username.trim() + "\" already exists");
         byte[] salt = new byte[16];
         new SecureRandom().nextBytes(salt);
         byte[] hash = derive(password, salt, ITERATIONS);
-        Document document = secureFactory().newDocumentBuilder().newDocument();
-        Element root = document.createElement("administrator");
-        root.setAttribute("username", username.trim());
-        root.setAttribute("algorithm", "PBKDF2WithHmacSHA256");
-        root.setAttribute("iterations", Integer.toString(ITERATIONS));
-        root.setAttribute("salt", Base64.getEncoder().encodeToString(salt));
-        root.setAttribute("hash", Base64.getEncoder().encodeToString(hash));
-        document.appendChild(root);
+        Element admin = document.createElement("administrator");
+        admin.setAttribute("username", username.trim());
+        admin.setAttribute("algorithm", "PBKDF2WithHmacSHA256");
+        admin.setAttribute("iterations", Integer.toString(ITERATIONS));
+        admin.setAttribute("salt", Base64.getEncoder().encodeToString(salt));
+        admin.setAttribute("hash", Base64.getEncoder().encodeToString(hash));
+        document.getDocumentElement().appendChild(admin);
         saveDocument(document, file);
     }
 
     public boolean authenticate(String username, char[] password) throws Exception {
-        if (!isInitialized() || username == null || password == null) return false;
-        Document document = secureFactory().newDocumentBuilder().parse(file);
+        if (!file.isFile() || username == null || password == null) return false;
+        for (Element entry : entries(load())) {
+            if (!"PBKDF2WithHmacSHA256".equals(entry.getAttribute("algorithm")) ||
+                    !entry.getAttribute("username").equals(username.trim())) continue;
+            int iterations = Integer.parseInt(entry.getAttribute("iterations"));
+            if (iterations < 10000 || iterations > 1000000) return false;
+            byte[] salt = Base64.getDecoder().decode(entry.getAttribute("salt"));
+            byte[] expected = Base64.getDecoder().decode(entry.getAttribute("hash"));
+            return MessageDigest.isEqual(expected, derive(password, salt, iterations));
+        }
+        return false;
+    }
+
+    private Document load() throws Exception { return secureFactory().newDocumentBuilder().parse(file); }
+
+    /** Works with both the old file (one administrator element) and the new list. */
+    private static java.util.List<Element> entries(Document document) {
+        java.util.List<Element> list = new java.util.ArrayList<>();
         Element root = document.getDocumentElement();
-        if (!"administrator".equals(root.getTagName()) ||
-                !"PBKDF2WithHmacSHA256".equals(root.getAttribute("algorithm")) ||
-                !root.getAttribute("username").equals(username.trim())) return false;
-        int iterations = Integer.parseInt(root.getAttribute("iterations"));
-        if (iterations < 10000 || iterations > 1000000) return false;
-        byte[] salt = Base64.getDecoder().decode(root.getAttribute("salt"));
-        byte[] expected = Base64.getDecoder().decode(root.getAttribute("hash"));
-        return MessageDigest.isEqual(expected, derive(password, salt, iterations));
+        if ("administrator".equals(root.getTagName())) list.add(root);
+        else {
+            org.w3c.dom.NodeList nodes = root.getElementsByTagName("administrator");
+            for (int i = 0; i < nodes.getLength(); i++) list.add((Element) nodes.item(i));
+        }
+        return list;
     }
 
     private static byte[] derive(char[] password, byte[] salt, int iterations) throws Exception {
