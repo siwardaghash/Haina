@@ -24,19 +24,33 @@ public final class GameBoardScreen extends JPanel {
     private static final Color MUTED = new Color(166, 184, 217);
     private static final Color GOLD = new Color(255, 199, 92);
     private final Game game;
+    private final model.Difficulty difficulty;
     private boolean resultShown; 
     private final Runnable onBackToMenu;
     private final BoardCanvas canvas;
     private final JLabel status;
     private final DiceView dice;
+    private final DiceView extraDice;
+    private final JLabel extraCaption;
+    private boolean animating;
+    private boolean lastRollBonus;
+    private final Random effects = new Random();
     private JLabel movementInfo;
     private final JLabel playerTag;
-    private final FancyButton rollButton;
-    private final FancyButton[] pieceButtons = new FancyButton[4];
+    private final PointerArrow dicePointer = new PointerArrow();
+    /** Each player sees the pointing arrows while learning (first roll, first moves); then only the glow stays. */
+    private static final int POINTER_MOVES = 3;
+    private final java.util.Set<PlayerColor> rolledOnce = java.util.EnumSet.noneOf(PlayerColor.class);
+    private final java.util.Map<PlayerColor, Integer> movesMade = new java.util.EnumMap<>(PlayerColor.class);
+    /** Explains a roll that could not be used; shown until the next roll. */
+    private String notice;
+    private boolean captureSoundPending;
+    private final Timer hintTimer;
 
     public GameBoardScreen(GameConfig config, Board board, Runnable onBackToMenu) {
         this.onBackToMenu = onBackToMenu;
         game = new Game(config, board);
+        difficulty = config.getDifficulty();
         try {
             File file = new File("data/questions.xml");
             if (!file.isFile()) file = new File("Haina-main/data/questions.xml");
@@ -71,18 +85,25 @@ public final class GameBoardScreen extends JPanel {
         topBar.setOpaque(false);
         topBar.add(heading, BorderLayout.CENTER);
 
-        JButton exitButton = new JButton("EXIT GAME");
-        exitButton.setFont(new Font("SansSerif", Font.BOLD, 13));
-        exitButton.setBackground(new Color(241, 91, 105));
-        exitButton.setForeground(Color.WHITE);
-        exitButton.setFocusPainted(false);
-        exitButton.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        // Painted by FancyButton: the Mac look and feel ignores a plain JButton's background colour.
+        FancyButton exitButton = new FancyButton("EXIT GAME", new Color(241, 91, 105), Color.WHITE, true);
 
         exitButton.addActionListener(e -> {
         	showExitConfirmation();
         });
 
-        topBar.add(exitButton, BorderLayout.EAST);
+        // Bonus: music and sound effects, with a button to turn them off.
+        FancyButton soundButton = new FancyButton(Sound.isMuted() ? "SOUND OFF" : "SOUND ON",
+                new Color(52, 74, 115), Color.WHITE, true);
+        soundButton.addActionListener(e -> {
+            Sound.setMuted(!Sound.isMuted());
+            soundButton.setText(Sound.isMuted() ? "SOUND OFF" : "SOUND ON");
+        });
+        JPanel topButtons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+        topButtons.setOpaque(false);
+        topButtons.add(soundButton);
+        topButtons.add(exitButton);
+        topBar.add(topButtons, BorderLayout.EAST);
         add(topBar, BorderLayout.NORTH);
 
         canvas = new BoardCanvas(board, config, game);
@@ -114,47 +135,207 @@ public final class GameBoardScreen extends JPanel {
                 super.paintComponent(g);
             }
         };
-        playerTag.setFont(new Font("SansSerif", Font.BOLD, 15));
+        // Same font and border as refresh() uses, so the tag is wide enough from the start.
+        playerTag.setFont(new Font("SansSerif", Font.BOLD, 22));
+        playerTag.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20));
         information.add(playerTag, BorderLayout.WEST);
         dice = new DiceView();
         dice.setForeground(new Color(24, 36, 60));
         dice.setOpaque(false);
-        dice.setPreferredSize(new Dimension(58, 58));        dice.setFont(new Font("Segoe UI Symbol", Font.BOLD, 32));
-        dice.setBorder(
-            BorderFactory.createEmptyBorder(5, 15, 5, 10)
-        );
-        
+        dice.setPreferredSize(new Dimension(66, 66));
+
         movementInfo = new JLabel("", SwingConstants.CENTER);
         movementInfo.setForeground(INK);
         movementInfo.setFont(new Font("SansSerif", Font.BOLD, 15));
+        // Wide enough for the longest text, "6 × (ULTRA 6 − 1) = 30 STEPS".
+        movementInfo.setPreferredSize(new Dimension(300, 40));
         
+        extraDice = new DiceView();
+        extraDice.setPreferredSize(new Dimension(66, 66));
+        extraDice.setTint(new Color(255, 214, 120));
+        extraCaption = caption(config.getDifficulty().hasUltraBoostDie() ? "ULTRA" : "BOOST");
+
+        // The dice themselves are the roll control.
+        MouseAdapter rollOnClick = new MouseAdapter() {
+            @Override public void mouseClicked(MouseEvent e) { if (canRoll()) rollAnimated(); }
+        };
+        dice.addMouseListener(rollOnClick);
+        extraDice.addMouseListener(rollOnClick);
+
+        JPanel tray = new JPanel(new FlowLayout(FlowLayout.CENTER, 8, 0));
+        tray.setOpaque(false);
+        tray.add(dicePointer);
+        tray.add(withCaption(dice, caption("STEP")));
+        tray.add(withCaption(extraDice, extraCaption));
+
         JPanel dicePanel = new JPanel(new BorderLayout(12, 0));
         dicePanel.setOpaque(false);
 
-        dicePanel.add(dice, BorderLayout.WEST);
+        dicePanel.add(tray, BorderLayout.WEST);
         dicePanel.add(movementInfo, BorderLayout.EAST);
         information.add(dicePanel, BorderLayout.EAST);
         controls.add(information, BorderLayout.NORTH);
-  
-        JPanel actions = new JPanel(new FlowLayout(FlowLayout.CENTER, 16, 8));
-        actions.setOpaque(false);
-        rollButton = new FancyButton("ROLL DICE", GOLD, new Color(35, 39, 53), true);
-        rollButton.setFont(new Font("SansSerif", Font.BOLD, 18));
-        rollButton.setPreferredSize(new Dimension(175, 48));        rollButton.addActionListener(e -> { game.roll(); refresh(); });
-        actions.add(rollButton);
-        for (int i = 0; i < 4; i++) {
-            final int index = i;
-            pieceButtons[i] = new FancyButton("PIECE " + (i + 1), new Color(52, 74, 115), INK, false);
-            pieceButtons[i].addActionListener(e -> { game.move(index); resolveSpecials(); refresh(); });
-            actions.add(pieceButtons[i]);
-        }
-        controls.add(actions, BorderLayout.CENTER);
+        canvas.setOnPieceClicked(this::moveAnimated);
+
+        // Only the dice and the arrow are repainted here, and only while a roll is awaited.
+        hintTimer = new Timer(90, e -> {
+            if (!canRoll()) return;
+            dicePointer.bounce += .45;
+            dice.pulse += .35;
+            extraDice.pulse += .35;
+            dicePointer.repaint();
+            dice.repaint();
+            extraDice.repaint();
+        });
         status = new JLabel("", SwingConstants.CENTER);
         status.setForeground(MUTED);
         status.setFont(new Font("SansSerif", Font.PLAIN, 13));
         controls.add(status, BorderLayout.SOUTH);
         add(controls, BorderLayout.SOUTH);
         refresh();
+    }
+
+    @Override public void addNotify() { super.addNotify(); hintTimer.start(); Sound.startMusic(); }
+    @Override public void removeNotify() { hintTimer.stop(); Sound.stopMusic(); super.removeNotify(); }
+
+    private boolean canRoll() {
+        return !animating && !game.isGameOver() && !game.isAwaitingPiece()
+                && game.getPendingQuestion() == null && !game.isAwaitingSurpriseTarget();
+    }
+
+    private static JLabel caption(String text) {
+        JLabel label = new JLabel(text, SwingConstants.CENTER);
+        label.setForeground(MUTED);
+        label.setFont(new Font("SansSerif", Font.BOLD, 10));
+        return label;
+    }
+
+    private static JPanel withCaption(JComponent die, JLabel label) {
+        JPanel box = new JPanel(new BorderLayout(0, 2));
+        box.setOpaque(false);
+        box.add(die, BorderLayout.CENTER);
+        box.add(label, BorderLayout.SOUTH);
+        return box;
+    }
+
+    /** The model decides the result first; the dice only tumble before showing it. */
+    private void rollAnimated() {
+        if (!canRoll()) return;
+        Game.Player roller = game.getCurrentPlayer();
+        rolledOnce.add(roller.getColor());
+        boolean allInCastle = true;
+        for (Piece p : roller.getPieces()) if (!p.isInCastle() && !p.isFinished()) allInCastle = false;
+        lastRollBonus = game.isBonusRollReady();
+        game.roll();
+        Sound.roll();
+        notice = explainUnusedRoll(roller, allInCastle);
+        animating = true;
+        setControlsEnabled(false);
+        boolean showExtra = game.getExtraDie() > 0;
+        extraDice.getParent().setVisible(showExtra);
+        final int[] tick = {0};
+        Timer timer = new Timer(45, null);
+        timer.addActionListener(e -> {
+            tick[0]++;
+            double wobble = (effects.nextDouble() - .5) * .9;
+            dice.showFace(effects.nextInt(6) + 1, wobble);
+            if (showExtra) extraDice.showFace(effects.nextInt(difficulty.hasUltraBoostDie() || lastRollBonus ? 6 : 3) + 1, -wobble);
+            if (tick[0] >= 7) {
+                timer.stop();
+                animating = false;
+                refresh();
+            }
+        });
+        timer.start();
+    }
+
+    /** Null when the roll can be used; otherwise says in plain words why nothing moved. */
+    private String explainUnusedRoll(Game.Player roller, boolean allInCastle) {
+        if (game.isAwaitingPiece() || game.isGameOver()) return null;
+        boolean turnPassed = game.getCurrentPlayer() != roller;
+        String extraName = difficulty.hasUltraBoostDie() || lastRollBonus ? "ULTRA" : "BOOST";
+        int step = game.getStepDie();
+        if (turnPassed && step == 6) return null; // third 6: the model's message already says so
+        String rolled = roller.getName() + " rolled " + step
+                + (game.getExtraDie() > 0 ? " and " + game.getExtraDie() + " on the " + extraName + " die" : "") + ". ";
+        String reason;
+        if (allInCastle && step != 6) reason = "All pieces are in the castle, and only a 6 brings a piece out.";
+        else if (game.getSteps() == 0) reason = "A 1 on the " + extraName + " die means 0 steps.";
+        else reason = "No piece can move " + game.getSteps() + " step(s).";
+        String next = turnPassed ? "  Turn passes to " + game.getCurrentPlayer().getName() + "."
+                                 : "  A 6 gives another roll.";
+        return rolled + reason + next;
+    }
+
+    /** Moves in the model, then replays the forward steps square by square on the board. */
+    private void moveAnimated(int index) {
+        if (animating || !game.isAwaitingPiece() || !game.canMove(index)) return;
+        movesMade.merge(game.getCurrentPlayer().getColor(), 1, Integer::sum);
+        notice = null;
+        Piece piece = game.getCurrentPlayer().getPieces().get(index);
+        int before = piece.getProgress();
+        game.move(index);
+        captureSoundPending = game.getMessage().contains("Captured");
+        if (before < 0) Sound.hop();
+        // Walk to the square the dice reached; a surprise there may move the piece again afterwards.
+        int after = game.getLastLanding();
+        if (before < 0 || after <= before) {
+            afterMove();
+            return;
+        }
+        animating = true;
+        setControlsEnabled(false);
+        canvas.startHop(piece, before);
+        // Short hops, and the whole walk stays under about half a second even for long moves.
+        Timer timer = new Timer(Math.min(70, 500 / (after - before)), null);
+        timer.addActionListener(e -> {
+            if (canvas.hopForward(after)) Sound.hop();
+            else {
+                timer.stop();
+                animating = false;
+                afterMove();
+                canvas.endHop();
+            }
+        });
+        timer.start();
+    }
+
+    /** Says what a surprise did (otherwise the piece seems to jump for no reason), then asks questions. */
+    private void afterMove() {
+        if (captureSoundPending) Sound.capture();
+        captureSoundPending = false;
+        Game.SurpriseEvent surprise = game.getLastSurprise();
+        if (surprise != null && surprise != Game.SurpriseEvent.OPPONENT_BACK) {
+            String text;
+            switch (surprise) {
+                case DIRECT_FINISH: text = "Your piece goes straight to FINISH HOME!"; break;
+                case RETURN_CASTLE: text = "Your piece goes back to the castle."; break;
+                case BACK_THREE: text = "Your piece moves back up to 3 squares."; break;
+                case SKIP_NEXT_TURN: text = "You lose your next turn (or the extra turn from your 6)."; break;
+                default: text = "Roll again right now: Step die + ULTRA die (1-6).\n"
+                        + "Steps = Step x (ULTRA - 1)."; break;
+            }
+            Sound.surprise();
+            JOptionPane.showMessageDialog(this, text, "Surprise square!", JOptionPane.INFORMATION_MESSAGE);
+        }
+        resolveSpecials();
+        refresh();
+    }
+
+    private void setControlsEnabled(boolean enabled) {
+        updateHints();
+        canvas.repaint();
+    }
+
+    /** Arrow while the current player is still learning the action, glow afterwards. */
+    private void updateHints() {
+        PlayerColor current = game.getCurrentPlayer().getColor();
+        boolean rollReady = canRoll();
+        dice.setReady(rollReady);
+        extraDice.setReady(rollReady && extraDice.getParent().isVisible());
+        dicePointer.setActive(rollReady && !rolledOnce.contains(current));
+        dicePointer.setColor(BoardCanvas.playerColor(current));
+        canvas.setPointAtPieces(movesMade.getOrDefault(current, 0) < POINTER_MOVES);
     }
 
     /** Answers are given by the player who just moved, before the turn advances. */
@@ -197,23 +378,38 @@ public final class GameBoardScreen extends JPanel {
                 JOptionPane.showMessageDialog(this, "Please select an answer to continue.");
                 continue;
             }
-            game.answerQuestion(selection);
+            boolean correct = game.answerQuestion(selection);
+            if (correct) Sound.correct(); else Sound.wrong();
+            JOptionPane.showMessageDialog(this, game.getMessage(), correct ? "Correct!" : "Wrong answer",
+                    correct ? JOptionPane.INFORMATION_MESSAGE : JOptionPane.WARNING_MESSAGE);
             refresh();
         }
     }
 
     private void refresh() {
-        StringBuilder result = new StringBuilder("STEP  ").append(game.getStepDie());
-        if (game.getExtraDie() > 0) result.append("   •   BOOST  ").append(game.getExtraDie());
-        result.append("   •   MOVES  ").append(game.getSteps());
-
+        // Spell out the multiplier rule: steps = Step x (Boost - 1).
         int step = game.getStepDie();
-        movementInfo.setText(result.toString());
-        dice.setValue(step == 0 ? 1 : step);        Game.Player current = game.getCurrentPlayer();
+        String extraName = difficulty.hasUltraBoostDie() || lastRollBonus ? "ULTRA" : "BOOST";
+        String math;
+        if (step == 0) math = "Click the dice to roll";
+        else if (game.getExtraDie() == 0) math = step + " STEPS";
+        else math = step + " × (" + extraName + " " + game.getExtraDie() + " − 1) = " + game.getSteps() + " STEPS";
+        movementInfo.setText(math);
+        movementInfo.setToolTipText(game.getExtraDie() == 0 ? null
+                : "<html>Steps = Step die × (" + extraName + " die − 1)<br>"
+                + extraName + " 1 → ×0 (no move), 2 → ×1, 3 → ×2"
+                + (extraName.equals("ULTRA") ? ", 4 → ×3, 5 → ×4, 6 → ×5" : "")
+                + "<br>A 6 on the Step die brings a piece out of the castle (the other die is not used).<br>"
+                + "On the home path only the Step die counts.</html>");
+        dice.setValue(step == 0 ? 1 : step);
+        boolean hasExtra = game.getExtraDie() > 0
+                || difficulty.hasBoostDie() || difficulty.hasUltraBoostDie();
+        extraDice.getParent().setVisible(hasExtra);
+        extraDice.setValue(game.getExtraDie() == 0 ? 1 : game.getExtraDie());
+        extraCaption.setText(difficulty.hasUltraBoostDie() || lastRollBonus ? "ULTRA" : "BOOST");        Game.Player current = game.getCurrentPlayer();
         playerTag.setText("●  " + current.getName().toUpperCase() + "'S TURN");
         playerTag.setForeground(BoardCanvas.playerColor(current.getColor()));
         Color playerColor = BoardCanvas.playerColor(current.getColor());
-        rollButton.setButtonColor(playerColor);
         playerTag.setOpaque(false);
         playerTag.setBackground(playerColor);
         playerTag.setForeground(Color.WHITE);
@@ -221,14 +417,21 @@ public final class GameBoardScreen extends JPanel {
         playerTag.setBorder(
             BorderFactory.createEmptyBorder(10, 20, 10, 20)
         );
-        status.setText(game.getMessage());
-        rollButton.setEnabled(!game.isGameOver() && !game.isAwaitingPiece() && game.getPendingQuestion() == null
-                && !game.isAwaitingSurpriseTarget());
-        for (int i = 0; i < 4; i++)
-            pieceButtons[i].setEnabled(game.isAwaitingPiece() && game.canMove(i));
+        playerTag.revalidate(); // the bigger font needs a new width, or long names are cut off
+        boolean highlight = notice != null || game.isAwaitingPiece();
+        status.setText(notice != null ? notice
+                : game.isAwaitingPiece() ? current.getName() + ": click a glowing piece on the board to move it."
+                : game.getMessage());
+        status.setForeground(highlight ? GOLD : MUTED);
+        status.setFont(new Font("SansSerif", highlight ? Font.BOLD : Font.PLAIN, highlight ? 16 : 13));
+        status.setBorder(BorderFactory.createEmptyBorder(4, 0, 4, 0));
+        status.revalidate();
+        updateHints();
         canvas.repaint();
         if (game.isGameOver() && !resultShown) {
             resultShown = true;
+            Sound.stopMusic();
+            Sound.win();
             SwingUtilities.invokeLater(this::showFinalResults);
         }
     }
@@ -350,13 +553,38 @@ public final class GameBoardScreen extends JPanel {
     private static final class DiceView extends JComponent {
 
         private int value = 1;
+        private double angle;
+        private Color tint = new Color(250, 251, 255);
+        private boolean ready;
+        double pulse;
 
         DiceView() {
             setPreferredSize(new Dimension(72, 72));
         }
 
+        /** A die that can be clicked to roll glows and shows a hand cursor. */
+        void setReady(boolean ready) {
+            this.ready = ready;
+            setCursor(Cursor.getPredefinedCursor(ready ? Cursor.HAND_CURSOR : Cursor.DEFAULT_CURSOR));
+            setToolTipText(ready ? "Click to roll" : null);
+            repaint();
+        }
+
         void setValue(int value) {
             this.value = Math.max(1, Math.min(6, value));
+            this.angle = 0;
+            repaint();
+        }
+
+        /** A face shown while rolling, slightly turned. */
+        void showFace(int value, double angle) {
+            this.value = Math.max(1, Math.min(6, value));
+            this.angle = angle;
+            repaint();
+        }
+
+        void setTint(Color tint) {
+            this.tint = tint;
             repaint();
         }
 
@@ -369,16 +597,23 @@ public final class GameBoardScreen extends JPanel {
                 RenderingHints.VALUE_ANTIALIAS_ON
             );
 
-            int size = Math.min(getWidth(), getHeight()) - 10;
+            int size = Math.min(getWidth(), getHeight()) - 14;
             int x = (getWidth() - size) / 2;
             int y = (getHeight() - size) / 2;
+            if (ready) {
+                int alpha = (int) (130 + 90 * Math.sin(pulse));
+                g2.setColor(new Color(255, 255, 255, Math.max(30, Math.min(230, alpha))));
+                g2.setStroke(new BasicStroke(3f));
+                g2.drawRoundRect(x - 4, y - 4, size + 8, size + 8, 22, 22);
+            }
+            g2.rotate(angle, getWidth() / 2.0, getHeight() / 2.0);
 
             // Soft shadow
             g2.setColor(new Color(0, 0, 0, 55));
             g2.fillRoundRect(x + 3, y + 4, size, size, 18, 18);
 
             // Dice body
-            g2.setColor(new Color(250, 251, 255));
+            g2.setColor(tint);
             g2.fillRoundRect(x, y, size, size, 18, 18);
 
             // Subtle border
@@ -462,6 +697,40 @@ public final class GameBoardScreen extends JPanel {
             g2.dispose();
         }
     }
+    /** A bouncing arrow that points right, at the dice, until the player has rolled once. */
+    private static final class PointerArrow extends JComponent {
+        private boolean active;
+        private Color color = GOLD;
+        double bounce;
+
+        PointerArrow() { setPreferredSize(new Dimension(44, 66)); }
+
+        void setActive(boolean active) { this.active = active; repaint(); }
+        void setColor(Color color) { this.color = color; repaint(); }
+
+        @Override protected void paintComponent(Graphics g) {
+            if (!active) return;
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            int shift = (int) (6 * Math.sin(bounce));
+            int midY = getHeight() / 2 - 6, tip = getWidth() - 4 + shift;
+            java.awt.geom.Path2D arrow = new java.awt.geom.Path2D.Double();
+            arrow.moveTo(tip, midY);
+            arrow.lineTo(tip - 16, midY - 14);
+            arrow.lineTo(tip - 16, midY - 6);
+            arrow.lineTo(tip - 34, midY - 6);
+            arrow.lineTo(tip - 34, midY + 6);
+            arrow.lineTo(tip - 16, midY + 6);
+            arrow.lineTo(tip - 16, midY + 14);
+            arrow.closePath();
+            g2.setColor(color);
+            g2.fill(arrow);
+            g2.setColor(Color.WHITE);
+            g2.setStroke(new BasicStroke(2f));
+            g2.draw(arrow);
+            g2.dispose();
+        }
+    }
 
     private static final class BoardCanvas extends JPanel {
         private final Board board;
@@ -471,12 +740,124 @@ public final class GameBoardScreen extends JPanel {
         private static final Color OUTLINE = new Color(143, 162, 185);
         private static final int[][] PATH = makePath();
 
+        private Piece hopPiece;
+        private int hopProgress;
+        private double pulse;
+        /** Repaints only while a piece is waiting to be chosen, so the board is idle otherwise. */
+        private final Timer pulseTimer = new Timer(90, e -> {
+            if (hopPiece == null && BoardCanvas.this.game.isAwaitingPiece()) { pulse += .35; repaint(); }
+        });
+
+        /** Pieces that can be clicked this frame: bounds and the piece index (0-3) of the current player. */
+        private final List<Rectangle> hitBoxes = new ArrayList<>();
+        private final List<Integer> hitIndexes = new ArrayList<>();
+        private boolean pointAtPieces;
+        private java.util.function.IntConsumer onPieceClicked = index -> { };
+
         BoardCanvas(Board board, GameConfig config, Game game) {
             this.game = game;
             this.board = board;
             this.config = config;
             setOpaque(false);
             setPreferredSize(new Dimension(620, 520));
+            addMouseListener(new MouseAdapter() {
+                @Override public void mouseClicked(MouseEvent e) {
+                    int index = pieceAt(e.getPoint());
+                    if (index >= 0) onPieceClicked.accept(index);
+                }
+            });
+            addMouseMotionListener(new MouseAdapter() {
+                @Override public void mouseMoved(MouseEvent e) {
+                    setCursor(Cursor.getPredefinedCursor(pieceAt(e.getPoint()) >= 0
+                            ? Cursor.HAND_CURSOR : Cursor.DEFAULT_CURSOR));
+                }
+            });
+        }
+
+        void setOnPieceClicked(java.util.function.IntConsumer listener) { onPieceClicked = listener; }
+        void setPointAtPieces(boolean point) { pointAtPieces = point; }
+
+        /** The last drawn piece is on top, so search backwards. */
+        private int pieceAt(Point p) {
+            for (int i = hitBoxes.size() - 1; i >= 0; i--)
+                if (hitBoxes.get(i).contains(p)) return hitIndexes.get(i);
+            return -1;
+        }
+
+        @Override public void addNotify() { super.addNotify(); pulseTimer.start(); }
+        @Override public void removeNotify() { pulseTimer.stop(); super.removeNotify(); }
+
+        void startHop(Piece piece, int fromProgress) { hopPiece = piece; hopProgress = fromProgress; }
+        /** Advances one square; returns false when the target was reached. */
+        boolean hopForward(int target) {
+            if (hopPiece == null || hopProgress >= target) return false;
+            hopProgress++;
+            return true;
+        }
+        void endHop() { hopPiece = null; repaint(); }
+
+        private boolean isMovable(Game.Player player, Piece piece) {
+            return hopPiece == null && game.isAwaitingPiece() && player == game.getCurrentPlayer()
+                    && game.canMove(piece.getNumber() - 1);
+        }
+
+        /**
+         * Pin-shaped piece: shadow, pointed body, white head. A piece the current player can
+         * move (clickIndex 0-3) glows, is clickable, and gets an arrow while the player is learning.
+         */
+        private void drawPin(Graphics2D g, int cx, int cy, int size, Color color, int clickIndex, double lift) {
+            int h = size, w = (int) (size * .78);
+            boolean glow = clickIndex >= 0;
+            if (glow) lift += Math.abs(Math.sin(pulse)) * size * .22; // movable pieces bob up and down
+            int baseY = cy + h / 2 - (int) lift;
+            if (glow) {
+                int r = (int) (size * (.68 + .1 * Math.sin(pulse)));
+                g.setColor(new Color(255, 255, 255, 90));
+                g.fillOval(cx - r, cy + h / 2 - r / 2, 2 * r, r);
+                g.setColor(new Color(255, 255, 255, 230));
+                g.setStroke(new BasicStroke(Math.max(2.5f, size / 7f)));
+                g.drawOval(cx - r, cy + h / 2 - r / 2, 2 * r, r);
+                int pad = Math.max(4, size / 5);
+                hitBoxes.add(new Rectangle(cx - w / 2 - pad, baseY - h - pad, w + 2 * pad, h + 2 * pad));
+                hitIndexes.add(clickIndex);
+                if (pointAtPieces) drawDownArrow(g, cx, (int) (baseY - h - size * .25 - Math.abs(Math.sin(pulse)) * size * .3), size, color);
+            }
+            g.setColor(new Color(0, 0, 0, 70));
+            g.fillOval(cx - w / 2, cy + h / 2 - h / 10, w, h / 5);
+            java.awt.geom.Path2D body = new java.awt.geom.Path2D.Double();
+            double top = baseY - h;
+            body.moveTo(cx, baseY);
+            body.curveTo(cx - w * .62, top + h * .55, cx - w * .55, top, cx, top);
+            body.curveTo(cx + w * .55, top, cx + w * .62, top + h * .55, cx, baseY);
+            g.setColor(color);
+            g.fill(body);
+            g.setColor(color.darker().darker());
+            g.setStroke(new BasicStroke(1.3f));
+            g.draw(body);
+            int head = (int) (w * .52);
+            g.setColor(Color.WHITE);
+            g.fillOval(cx - head / 2, (int) (top + h * .2), head, head);
+            g.setColor(color.darker());
+            g.fillOval(cx - head / 4, (int) (top + h * .2) + head / 4, head / 2, head / 2);
+        }
+
+        /** Arrow whose tip is at (cx, tipY), pointing down at a piece. */
+        private void drawDownArrow(Graphics2D g, int cx, int tipY, int size, Color color) {
+            double s = Math.max(14, size * .7);
+            java.awt.geom.Path2D arrow = new java.awt.geom.Path2D.Double();
+            arrow.moveTo(cx, tipY);
+            arrow.lineTo(cx - s * .5, tipY - s * .5);
+            arrow.lineTo(cx - s * .2, tipY - s * .5);
+            arrow.lineTo(cx - s * .2, tipY - s);
+            arrow.lineTo(cx + s * .2, tipY - s);
+            arrow.lineTo(cx + s * .2, tipY - s * .5);
+            arrow.lineTo(cx + s * .5, tipY - s * .5);
+            arrow.closePath();
+            g.setColor(color);
+            g.fill(arrow);
+            g.setColor(Color.WHITE);
+            g.setStroke(new BasicStroke(2f));
+            g.draw(arrow);
         }
 
         /** A classic 52-square clockwise path on a 15 by 15 Ludo grid. */
@@ -503,6 +884,8 @@ public final class GameBoardScreen extends JPanel {
             super.paintComponent(graphics);
             Graphics2D g = (Graphics2D) graphics.create();
             g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            hitBoxes.clear();
+            hitIndexes.clear();
             int extra = board.getRings().size() - 1;
 
             int maxCell = extra == 0 ? 48 : 39;
@@ -516,7 +899,7 @@ public final class GameBoardScreen extends JPanel {
             int top = (getHeight() - size) / 2;
             // Draw the actual outer tracks used by the movement model.
             if (extra >= 1) drawOuterTrack(g, board.getRings().get(1), left - cell * 1.0, top - cell * 1.0, size + 2.0 * cell, cell * .64);
-            if (extra >= 2) drawOuterTrack(g, board.getRings().get(2), left - cell * 1.8, top - cell * 1.8, size + 3.6 * cell, cell * .56);
+            if (extra >= 2) drawOuterTrack(g, board.getRings().get(2), left - cell * 2.0, top - cell * 2.0, size + 4.0 * cell, cell * .56);
 
             // Home castles are always shown; pieces only for selected player colors.
             drawCastle(g, left, top, cell, 0, 0, PlayerColor.RED);
@@ -543,6 +926,12 @@ public final class GameBoardScreen extends JPanel {
                 Board.Square square = base.get(i);
                 drawCell(g, left + point[0] * cell, top + point[1] * cell,
                     cell, squareColor(square), symbol(square));
+                if (square.getType() == Board.SquareType.ARROW) {
+                    // Points along the arm toward the centre, i.e. into the home path.
+                    int dx = point[0] < 6 ? 1 : point[0] > 8 ? -1 : 0;
+                    int dy = point[1] < 6 ? 1 : point[1] > 8 ? -1 : 0;
+                    drawArrowGlyph(g, left + point[0] * cell + cell / 2, top + point[1] * cell + cell / 2, cell, dx, dy);
+                }
             }
             drawPieces(g, left, top, cell);
             g.dispose();
@@ -551,45 +940,35 @@ public final class GameBoardScreen extends JPanel {
         private void drawPieces(Graphics2D g, int left, int top, int cell) {
             for (Game.Player player : game.getPlayers()) {
                 for (Piece piece : player.getPieces()) {
-                    if (piece.isInCastle()) continue;
-                    if (piece.isFinished()) {
+                    int progress = piece == hopPiece ? hopProgress : piece.getProgress();
+                    if (progress < 0) continue;
+                    int click = isMovable(player, piece) ? piece.getNumber() - 1 : -1;
+                    double lift = piece == hopPiece ? cell * .35 : 0;
+                    Color color = playerColor(piece.getColor());
+                    if (progress >= piece.getFinishProgress()) {
                         int size = Math.max(9, cell / 3);
-                        int x = left + 7 * cell + (piece.getNumber() % 2) * size;
-                        int y = top + 7 * cell + (piece.getNumber() / 2) * size;
-                        g.setColor(playerColor(piece.getColor()));
-                        g.fillOval(x - size / 2, y - size / 2, size, size);
-                        g.setColor(Color.BLACK);
-                        g.drawOval(x - size / 2, y - size / 2, size, size);
+                        int x = left + 7 * cell + ((piece.getNumber() - 1) % 2) * size;
+                        int y = top + 7 * cell + ((piece.getNumber() - 1) / 2) * size;
+                        drawPin(g, x, y, Math.max(12, cell / 2), color, -1, 0);
                         continue;
                     }
-                    if (piece.isOnCommonPath() && piece.getRing() > 0) {
-                        double inset = piece.getRing() == 1 ? 1.0 : 1.8;
-                        double ox = left - cell * inset;
-                        double oy = top - cell * inset;
+                    int ring = piece.ringAt(progress);
+                    if (ring > 0) {
+                        double inset = ring == 1 ? 1.0 : 2.0;
                         double side = 15 * cell + 2 * cell * inset;
-                        double[] pos = outerPoint(piece.getBoardIndex(),
-                                board.getRings().get(piece.getRing()).size(), ox, oy, side);
-                        int diameter = Math.max(8, cell / 2);
-                        g.setColor(playerColor(piece.getColor()));
-                        g.fillOval((int)pos[0] - diameter / 2, (int)pos[1] - diameter / 2, diameter, diameter);
-                        g.setColor(new Color(12, 20, 39));
-                        g.drawOval((int)pos[0] - diameter / 2, (int)pos[1] - diameter / 2, diameter, diameter);
+                        double[] pos = outerPoint(piece.indexAt(progress), board.getRings().get(ring).size(),
+                                left - cell * inset, top - cell * inset, side);
+                        drawPin(g, (int) pos[0], (int) pos[1], Math.max(12, cell * 2 / 3), color, click, lift);
                         continue;
                     }
-                    int[] point = piece.isOnHomePath()
-                        ? homeCoordinates(piece.getColor(), piece.getHomePathIndex())
-                        : PATH[piece.getBoardIndex()];
+                    int[] point = progress >= piece.getCommonLength()
+                        ? homeCoordinates(piece.getColor(), progress - piece.getCommonLength())
+                        : PATH[piece.indexAt(progress)];
                     int offsetX = ((piece.getNumber() - 1) % 2) * Math.max(3, cell / 7);
                     int offsetY = ((piece.getNumber() - 1) / 2) * Math.max(3, cell / 7);
-                    int diameter = Math.max(9, cell * 2 / 3);
-                    int x = left + point[0] * cell + (cell - diameter) / 2 + offsetX;
-                    int y = top + point[1] * cell + (cell - diameter) / 2 + offsetY;
-                    g.setColor(playerColor(piece.getColor()));
-                    g.fillOval(x, y, diameter, diameter);
-                    g.setColor(Color.BLACK);
-                    g.drawOval(x, y, diameter, diameter);
-                    g.setFont(new Font("SansSerif", Font.BOLD, Math.max(9, diameter / 2)));
-                    drawCentered(g, Integer.toString(piece.getNumber()), x + diameter / 2, y + diameter * 2 / 3);
+                    int cx = left + point[0] * cell + cell / 2 + offsetX - cell / 14;
+                    int cy = top + point[1] * cell + cell / 2 + offsetY - cell / 14;
+                    drawPin(g, cx, cy, Math.max(14, cell * 5 / 6), color, click, lift);
                 }
             }
         }
@@ -615,11 +994,17 @@ public final class GameBoardScreen extends JPanel {
                 int tx = px + (i % 2 == 0 ? 2 : 4) * cell;
                 int ty = py + (i / 2 == 0 ? 2 : 4) * cell;
                 int radius = Math.max(5, cell / 2);
-                g.setColor(active ? playerColor(color) : new Color(180, 185, 195));
+                g.setColor(new Color(0, 0, 0, 35));
                 g.fillOval(tx - radius, ty - radius, radius * 2, radius * 2);
-                g.setColor(Color.WHITE);
-                g.setStroke(new BasicStroke(2f));
-                g.drawOval(tx - radius, ty - radius, radius * 2, radius * 2);
+                if (!active) {
+                    g.setColor(new Color(180, 185, 195));
+                    g.fillOval(tx - radius, ty - radius, radius * 2, radius * 2);
+                    continue;
+                }
+                int click = -1;
+                for (Game.Player player : game.getPlayers())
+                    if (player.getColor() == color && isMovable(player, player.getPieces().get(i))) click = i;
+                drawPin(g, tx, ty - radius / 3, Math.max(14, cell * 5 / 6), playerColor(color), click, 0);
             }
             g.setFont(new Font("SansSerif", Font.BOLD, Math.max(9, cell / 3)));
             g.setColor(Color.WHITE);
@@ -647,7 +1032,9 @@ public final class GameBoardScreen extends JPanel {
             int perSide = count / 4;
             int side = index / perSide;
             int offset = index % perSide;
-            double step = size / perSide;
+            // perSide + 1 cells per side: each corner square belongs to one side only, so no two
+            // squares are drawn on top of each other (64 -> 17 x 17 cells, 72 -> 19 x 19 cells).
+            double step = size / (perSide + 1);
             switch (side) {
                 case 0: return new double[]{x + (offset + .5) * step, y + step / 2};
                 case 1: return new double[]{x + size - step / 2, y + (offset + .5) * step};
@@ -659,7 +1046,7 @@ public final class GameBoardScreen extends JPanel {
         private void drawOuterTrack(Graphics2D g, List<Board.Square> ring,
                                     double x, double y, double size, double unusedDiameter) {
             int n = ring.size();
-            int cellSize = Math.max(6, (int)Math.round(size / (n / 4)) - 2);
+            int cellSize = Math.max(6, (int)Math.round(size / (n / 4 + 1)) - 2);
             for (int i = 0; i < n; i++) {
                 double[] point = outerPoint(i, n, x, y, size);
                 Board.Square square = ring.get(i);
@@ -668,6 +1055,12 @@ public final class GameBoardScreen extends JPanel {
                 g.fillRoundRect(cx - cellSize/2, cy - cellSize/2, cellSize, cellSize, 4, 4);
                 g.setColor(OUTLINE);
                 g.drawRoundRect(cx - cellSize/2, cy - cellSize/2, cellSize, cellSize, 4, 4);
+                if (square.getType() == Board.SquareType.ARROW) {
+                    // Points from its side of the outer track toward the next inner track.
+                    int side = i / (n / 4);
+                    int[][] inward = {{0, 1}, {-1, 0}, {0, -1}, {1, 0}};
+                    drawArrowGlyph(g, cx, cy, cellSize, inward[side][0], inward[side][1]);
+                }
                 String label = symbol(square);
                 if (!label.isEmpty()) {
                     g.setFont(new Font("SansSerif", Font.BOLD, Math.max(8, cellSize / 2)));
@@ -675,6 +1068,26 @@ public final class GameBoardScreen extends JPanel {
                     drawCentered(g, label, cx, cy + cellSize/5);
                 }
             }
+        }
+
+        /** A dark arrow centred on (cx, cy), pointing in direction (dx, dy). */
+        private void drawArrowGlyph(Graphics2D g, int cx, int cy, int cell, int dx, int dy) {
+            double s = cell * .32;
+            java.awt.geom.Path2D arrow = new java.awt.geom.Path2D.Double();
+            arrow.moveTo(s, 0);
+            arrow.lineTo(0, -s * .8);
+            arrow.lineTo(0, -s * .3);
+            arrow.lineTo(-s, -s * .3);
+            arrow.lineTo(-s, s * .3);
+            arrow.lineTo(0, s * .3);
+            arrow.lineTo(0, s * .8);
+            arrow.closePath();
+            Graphics2D a = (Graphics2D) g.create();
+            a.translate(cx, cy);
+            a.rotate(Math.atan2(dy, dx));
+            a.setColor(new Color(24, 32, 51));
+            a.fill(arrow);
+            a.dispose();
         }
 
         private void drawCell(Graphics2D g, int x, int y, int cell, Color color, String symbol) {
@@ -706,7 +1119,7 @@ public final class GameBoardScreen extends JPanel {
         private String symbol(Board.Square s) {
             switch (s.getType()) {
                 case START: return "#";
-                case ARROW: return "→";
+                case ARROW: return ""; // drawn by drawArrowGlyph, pointing the right way
                 case PROTECTION: return "★";
                 case QUESTION_EASY: case QUESTION_MEDIUM: case QUESTION_HARD: return "?";
                 case SURPRISE: return "!";
