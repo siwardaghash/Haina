@@ -290,46 +290,84 @@ public final class GameBoardScreen extends JPanel {
         return rolled + reason + next;
     }
 
-    /** Moves in the model, then replays the forward steps square by square on the board. */
+    /**
+     * Moves in the model, then walks the piece square by square to where the dice took it.
+     * If it landed on a special square, the result is explained first and then walked too.
+     */
     private void moveAnimated(int index) {
         if (animating || !game.isAwaitingPiece() || !game.canMove(index)) return;
         movesMade.merge(game.getCurrentPlayer().getColor(), 1, Integer::sum);
         notice = null;
         Piece piece = game.getCurrentPlayer().getPieces().get(index);
+        java.util.Map<Piece, Integer> atStart = positions();
         int before = piece.getProgress();
         controller.move(index);
         captureSoundPending = game.getMessage().contains("Captured");
-        if (before < 0) Sound.hop();
-        // Walk to the square the dice reached; a surprise there may move the piece again afterwards.
-        int after = game.getLastLanding();
-        if (before < 0 || after <= before) {
-            afterMove();
-            return;
-        }
-        animating = true;
-        setControlsEnabled(false);
-        canvas.startHop(piece, before);
-        // Short hops, and the whole walk stays under about half a second even for long moves.
-        Timer timer = new Timer(Math.min(70, 500 / (after - before)), null);
-        timer.addActionListener(e -> {
-            if (canvas.hopForward(after)) Sound.hop();
-            else {
-                timer.stop();
-                animating = false;
-                afterMove();
-                canvas.endHop();
-            }
-        });
-        timer.start();
+        int landing = game.getLastLanding();
+        // Where everything stands once the dice move is walked (before any surprise moved it again).
+        java.util.Map<Piece, Integer> atLanding = new java.util.HashMap<>(atStart);
+        atLanding.put(piece, landing);
+        walk(piece, before, landing, () -> afterMove(atLanding));
     }
 
-    /** Says what a surprise did (otherwise the piece seems to jump for no reason), then asks questions. */
-    private void afterMove() {
+    /** After the dice move: capture sound, the surprise explanation and its walk, then questions. */
+    private void afterMove(java.util.Map<Piece, Integer> atLanding) {
         if (captureSoundPending) Sound.capture();
         captureSoundPending = false;
         showSurpriseIfAny();
-        resolveSpecials();
-        refresh();
+        animateChanges(atLanding, this::resolveSpecials);
+    }
+
+    /** Where every piece is now; compared later to walk what an action changed. */
+    private java.util.Map<Piece, Integer> positions() {
+        java.util.Map<Piece, Integer> map = new java.util.HashMap<>();
+        for (Game.Player player : game.getPlayers())
+            for (Piece piece : player.getPieces()) map.put(piece, piece.getProgress());
+        return map;
+    }
+
+    /**
+     * Walks, one after another, every piece that moved along the track since {@code before}
+     * (forward or back). Pieces sent to their castle, or straight to Finish Home, just appear there.
+     */
+    private void animateChanges(java.util.Map<Piece, Integer> before, Runnable then) {
+        java.util.List<Piece> moved = new java.util.ArrayList<>();
+        for (java.util.Map.Entry<Piece, Integer> e : before.entrySet()) {
+            int from = e.getValue(), to = e.getKey().getProgress();
+            if (from != to && from >= 0 && to >= 0 && Math.abs(to - from) <= 40) moved.add(e.getKey());
+        }
+        walkAll(moved, 0, before, then);
+    }
+
+    private void walkAll(java.util.List<Piece> moved, int i, java.util.Map<Piece, Integer> before, Runnable then) {
+        if (i >= moved.size()) { then.run(); return; }
+        Piece piece = moved.get(i);
+        walk(piece, before.get(piece), piece.getProgress(), () -> walkAll(moved, i + 1, before, then));
+    }
+
+    /**
+     * Shows a piece hopping from one square to the next, from {@code from} to {@code to}
+     * (about 0.1 s a square, a long move at most about 2 s), then runs {@code then}.
+     */
+    private void walk(Piece piece, int from, int to, Runnable then) {
+        if (from < 0) from = to;                       // leaving the castle: one hop onto the start square
+        int steps = Math.abs(to - from);
+        animating = true;
+        setControlsEnabled(false);
+        canvas.startHop(piece, from);
+        Sound.hop();
+        Timer timer = new Timer(steps == 0 ? 160 : Math.max(45, Math.min(110, 2200 / steps)), null);
+        final int target = to;
+        timer.addActionListener(e -> {
+            if (canvas.hopToward(target)) Sound.hop();
+            else {
+                timer.stop();
+                canvas.endHop();
+                animating = false;
+                then.run();
+            }
+        });
+        timer.start();
     }
 
     /**
@@ -360,7 +398,8 @@ public final class GameBoardScreen extends JPanel {
 
     /** The current player clicked an opponent piece for the "move an opponent back" surprise. */
     private void chooseSurpriseTarget(int playerIndex, int pieceIndex) {
-        if (!game.canSelectSurpriseTarget(playerIndex, pieceIndex)) return;
+        if (animating || !game.canSelectSurpriseTarget(playerIndex, pieceIndex)) return;
+        java.util.Map<Piece, Integer> beforeChoice = positions();
         Game.Player owner = game.getPlayers().get(playerIndex);
         Piece target = owner.getPieces().get(pieceIndex);
         int before = target.getProgress();
@@ -371,8 +410,7 @@ public final class GameBoardScreen extends JPanel {
                 owner.getName() + "'s piece " + (pieceIndex + 1) + " moves back " + moved + " step(s)"
                 + (moved < (die + 1) / 2 ? " (stopped by its start square or a Double Block)." : "."), null);
         showSurpriseIfAny();
-        resolveSpecials();
-        refresh();
+        animateChanges(beforeChoice, this::resolveSpecials);
     }
 
     private void setControlsEnabled(boolean enabled) {
@@ -391,20 +429,25 @@ public final class GameBoardScreen extends JPanel {
         canvas.setPointAtPieces(game.isAwaitingSurpriseTarget() || movesMade.getOrDefault(current, 0) < POINTER_MOVES);
     }
 
-    /** Answers are given by the player who just moved, before the turn advances. */
+    /**
+     * Answers are given by the player who just moved, before the turn advances. After each answer
+     * the result (and any surprise it led to) is explained, then the piece walks there; a landing on
+     * another question square asks again.
+     */
     private void resolveSpecials() {
-        int guard = 0;
-        while (game.getPendingQuestion() != null && !game.isAwaitingSurpriseTarget() && guard++ < 40) {
-            Question q = game.getPendingQuestion();
-            int selection = GameDialogs.askQuestion(this, q);
-            if (selection < 0) continue;     // the window only closes through an answer
-            boolean correct = controller.answer(selection);
-            if (correct) Sound.correct(); else Sound.wrong();
-            GameDialogs.showAnswerResult(this, correct, game.getMessage());
-            showSurpriseIfAny();
-            refresh();
+        if (game.getPendingQuestion() == null || game.isAwaitingSurpriseTarget()) {
+            refresh();       // while a surprise target is awaited, the board waits for a click
+            return;
         }
-        // While a surprise target is awaited, the board waits for a click (chooseSurpriseTarget).
+        Question q = game.getPendingQuestion();
+        int selection = GameDialogs.askQuestion(this, q);
+        if (selection < 0) { resolveSpecials(); return; }     // the window only closes through an answer
+        java.util.Map<Piece, Integer> beforeAnswer = positions();
+        boolean correct = controller.answer(selection);
+        if (correct) Sound.correct(); else Sound.wrong();
+        GameDialogs.showAnswerResult(this, correct, game.getMessage());
+        showSurpriseIfAny();
+        animateChanges(beforeAnswer, this::resolveSpecials);
     }
 
     private void refresh() {
@@ -814,11 +857,12 @@ public final class GameBoardScreen extends JPanel {
         @Override public void addNotify() { super.addNotify(); pulseTimer.start(); }
         @Override public void removeNotify() { pulseTimer.stop(); super.removeNotify(); }
 
-        void startHop(Piece piece, int fromProgress) { hopPiece = piece; hopProgress = fromProgress; }
-        /** Advances one square; returns false when the target was reached. */
-        boolean hopForward(int target) {
-            if (hopPiece == null || hopProgress >= target) return false;
-            hopProgress++;
+        void startHop(Piece piece, int fromProgress) { hopPiece = piece; hopProgress = fromProgress; repaint(); }
+        /** Moves one square towards the target (forward or back); returns false once it is there. */
+        boolean hopToward(int target) {
+            if (hopPiece == null || hopProgress == target) return false;
+            hopProgress += target > hopProgress ? 1 : -1;
+            repaint();   // the board is not redrawn on its own while nothing waits for a click
             return true;
         }
         void endHop() { hopPiece = null; repaint(); }
@@ -987,6 +1031,12 @@ public final class GameBoardScreen extends JPanel {
         }
 
         private void drawPieces(Graphics2D g, int left, int top, int cell) {
+            // Pieces that share a square (any colour) are drawn smaller, side by side, so none hides another.
+            java.util.Map<String, java.util.List<Piece>> sharing = new java.util.HashMap<>();
+            for (Game.Player player : game.getPlayers())
+                for (Piece piece : player.getPieces())
+                    if (piece != hopPiece && piece.getProgress() >= 0 && !piece.isFinished())
+                        sharing.computeIfAbsent(squareKey(piece, piece.getProgress()), k -> new java.util.ArrayList<>()).add(piece);
             for (Game.Player player : game.getPlayers()) {
                 for (Piece piece : player.getPieces()) {
                     int progress = piece == hopPiece ? hopProgress : piece.getProgress();
@@ -1001,26 +1051,42 @@ public final class GameBoardScreen extends JPanel {
                         drawPin(g, x, y, Math.max(12, cell / 2), color, -1, 0);
                         continue;
                     }
+                    double cx, cy;
+                    int size;
                     int ring = piece.ringAt(progress);
                     if (ring > 0) {
                         double inset = ring == 1 ? 1.0 : 2.0;
                         double side = 15 * cell + 2 * cell * inset;
                         double[] pos = outerPoint(piece.indexAt(progress), board.getRings().get(ring).size(),
                                 left - cell * inset, top - cell * inset, side);
-                        drawPin(g, (int) pos[0], (int) pos[1], Math.max(12, cell * 2 / 3), color, click, lift);
-                        continue;
+                        cx = pos[0]; cy = pos[1]; size = Math.max(12, cell * 2 / 3);
+                    } else {
+                        int[] point = progress >= piece.getCommonLength()
+                            ? homeCoordinates(piece.getColor(), progress - piece.getCommonLength())
+                            : PATH[piece.indexAt(progress)];
+                        cx = left + point[0] * cell + cell / 2.0;
+                        cy = top + point[1] * cell + cell / 2.0;
+                        size = Math.max(14, cell * 5 / 6);
                     }
-                    int[] point = progress >= piece.getCommonLength()
-                        ? homeCoordinates(piece.getColor(), progress - piece.getCommonLength())
-                        : PATH[piece.indexAt(progress)];
-                    int offsetX = ((piece.getNumber() - 1) % 2) * Math.max(3, cell / 7);
-                    int offsetY = ((piece.getNumber() - 1) / 2) * Math.max(3, cell / 7);
-                    int cx = left + point[0] * cell + cell / 2 + offsetX - cell / 14;
-                    int cy = top + point[1] * cell + cell / 2 + offsetY - cell / 14;
-                    drawPin(g, cx, cy, Math.max(14, cell * 5 / 6), color, click, lift);
+                    java.util.List<Piece> here = piece == hopPiece ? null : sharing.get(squareKey(piece, progress));
+                    if (here != null && here.size() > 1) {
+                        int slot = here.indexOf(piece), n = here.size();
+                        double dx = n == 2 ? (slot == 0 ? -.22 : .22) : (slot % 2 == 0 ? -.22 : .22);
+                        double dy = n == 2 ? 0 : (slot < 2 ? -.2 : .2);
+                        cx += dx * cell;
+                        cy += dy * cell;
+                        size = Math.max(10, (int) (size * .62));
+                    }
+                    drawPin(g, (int) cx, (int) cy, size, color, click, lift);
                 }
             }
             drawDoubleBlocks(g, left, top, cell);
+        }
+
+        /** Identifies the square a piece stands on (track square, or a square of its home path). */
+        private static String squareKey(Piece piece, int progress) {
+            if (progress >= piece.getCommonLength()) return "home:" + piece.getColor() + ":" + (progress - piece.getCommonLength());
+            return "track:" + piece.ringAt(progress) + ":" + piece.indexAt(progress);
         }
 
         /**
