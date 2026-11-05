@@ -24,6 +24,7 @@ import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.GradientPaint;
+import java.awt.Rectangle;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Point;
@@ -47,6 +48,7 @@ import javax.swing.AbstractAction;
 import javax.swing.JComponent;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
+import javax.swing.ToolTipManager;
 import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 import javax.swing.Timer;
@@ -98,6 +100,7 @@ public class GameSetupScreen extends JPanel {
     private int cw;
     private int top;
     private int rightX;
+    private int playersLabelY, levelLabelY, namesLabelY, buttonsY;
 
     public GameSetupScreen(Listener listener) {
         this.listener = listener;
@@ -289,35 +292,47 @@ public class GameSetupScreen extends JPanel {
         }
     }
 
+    /** Lecturer's prototype feedback: one step under the other - players, then level, then names. */
     @Override
     public void doLayout() {
         int w = getWidth();
         int h = getHeight();
         cw = Math.min(1120, w - 80);
         x0 = (w - cw) / 2;
-        top = Math.max(8, (h - 640) / 2);
+        // Heights: header, rows with their labels (12 px each), buttons. Short windows get a compact
+        // version so that all three steps and the buttons still fit (down to the 1000x700 minimum).
+        boolean compact = h < 752;
+        int header = compact ? 100 : 112, tileH = compact ? 104 : 122, cardH = compact ? 140 : 146;
+        int buttonGap = compact ? 6 : 16;
+        int fixed = header + 36 + tileH + cardH + 212 + buttonGap + 76;
+        int gap = Math.max(4, Math.min(30, (h - 16 - fixed) / 2));
+        top = Math.max(0, (h - fixed - 2 * gap) / 2);
 
-        int leftW = (int) (cw * 0.33f);
-        int tileW = (leftW - 2 * GAP) / 3;
-        rightX = x0 + leftW + 36;
-        int cardW = (x0 + cw - rightX - 2 * GAP) / 3;
-        int rowA = top + 124;
+        rightX = x0;                          // the level row now starts at the left edge too
+        int tileW = ((int) (cw * 0.42f) - 2 * GAP) / 3;
+        playersLabelY = top + header;
+        int rowA = playersLabelY + 12;
         for (int i = 0; i < countTiles.length; i++) {
-            countTiles[i].setBounds(x0 + i * (tileW + GAP), rowA, tileW, 146);
-        }
-        for (int i = 0; i < difficultyCards.length; i++) {
-            difficultyCards[i].setBounds(rightX + i * (cardW + GAP), rowA, cardW, 146);
+            countTiles[i].setBounds(x0 + i * (tileW + GAP), rowA, tileW, tileH);
         }
 
-        int rowB = top + 322;
+        levelLabelY = rowA + tileH + gap;
+        int rowB = levelLabelY + 12;
+        int cardW = (cw - 2 * GAP) / 3;
+        for (int i = 0; i < difficultyCards.length; i++) {
+            difficultyCards[i].setBounds(x0 + i * (cardW + GAP), rowB, cardW, cardH);
+        }
+
+        namesLabelY = rowB + cardH + gap;
+        int rowC = namesLabelY + 12;
         int pw = (cw - 3 * GAP) / 4;
         for (int i = 0; i < playerCards.length; i++) {
-            playerCards[i].setBase(x0 + i * (pw + GAP), rowB, pw, 212);
+            playerCards[i].setBase(x0 + i * (pw + GAP), rowC, pw, 212);
         }
 
-        int by = top + 556;
-        backBtn.setBounds(x0 - NeonButton.PAD, by, 200, 76);
-        startBtn.setBounds(x0 + cw - 280 + NeonButton.PAD, by, 280, 76);
+        buttonsY = rowC + 212 + buttonGap;
+        backBtn.setBounds(x0 - NeonButton.PAD, buttonsY, 200, 76);
+        startBtn.setBounds(x0 + cw - 280 + NeonButton.PAD, buttonsY, 280, 76);
     }
 
     @Override
@@ -333,15 +348,15 @@ public class GameSetupScreen extends JPanel {
 
         g2.setComposite(AlphaComposite.SrcOver.derive(intro(0f)));
         paintHeader(g2);
-        paintSection(g2, "01", "HOW MANY PLAYERS", x0, top + 112);
-        paintSection(g2, "02", "DIFFICULTY", rightX, top + 112);
-        paintSection(g2, "03", "WHO'S PLAYING", x0, top + 310);
+        paintSection(g2, "01", "HOW MANY PLAYERS", x0, playersLabelY);
+        paintSection(g2, "02", "DIFFICULTY", rightX, levelLabelY);
+        paintSection(g2, "03", "WHO'S PLAYING", x0, namesLabelY);
 
         g2.setFont(Theme.ui(12f, Font.PLAIN));
         g2.setColor(MUTED);
         String hint = "Click a colour to take it (you swap with its owner)  •  max " + GameConfig.NAME_MAX_LENGTH + " characters";
         FontMetrics fm = g2.getFontMetrics();
-        g2.drawString(hint, x0 + cw - fm.stringWidth(hint), top + 310);
+        g2.drawString(hint, x0 + cw - fm.stringWidth(hint), namesLabelY);
 
         paintStatus(g2);
         g2.dispose();
@@ -424,7 +439,7 @@ public class GameSetupScreen extends JPanel {
         }
         g.setFont(Theme.semibold(14f));
         FontMetrics fm = g.getFontMetrics();
-        float cy = top + 556 + 38;
+        float cy = buttonsY + 38;
         float shake = (float) Math.sin(statusPulse * 40) * 6f * statusPulse;
         float tw = fm.stringWidth(status);
         float cx = x0 + cw / 2f - tw / 2f + shake + 20;
@@ -563,11 +578,45 @@ public class GameSetupScreen extends JPanel {
                 @Override public void mouseExited(MouseEvent e) { hovered = false; }
                 @Override public void mousePressed(MouseEvent e) { setDifficulty(level); }
             });
+            setToolTipText("");   // registers the card; the text comes from getToolTipText(MouseEvent)
+            ToolTipManager.sharedInstance().setInitialDelay(150);
+            ToolTipManager.sharedInstance().setDismissDelay(20000);
         }
 
         void update(float dt) {
             hover = approach(hover, hovered ? 1f : 0f, dt, 12f);
             sel = approach(sel, difficulty == level ? 1f : 0f, dt, 12f);
+        }
+
+        /** The "!" square in the top-right corner of the card. */
+        private Rectangle infoBadge() { return new Rectangle(getWidth() - 36, 12, 22, 22); }
+
+        /** Lecturer's prototype feedback: hovering the "!" square explains the level. */
+        @Override
+        public String getToolTipText(MouseEvent e) {
+            Rectangle badge = infoBadge();
+            badge.grow(6, 6);
+            return badge.contains(e.getPoint()) ? explanation() : null;
+        }
+
+        private String explanation() {
+            String board, dice, start;
+            if (level.getExtraRings() == 0) {
+                board = "One track of 52 squares and a home path for each colour.";
+                dice = "Step die (1-6): you move the number you rolled.";
+                start = "Your start square (#) is next to your castle; your arrow leads into your home path.";
+            } else {
+                board = level.getExtraRings() == 1
+                        ? "The 52-square track with an outer track of 64 squares around it."
+                        : "The 52-square track with outer tracks of 64 and 72 squares around it.";
+                String die = level.hasUltraBoostDie() ? "ULTRA (1-6)" : "BOOST (1-3)";
+                dice = "Step die + " + die + " die: steps = Step &times; (" + die.substring(0, die.indexOf(' ')) + " &minus; 1).";
+                start = "Your start square (#) is in your corner of the outermost track. Each arrow of your colour"
+                        + " takes your piece to the next inner track, and the last one into your home path.";
+            }
+            return "<html><div style='width:300px'><b>" + level.getLabel() + "</b><br>" + board + "<br>" + dice
+                    + "<br>" + level.getProtectSquares() + " protection squares, " + level.getQuestionSquares()
+                    + " question squares, " + level.getSurpriseSquares() + " surprise squares.<br>" + start + "</div></html>";
         }
 
         @Override
@@ -632,8 +681,18 @@ public class GameSetupScreen extends JPanel {
                 g2.drawString(String.valueOf(counts[i]), ic + 12, icy + 4.5f);
             }
 
-            paintCheck(g2, w - 20, 20, 9 * sel, acc);
+            paintCheck(g2, w - 48, 23, 9 * sel, acc);
+            paintInfoBadge(g2, infoBadge());
             g2.dispose();
+        }
+
+        private void paintInfoBadge(Graphics2D g, Rectangle b) {
+            g.setColor(alpha(VIOLET, 200));
+            g.fill(new RoundRectangle2D.Float(b.x, b.y, b.width, b.height, 7, 7));
+            g.setColor(Color.WHITE);
+            g.setFont(Theme.ui(14f, Font.BOLD));
+            FontMetrics fm = g.getFontMetrics();
+            g.drawString("!", b.x + (b.width - fm.stringWidth("!")) / 2f, b.y + (b.height + fm.getAscent() - fm.getDescent()) / 2f);
         }
 
         /** Mini board: harder levels get extra rings around the cross. */
