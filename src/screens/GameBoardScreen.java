@@ -13,9 +13,8 @@ import model.Board;
 import model.GameConfig;
 import model.PlayerColor;
 import model.QuestionBank;
-import model.GameHistory;
-import java.nio.file.Paths;
-import java.io.File;
+import model.Question;
+import model.SysData;
 import java.util.Random;
 
 /** Polished responsive board view; all rules remain in model.Game. */
@@ -55,9 +54,7 @@ public final class GameBoardScreen extends JPanel {
         game = new Game(config, board);
         difficulty = config.getDifficulty();
         try {
-            File file = new File("data/questions.xml");
-            if (!file.isFile()) file = new File("Haina-main/data/questions.xml");
-            game.setQuestionBank(new QuestionBank(file, new Random()));
+            game.setQuestionBank(new QuestionBank(SysData.get(), new Random()));
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(this,
                     "Question bank could not be loaded: " + ex.getMessage(),
@@ -183,7 +180,10 @@ public final class GameBoardScreen extends JPanel {
         dicePanel.add(movementInfo, BorderLayout.EAST);
         information.add(dicePanel, BorderLayout.EAST);
         controls.add(information, BorderLayout.NORTH);
-        canvas.setOnPieceClicked(this::moveAnimated);
+        canvas.setOnPieceClicked(index -> {
+            if (game.isAwaitingSurpriseTarget()) chooseSurpriseTarget(index / 4, index % 4);
+            else moveAnimated(index);
+        });
 
         // Only the dice and the arrow are repainted here, and only while a roll is awaited.
         hintTimer = new Timer(90, e -> {
@@ -317,20 +317,50 @@ public final class GameBoardScreen extends JPanel {
     private void afterMove() {
         if (captureSoundPending) Sound.capture();
         captureSoundPending = false;
+        showSurpriseIfAny();
+        resolveSpecials();
+        refresh();
+    }
+
+    /**
+     * FR-28: tells the players what a surprise did. Called after every model action
+     * (a move, an answer, a chosen opponent), because each can land on a surprise square.
+     */
+    private void showSurpriseIfAny() {
         Game.SurpriseEvent surprise = game.getLastSurprise();
-        if (surprise != null && surprise != Game.SurpriseEvent.OPPONENT_BACK) {
-            String text;
-            switch (surprise) {
-                case DIRECT_FINISH: text = "Your piece goes straight to FINISH HOME!"; break;
-                case RETURN_CASTLE: text = "Your piece goes back to the castle."; break;
-                case BACK_THREE: text = "Your piece moves back up to 3 squares."; break;
-                case SKIP_NEXT_TURN: text = "You lose your next turn (or the extra turn from your 6)."; break;
-                default: text = "Roll again right now: Step die + ULTRA die (1-6).\n"
-                        + "Steps = Step x (ULTRA - 1)."; break;
-            }
-            Sound.surprise();
-            JOptionPane.showMessageDialog(this, text, "Surprise square!", JOptionPane.INFORMATION_MESSAGE);
+        if (surprise == null) return;
+        String text;
+        switch (surprise) {
+            case DIRECT_FINISH: text = "Your piece goes straight to FINISH HOME!"; break;
+            case RETURN_CASTLE: text = "Your piece goes back to the castle."; break;
+            case BACK_THREE: text = "Your piece moves back 3 squares (it stops before a Double Block)."; break;
+            case SKIP_NEXT_TURN: text = game.getMessage().contains("extra turn after 6 cancelled")
+                    ? "Your extra turn from the 6 is cancelled."
+                    : "You lose your next turn."; break;
+            case BONUS_ULTRABOOST: text = "Roll again right now with the Step die and the ULTRA die (1-6).\n"
+                    + "Steps = Step x (ULTRA - 1). This roll does not count as a 6 in a row."; break;
+            default: text = game.isAwaitingSurpriseTarget()
+                    ? "Choose an opponent's piece: click one of the glowing pieces on the board.\n"
+                      + "A die is rolled and that piece moves back half the result (rounded up)."
+                    : "No opponent piece can move back, so this surprise is cancelled."; break;
         }
+        Sound.surprise();
+        GameDialogs.showSurprise(this, surprise, text);
+    }
+
+    /** The current player clicked an opponent piece for the "move an opponent back" surprise. */
+    private void chooseSurpriseTarget(int playerIndex, int pieceIndex) {
+        if (!game.canSelectSurpriseTarget(playerIndex, pieceIndex)) return;
+        Game.Player owner = game.getPlayers().get(playerIndex);
+        Piece target = owner.getPieces().get(pieceIndex);
+        int before = target.getProgress();
+        int die = game.selectSurpriseTarget(playerIndex, pieceIndex);
+        int moved = before - target.getProgress();
+        Sound.capture();
+        GameDialogs.info(this, GameDialogs.SURPRISE, "DIE: " + die,
+                owner.getName() + "'s piece " + (pieceIndex + 1) + " moves back " + moved + " step(s)"
+                + (moved < (die + 1) / 2 ? " (stopped by its start square or a Double Block)." : "."), null);
+        showSurpriseIfAny();
         resolveSpecials();
         refresh();
     }
@@ -348,55 +378,23 @@ public final class GameBoardScreen extends JPanel {
         extraDice.setReady(rollReady && extraDice.getParent().isVisible());
         dicePointer.setActive(rollReady && !rolledOnce.contains(current));
         dicePointer.setColor(BoardCanvas.playerColor(current));
-        canvas.setPointAtPieces(movesMade.getOrDefault(current, 0) < POINTER_MOVES);
+        canvas.setPointAtPieces(game.isAwaitingSurpriseTarget() || movesMade.getOrDefault(current, 0) < POINTER_MOVES);
     }
 
     /** Answers are given by the player who just moved, before the turn advances. */
     private void resolveSpecials() {
         int guard = 0;
-        while ((game.getPendingQuestion() != null || game.isAwaitingSurpriseTarget()) && guard++ < 40) {
-            if (game.isAwaitingSurpriseTarget()) {
-                java.util.List<int[]> targets = new java.util.ArrayList<>();
-                java.util.List<String> labels = new java.util.ArrayList<>();
-                for (int p = 0; p < game.getPlayers().size(); p++)
-                    for (int i = 0; i < 4; i++)
-                        if (game.canSelectSurpriseTarget(p, i)) {
-                            targets.add(new int[]{p, i});
-                            labels.add(game.getPlayers().get(p).getName() + " – Piece " + (i+1));
-                        }
-                if (targets.isEmpty()) break;
-                Object selection = JOptionPane.showInputDialog(this,
-                    "Surprise! Select an opponent piece to move backward:", "Choose an opponent",
-                    JOptionPane.QUESTION_MESSAGE, null, labels.toArray(), labels.get(0));
-                if (selection == null) {
-                    JOptionPane.showMessageDialog(this, "Select a piece to continue.");
-                    continue;
-                }
-                int[] chosen = targets.get(labels.indexOf(selection.toString()));
-                int die = game.selectSurpriseTarget(chosen[0], chosen[1]);
-                JOptionPane.showMessageDialog(this, "Opponent Step Die: " + die
-                    + "\nMoves backward " + ((die+1)/2) + " step(s), subject to blocks.");
-                refresh();
-                continue;
-            }
-
-            QuestionBank.Question q = game.getPendingQuestion();
-            String[] choices = q.getAnswers();
-            int selection = JOptionPane.showOptionDialog(this,
-                    q.getText(), "Question – " + q.getLevel().toUpperCase(),
-                    JOptionPane.DEFAULT_OPTION, JOptionPane.QUESTION_MESSAGE,
-                    null, choices, choices[0]);
-            if (selection < 0) {
-                // Do not leave an unanswerable pending state; reopen the same question.
-                JOptionPane.showMessageDialog(this, "Please select an answer to continue.");
-                continue;
-            }
+        while (game.getPendingQuestion() != null && !game.isAwaitingSurpriseTarget() && guard++ < 40) {
+            Question q = game.getPendingQuestion();
+            int selection = GameDialogs.askQuestion(this, q);
+            if (selection < 0) continue;     // the window only closes through an answer
             boolean correct = game.answerQuestion(selection);
             if (correct) Sound.correct(); else Sound.wrong();
-            JOptionPane.showMessageDialog(this, game.getMessage(), correct ? "Correct!" : "Wrong answer",
-                    correct ? JOptionPane.INFORMATION_MESSAGE : JOptionPane.WARNING_MESSAGE);
+            GameDialogs.showAnswerResult(this, correct, game.getMessage());
+            showSurpriseIfAny();
             refresh();
         }
+        // While a surprise target is awaited, the board waits for a click (chooseSurpriseTarget).
     }
 
     private void refresh() {
@@ -431,8 +429,10 @@ public final class GameBoardScreen extends JPanel {
             BorderFactory.createEmptyBorder(10, 20, 10, 20)
         );
         playerTag.revalidate(); // the bigger font needs a new width, or long names are cut off
-        boolean highlight = notice != null || game.isAwaitingPiece();
-        status.setText(notice != null ? notice
+        boolean highlight = notice != null || game.isAwaitingPiece() || game.isAwaitingSurpriseTarget();
+        status.setText(game.isAwaitingSurpriseTarget()
+                ? "Surprise: " + current.getName() + ", click a glowing opponent piece to move it back."
+                : notice != null ? notice
                 : game.isAwaitingPiece() ? current.getName() + ": click a glowing piece on the board to move it."
                 : game.getMessage());
         status.setForeground(highlight ? GOLD : MUTED);
@@ -456,10 +456,11 @@ public final class GameBoardScreen extends JPanel {
             results.append(rank++).append(". ").append(player.getName()).append(" (")
                    .append(player.getColor()).append(")\n");
         long sec = game.getDurationSeconds();
+        results.append("\nDifficulty: ").append(game.getDifficulty().getLabel());   // FR-31
         results.append("\nDuration: ").append(String.format("%02d:%02d:%02d", sec/3600, sec/60%60, sec%60));
         try {
-            new GameHistory(Paths.get("data", "history.csv")).append(game);
-            results.append("\n\nResult saved to data/history.csv");
+            SysData.get().history().append(game);
+            results.append("\n\nResult saved to the game history.");
         } catch (java.io.IOException ex) {
             results.append("\n\nUnable to save result: ").append(ex.getMessage());
         }
@@ -771,7 +772,7 @@ public final class GameBoardScreen extends JPanel {
             this.config = config;
             // Created after game is set: Eclipse rejects a field initializer that reads game.
             pulseTimer = new Timer(90, e -> {
-                if (hopPiece == null && game.isAwaitingPiece()) { pulse += .35; repaint(); }
+                if (hopPiece == null && (game.isAwaitingPiece() || game.isAwaitingSurpriseTarget())) { pulse += .35; repaint(); }
             });
             setOpaque(false);
             setPreferredSize(new Dimension(620, 520));
@@ -810,6 +811,19 @@ public final class GameBoardScreen extends JPanel {
             return true;
         }
         void endHop() { hopPiece = null; repaint(); }
+
+        /**
+         * Click code for a piece, or -1: during a move it is the piece index (0-3) of the current
+         * player; while the "move an opponent back" surprise waits, it is player * 4 + piece.
+         */
+        private int clickIndex(Game.Player player, Piece piece) {
+            if (hopPiece != null) return -1;
+            if (game.isAwaitingSurpriseTarget()) {
+                int p = game.getPlayers().indexOf(player);
+                return game.canSelectSurpriseTarget(p, piece.getNumber() - 1) ? p * 4 + piece.getNumber() - 1 : -1;
+            }
+            return isMovable(player, piece) ? piece.getNumber() - 1 : -1;
+        }
 
         private boolean isMovable(Game.Player player, Piece piece) {
             return hopPiece == null && game.isAwaitingPiece() && player == game.getCurrentPlayer()
@@ -926,14 +940,23 @@ public final class GameBoardScreen extends JPanel {
             int c = left + 6 * cell, d = top + 6 * cell;
             g.setColor(new Color(32, 39, 65));
             g.fillRoundRect(c, d, 3 * cell, 3 * cell, 9, 9);
-            g.setColor(Color.WHITE);
-            g.setFont(new Font("SansSerif", Font.BOLD, Math.max(10, cell / 3)));
-            drawCentered(g, "FINISH", c + 3 * cell / 2, d + 3 * cell / 2 + 4);
-
             drawHomePath(g, left, top, cell, PlayerColor.RED);
             drawHomePath(g, left, top, cell, PlayerColor.GREEN);
             drawHomePath(g, left, top, cell, PlayerColor.YELLOW);
             drawHomePath(g, left, top, cell, PlayerColor.BLUE);
+
+            // The label goes on top of the home paths' last squares, on a dark pill so it stays readable.
+            int finishSize = Math.max(10, cell / 3);
+            g.setFont(new Font("SansSerif", Font.BOLD, finishSize));
+            while (finishSize > 7 && g.getFontMetrics().stringWidth("FINISH") > 3 * cell - 8)
+                g.setFont(new Font("SansSerif", Font.BOLD, --finishSize));
+            FontMetrics fm = g.getFontMetrics();
+            int pillW = fm.stringWidth("FINISH") + 10, pillH = fm.getHeight() + 2;
+            g.setColor(new Color(32, 39, 65));
+            g.fillRoundRect(c + 3 * cell / 2 - pillW / 2, d + 3 * cell / 2 - pillH / 2, pillW, pillH, pillH, pillH);
+            g.setColor(Color.WHITE);
+            g.drawString("FINISH", c + 3 * cell / 2 - fm.stringWidth("FINISH") / 2,
+                    d + 3 * cell / 2 + fm.getAscent() / 2 - 1);
 
             List<Board.Square> base = board.getRings().get(0);
             for (int i = 0; i < 52; i++) {
@@ -957,7 +980,7 @@ public final class GameBoardScreen extends JPanel {
                 for (Piece piece : player.getPieces()) {
                     int progress = piece == hopPiece ? hopProgress : piece.getProgress();
                     if (progress < 0) continue;
-                    int click = isMovable(player, piece) ? piece.getNumber() - 1 : -1;
+                    int click = clickIndex(player, piece);
                     double lift = piece == hopPiece ? cell * .35 : 0;
                     Color color = playerColor(piece.getColor());
                     if (progress >= piece.getFinishProgress()) {
@@ -984,6 +1007,49 @@ public final class GameBoardScreen extends JPanel {
                     int cx = left + point[0] * cell + cell / 2 + offsetX - cell / 14;
                     int cy = top + point[1] * cell + cell / 2 + offsetY - cell / 14;
                     drawPin(g, cx, cy, Math.max(14, cell * 5 / 6), color, click, lift);
+                }
+            }
+            drawDoubleBlocks(g, left, top, cell);
+        }
+
+        /**
+         * Two or more pieces of one player on a common-path square form a Double Block:
+         * the square gets a frame in the player's colour and a badge with the number of pieces.
+         */
+        private void drawDoubleBlocks(Graphics2D g, int left, int top, int cell) {
+            for (Game.Player player : game.getPlayers()) {
+                java.util.Map<Integer, Integer> count = new java.util.HashMap<>();
+                for (Piece piece : player.getPieces())
+                    if (piece != hopPiece && piece.isOnCommonPath())
+                        count.merge(piece.getRing() * 1000 + piece.getBoardIndex(), 1, Integer::sum);
+                for (java.util.Map.Entry<Integer, Integer> e : count.entrySet()) {
+                    if (e.getValue() < 2) continue;
+                    int ring = e.getKey() / 1000, index = e.getKey() % 1000;
+                    double cx, cy, size;
+                    if (ring == 0) {
+                        cx = left + PATH[index][0] * cell + cell / 2.0;
+                        cy = top + PATH[index][1] * cell + cell / 2.0;
+                        size = cell;
+                    } else {
+                        double inset = ring == 1 ? 1.0 : 2.0;
+                        double side = 15 * cell + 2 * cell * inset;
+                        int n = board.getRings().get(ring).size();
+                        double[] pos = outerPoint(index, n, left - cell * inset, top - cell * inset, side);
+                        cx = pos[0]; cy = pos[1]; size = side / (n / 4 + 1);
+                    }
+                    Color color = playerColor(player.getColor());
+                    g.setStroke(new BasicStroke(Math.max(2.5f, (float) size / 9f)));
+                    g.setColor(color.darker());
+                    g.drawRoundRect((int) (cx - size / 2), (int) (cy - size / 2), (int) size, (int) size, 8, 8);
+                    int badge = (int) Math.max(14, size * .45);
+                    int bx = (int) (cx + size / 2 - badge * .7), by = (int) (cy - size / 2 - badge * .3);
+                    g.setColor(Color.WHITE);
+                    g.fillOval(bx, by, badge, badge);
+                    g.setColor(color.darker());
+                    g.setStroke(new BasicStroke(2f));
+                    g.drawOval(bx, by, badge, badge);
+                    g.setFont(new Font("SansSerif", Font.BOLD, Math.max(9, badge * 2 / 3)));
+                    drawCentered(g, "\u00d7" + e.getValue(), bx + badge / 2, by + badge * 3 / 4);
                 }
             }
         }
