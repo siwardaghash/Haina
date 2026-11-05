@@ -1,6 +1,5 @@
 package app;
 
-import java.io.File;
 import java.util.Arrays;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
@@ -9,6 +8,7 @@ import javax.swing.JPasswordField;
 import javax.swing.JTextField;
 import java.awt.GridLayout;
 import model.AdminAuth;
+import model.SysData;
 
 /**
  * Team tool, not part of the game: adds an administrator account (one per team member)
@@ -19,7 +19,7 @@ public final class CreateAdmin {
     private CreateAdmin() { }
 
     public static void main(String[] args) throws Exception {
-        AdminAuth auth = new AdminAuth(new File("data/admin.xml"));
+        AdminAuth auth = SysData.get().admin();
         JTextField username = new JTextField(20);
         JPasswordField password = new JPasswordField(20);
         JPasswordField repeat = new JPasswordField(20);

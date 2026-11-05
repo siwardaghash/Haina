@@ -4,7 +4,6 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Font;
 import java.io.IOException;
-import java.nio.file.Paths;
 import java.util.List;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
@@ -14,7 +13,8 @@ import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.SwingConstants;
-import model.GameHistory;
+import model.GameRecord;
+import model.SysData;
 
 
 /** Read-only listing of completed games. */
@@ -33,12 +33,8 @@ public final class GameHistoryScreen extends JPanel {
         JLabel message = new JLabel(" ");
         message.setForeground(Color.WHITE);
         try {
-            List<String> rows = new GameHistory(Paths.get("data", "history.csv")).readRows();
-            for (int i = 1; i < rows.size(); i++) {
-                // CSV may contain quoted commas in player names.
-                java.util.List<String> fields = parseCsv(rows.get(i));
-                if (fields.size() == 8) model.addRow(fields.toArray());
-            }
+            for (GameRecord record : SysData.get().history().readRecords())
+                model.addRow(record.toCsvFields().toArray());
             if (model.getRowCount() == 0) message.setText("No completed games saved yet.");
         } catch (IOException e) { message.setText("Could not load history: " + e.getMessage()); }
 
@@ -122,19 +118,4 @@ public final class GameHistoryScreen extends JPanel {
     
         }
 
-    private static java.util.List<String> parseCsv(String row) {
-        java.util.List<String> values = new java.util.ArrayList<>();
-        StringBuilder value = new StringBuilder();
-        boolean quoted = false;
-        for (int i = 0; i < row.length(); i++) {
-            char c = row.charAt(i);
-            if (c == '"') {
-                if (quoted && i + 1 < row.length() && row.charAt(i + 1) == '"') { value.append('"'); i++; }
-                else quoted = !quoted;
-            } else if (c == ',' && !quoted) { values.add(value.toString()); value.setLength(0); }
-            else value.append(c);
-        }
-        values.add(value.toString());
-        return values;
-    }
 }

@@ -1,21 +1,21 @@
 package screens;
 
 import java.awt.*;
-import java.io.File;
 import java.util.Arrays;
 import javax.swing.*;
 import model.AdminAuth;
 import model.QuestionManager;
-import model.QuestionManager.Entry;
+import model.Question;
+import model.SysData;
 
 /** Login-protected local question editor. */
 public final class AdminScreen extends JPanel {
     private static final Color BG = new Color(12,21,46), TEXT = new Color(239,243,255);
     private final Runnable back;
-    private final AdminAuth auth = new AdminAuth(new File("data/admin.xml"));
+    private final AdminAuth auth = SysData.get().admin();
     private QuestionManager manager;
-    private final DefaultListModel<Entry> listModel = new DefaultListModel<>();
-    private final JList<Entry> list = new JList<>(listModel);
+    private final DefaultListModel<Question> listModel = new DefaultListModel<>();
+    private final JList<Question> list = new JList<>(listModel);
 
     public AdminScreen(Runnable back) {
         this.back=back;
@@ -80,7 +80,7 @@ public final class AdminScreen extends JPanel {
             try { valid=auth.authenticate(username.getText(),pwd); }
             finally { Arrays.fill(pwd,'\0'); }
             if (!valid) {JOptionPane.showMessageDialog(this,"Invalid username or password.","Access denied",JOptionPane.ERROR_MESSAGE);back.run();return;}
-            manager=new QuestionManager(new File("data/questions.xml"));
+            manager=new QuestionManager(SysData.get());
             buildEditor();
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(this,ex.getMessage(),"Question bank error",JOptionPane.ERROR_MESSAGE);
@@ -158,6 +158,19 @@ public final class AdminScreen extends JPanel {
         list.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         list.setFont(new Font("SansSerif",Font.PLAIN,15));
         list.setFixedCellHeight(34);
+        // FR-35: every row shows the level and the correct answer as well.
+        list.setCellRenderer(new DefaultListCellRenderer() {
+            @Override public Component getListCellRendererComponent(JList<?> l, Object value, int index,
+                                                                    boolean selected, boolean focus) {
+                super.getListCellRendererComponent(l, value, index, selected, focus);
+                if (value instanceof Question) {
+                    Question q = (Question) value;
+                    setText(q + "     \u2714 " + q.getCorrectNumber() + ". " + q.getAnswers()[q.getCorrect()]);
+                }
+                setBorder(BorderFactory.createEmptyBorder(0, 10, 0, 10));
+                return this;
+            }
+        });
         list.setBackground(new Color(25, 40, 72));
         list.setForeground(new Color(235, 242, 255));
 
@@ -191,7 +204,7 @@ public final class AdminScreen extends JPanel {
         styleAdminButton(delete, new Color(240, 96, 120), Color.WHITE);
         styleAdminButton(logout, new Color(55, 85, 140), Color.WHITE);
         add.addActionListener(e -> editQuestion(null));
-        edit.addActionListener(e -> {Entry q=list.getSelectedValue();if(q!=null)editQuestion(q);});
+        edit.addActionListener(e -> {Question q=list.getSelectedValue();if(q!=null)editQuestion(q);});
         delete.addActionListener(e -> deleteQuestion());
         logout.addActionListener(e -> back.run());
         controls.add(add);controls.add(edit);controls.add(delete);controls.add(logout);
@@ -212,15 +225,15 @@ public final class AdminScreen extends JPanel {
 
     private void refresh() {
         listModel.clear();
-        for (Entry e: manager.getAll()) listModel.addElement(e);
+        for (Question e: manager.getAll()) listModel.addElement(e);
     }
 
-    private void editQuestion(Entry existing) {
-        JTextField id=new JTextField(existing==null?"":existing.id,22);
-        JTextArea prompt=new JTextArea(existing==null?"":existing.text,3,32);
+    private void editQuestion(Question existing) {
+        JTextField id=new JTextField(existing==null?"":existing.getId(),22);
+        JTextArea prompt=new JTextArea(existing==null?"":existing.getText(),3,32);
         prompt.setLineWrap(true);prompt.setWrapStyleWord(true);
         JComboBox<String> level=new JComboBox<>(new String[]{"easy","medium","hard"});
-        if(existing!=null)level.setSelectedItem(existing.level);
+        if(existing!=null)level.setSelectedItem(existing.getLevel());
         JTextField[] answers=new JTextField[4];
         JPanel panel = new JPanel();
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
@@ -244,13 +257,13 @@ public final class AdminScreen extends JPanel {
         promptScroll.setAlignmentX(Component.LEFT_ALIGNMENT);
         panel.add(promptScroll);
         for (int i=0;i<4;i++) {
-            answers[i]=new JTextField(existing==null?"":existing.answers[i],22);
+            answers[i]=new JTextField(existing==null?"":existing.getAnswers()[i],22);
             answers[i].setAlignmentX(Component.LEFT_ALIGNMENT);
             panel.add(formLabel("Answer " + (i + 1) + ":"));
             panel.add(answers[i]);
         }
         JComboBox<Integer> correct=new JComboBox<>(new Integer[]{1,2,3,4});
-        if(existing!=null)correct.setSelectedItem(existing.correct);
+        if(existing!=null)correct.setSelectedItem(existing.getCorrectNumber());
         panel.add(formLabel("Correct answer number:"));
         correct.setAlignmentX(Component.LEFT_ALIGNMENT);
         panel.add(correct);
@@ -269,9 +282,9 @@ public final class AdminScreen extends JPanel {
         	);
         if(result!=JOptionPane.OK_OPTION)return;
         String[] values=new String[4];for(int i=0;i<4;i++)values[i]=answers[i].getText().trim();
-        Entry entry=new Entry(id.getText().trim(),(String)level.getSelectedItem(),prompt.getText().trim(),values,(Integer)correct.getSelectedItem());
+        Question entry=new Question(id.getText().trim(),(String)level.getSelectedItem(),prompt.getText().trim(),values,(Integer)correct.getSelectedItem()-1);
         try {
-            if(existing==null)manager.add(entry);else manager.update(existing.id,entry);
+            if(existing==null)manager.add(entry);else manager.update(existing.getId(),entry);
             refresh();
         } catch(Exception ex) {JOptionPane.showMessageDialog(this,ex.getMessage(),"Cannot save",JOptionPane.ERROR_MESSAGE);}
     }
@@ -343,9 +356,9 @@ public final class AdminScreen extends JPanel {
 	}
 
     private void deleteQuestion() {
-        Entry selected=list.getSelectedValue();if(selected==null)return;
-        if(JOptionPane.showConfirmDialog(this,"Delete " + selected.id + "?", "Confirm deletion",JOptionPane.YES_NO_OPTION)!=JOptionPane.YES_OPTION)return;
-        try {manager.delete(selected.id);refresh();}
+        Question selected=list.getSelectedValue();if(selected==null)return;
+        if(JOptionPane.showConfirmDialog(this,"Delete " + selected.getId() + "?", "Confirm deletion",JOptionPane.YES_NO_OPTION)!=JOptionPane.YES_OPTION)return;
+        try {manager.delete(selected.getId());refresh();}
         catch(Exception ex) {JOptionPane.showMessageDialog(this,ex.getMessage(),"Cannot delete",JOptionPane.ERROR_MESSAGE);}
     }
     private void styleAdminButton(JButton button, Color bg, Color fg) {
