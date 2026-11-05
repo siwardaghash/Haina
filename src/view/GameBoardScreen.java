@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 import javax.swing.*;
 import model.Game;
+import model.GameObserver;
 import model.Piece;
 import model.Board;
 import model.GameConfig;
@@ -213,8 +214,25 @@ public final class GameBoardScreen extends JPanel {
         refresh();
     }
 
-    @Override public void addNotify() { super.addNotify(); hintTimer.start(); clockTimer.start(); Sound.startMusic(); }
-    @Override public void removeNotify() { hintTimer.stop(); clockTimer.stop(); Sound.stopMusic(); super.removeNotify(); }
+    @Override public void addNotify() {
+        super.addNotify();
+        game.addObserver(observer);
+        hintTimer.start(); clockTimer.start(); Sound.startMusic();
+    }
+    @Override public void removeNotify() {
+        game.removeObserver(observer);
+        hintTimer.stop(); clockTimer.stop(); Sound.stopMusic();
+        super.removeNotify();
+    }
+
+    /**
+     * Observer (MVC): the model tells this screen after every action. The turn, dice and message
+     * panel follow it at once, unless an animation is running: then it is updated when the
+     * animation ends, so the panel does not run ahead of the piece that is still walking.
+     */
+    private final GameObserver observer = changed -> SwingUtilities.invokeLater(() -> {
+        if (!animating) refreshPanel();
+    });
 
     private void updateClock() {
         long sec = game.getDurationSeconds();   // stops counting when the game is over
@@ -450,7 +468,19 @@ public final class GameBoardScreen extends JPanel {
         animateChanges(beforeAnswer, this::resolveSpecials);
     }
 
+    /** Brings the whole screen up to date: the panel, and the final results once the game is over. */
     private void refresh() {
+        refreshPanel();
+        if (game.isGameOver() && !resultShown) {
+            resultShown = true;
+            Sound.stopMusic();
+            Sound.win();
+            SwingUtilities.invokeLater(this::showFinalResults);
+        }
+    }
+
+    /** The turn, dice, steps and message panel, and the board hints, as the model has them now. */
+    private void refreshPanel() {
         // Spell out the multiplier rule: steps = Step x (Boost - 1).
         int step = game.getStepDie();
         String extraName = difficulty.hasUltraBoostDie() || lastRollBonus ? "ULTRA" : "BOOST";
@@ -494,12 +524,6 @@ public final class GameBoardScreen extends JPanel {
         status.revalidate();
         updateHints();
         canvas.repaint();
-        if (game.isGameOver() && !resultShown) {
-            resultShown = true;
-            Sound.stopMusic();
-            Sound.win();
-            SwingUtilities.invokeLater(this::showFinalResults);
-        }
     }
 
     private void showFinalResults() {

@@ -1,22 +1,31 @@
-Ludo Code Quest - HAINA
+LUDO • Code Quest - team HAINA
+Software Engineering & SQA, University of Haifa, 2026
+Team: Lady Shannan, Joelle Naoum, Siwar Daghash, Layan Abu Rabea
+Repository: https://github.com/siwardaghash/Haina
 
-Updated: src/model/Game.java, src/screens/GameBoardScreen.java
-New: src/model/QuestionBank.java, data/questions.xml
+HOW TO RUN
+- Requires Java 19 (JDK/JRE 19, as in the course guide "מדריך JRE 19"); newer versions also work.
+- Double-click Haina.jar, or from a terminal:   java -jar Haina.jar
+- From Eclipse: run controller.Main (Run As > Java Application).
 
-Copy these four files to the matching locations in the same GitHub clone.
-IMPORTANT: Preserve the data/questions.xml directory in the repository.
-Run the application with the project's root directory as working directory (the directory containing src and data).
-If Eclipse uses the parent directory as working directory, GameBoardScreen also tries Haina-main/data/questions.xml.
+DATA FILES
+- On the first start a "data" folder is created next to the JAR
+  (when started from Eclipse: the "data" folder of the project).
+- data/history.csv  - game history, in the course template's exact columns (SRS DC-2).
+- data/questions.dat - question bank: the XML of SRS DC-7, stored encrypted (CR-1).
+  A starting bank is packed inside the JAR and copied here on the first start.
+- data/admin.xml    - administrator accounts for the question wizard (passwords stored as hashes).
+  Not in GitHub. A team member adds an account with controller.CreateAdmin (run from Eclipse).
 
-Current Implementation:
--Game setup, boards, dice, movement, and turn management.
--Capturing, Double Block, protected squares, and Home Paths.
--XML question bank with multiple-choice questions.
--Surprise squares and special events.
--Administrator login and question management.
--Game history saved in CSV.
--Interactive opening screen and How to Play instructions.
--End Game Results screen and Exit Game confirmation.
+PACKAGES (MVC)
+- model      - game rules and data: Board, Piece, Game, Question, QuestionBank, GameHistory, SysData...
+               Game is the subject of the Observer pattern (GameObserver).
+- view       - Swing screens: opening, How to Play, setup, board, end of game, history, question wizard.
+               The board screen observes the Game and shows its state.
+- controller - AppController (Singleton, switches screens), GameController, AdminController,
+               HistoryController, Main (start of the program) and CreateAdmin (team tool).
+  Every player action goes view -> controller -> model; the view only reads the model.
 
-Development Status:
-The main functionality and screens are implemented. Full integration testing and verification against the SRS are still in progress.
+BUILDING THE JAR
+- In a terminal, from the project folder:   sh build-jar.sh
+  The result is dist/Haina.jar (Main-Class controller.Main, compiled for Java 19).

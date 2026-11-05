@@ -1,4 +1,4 @@
-package app;
+package controller;
 
 import java.util.Arrays;
 import javax.swing.JLabel;

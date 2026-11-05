@@ -117,7 +117,15 @@ public final class Game {
     public boolean isAwaitingPiece() { return awaitingPiece; }
     public String getMessage() { return message; }
 
-    public void roll() {
+    // Observer (MVC): views register here and are told after every player action.
+    private final List<GameObserver> observers = new ArrayList<>();
+    public void addObserver(GameObserver observer) { if (!observers.contains(observer)) observers.add(observer); }
+    public void removeObserver(GameObserver observer) { observers.remove(observer); }
+    private void notifyObservers() { for (GameObserver o : new ArrayList<>(observers)) o.gameChanged(this); }
+
+    public void roll() { doRoll(); notifyObservers(); }
+
+    private void doRoll() {
         if (gameOver) throw new IllegalStateException("Game already finished");
         if (awaitingPiece || pendingQuestion != null || awaitingSurpriseTarget) throw new IllegalStateException("Resolve the current action first");
         currentRollIsBonus = bonusRollReady;
@@ -225,7 +233,9 @@ public final class Game {
         return captured;
     }
 
-    public void move(int index) {
+    public void move(int index) { doMove(index); notifyObservers(); }
+
+    private void doMove(int index) {
         if (gameOver || !awaitingPiece || !canMove(index)) throw new IllegalArgumentException("Illegal piece selection");
         lastSurprise = null;
         Player player = getCurrentPlayer();
@@ -274,6 +284,12 @@ public final class Game {
 
     /** Answer a pending question. A correct answer moves forward; incorrect moves backward. */
     public boolean answerQuestion(int chosenIndex) {
+        boolean correct = doAnswer(chosenIndex);
+        notifyObservers();
+        return correct;
+    }
+
+    private boolean doAnswer(int chosenIndex) {
         if (pendingQuestion == null || chosenIndex < 0 || chosenIndex > 3)
             throw new IllegalStateException("No valid answer to submit");
         lastSurprise = null;
@@ -365,6 +381,12 @@ public final class Game {
 
     /** Resolve the 10% opponent-back event after the active player selects a target. */
     public int selectSurpriseTarget(int playerIndex, int pieceIndex) {
+        int die = doSelectSurpriseTarget(playerIndex, pieceIndex);
+        notifyObservers();
+        return die;
+    }
+
+    private int doSelectSurpriseTarget(int playerIndex, int pieceIndex) {
         if (!canSelectSurpriseTarget(playerIndex, pieceIndex))
             throw new IllegalArgumentException("Choose a movable opponent piece");
         awaitingSurpriseTarget = false;

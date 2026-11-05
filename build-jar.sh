@@ -14,7 +14,7 @@ rm -rf build
 mkdir -p build/classes/defaults dist
 "$JAVA_HOME/bin/javac" --release 19 -encoding UTF-8 -d build/classes $(find src -name '*.java')
 cp data/questions.dat build/classes/defaults/questions.dat
-printf 'Main-Class: app.Main\n' > build/manifest.txt
+printf 'Main-Class: controller.Main\n' > build/manifest.txt
 "$JAVA_HOME/bin/jar" cfm dist/Haina.jar build/manifest.txt -C build/classes .
 rm -rf build
 echo "Built dist/Haina.jar"
