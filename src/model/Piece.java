@@ -14,14 +14,32 @@ public final class Piece {
         this.number = number;
         int[][] sizes = {{52}, {64,52}, {72,64,52}};
         this.trackSizes = sizes[difficulty.ordinal()].clone();
-        // Squares walked on each track: outer tracks are full laps; on the base track the
-        // piece stops at its arrow, two squares before its start, so it walks 51 squares.
-        this.lapLengths = trackSizes.clone();
-        lapLengths[lapLengths.length - 1] = trackSizes[trackSizes.length - 1] - 1;
+        // The route, as in the project document's board pictures (indices for red; the
+        // other colours are rotated by a quarter of each ring):
+        //  - outermost ring: from the corner start (#) to the colour's arrow;
+        //  - every inner ring: entered on the square next to the outer arrow, which is the square
+        //    right after this ring's own arrow, then a full lap ending on that arrow;
+        //  - the base ring's arrow leads into the home path.
+        int rings = trackSizes.length;
+        this.firstIndex = new int[rings];
+        this.lapLengths = new int[rings];
+        for (int i = 0; i < rings; i++) {
+            int size = trackSizes[i];
+            boolean base = i == rings - 1;
+            int arrow = base ? size - 2 : size - Board.ARROW_BEFORE_CORNER;
+            if (i == 0) {                       // outermost: from the start corner to the arrow
+                firstIndex[i] = 0;
+                lapLengths[i] = arrow + 1;
+            } else {                            // inner: one full lap, entry = square after the arrow
+                firstIndex[i] = (arrow + 1) % size;
+                lapLengths[i] = size;
+            }
+        }
         int total = 0;
         for (int length : lapLengths) total += length;
         commonLength = total;
     }
+    private final int[] firstIndex;
     private final int[] lapLengths;
     public PlayerColor getColor() { return color; }
     public int getNumber() { return number; }
@@ -50,7 +68,7 @@ public final class Piece {
         int p = routeProgress;
         for (int i = 0; i < trackSizes.length; i++) {
             int size = trackSizes[i];
-            if (p < lapLengths[i]) return (color.ordinal() * (size / 4) + p) % size;
+            if (p < lapLengths[i]) return (color.ordinal() * (size / 4) + firstIndex[i] + p) % size;
             p -= lapLengths[i];
         }
         return -1;
