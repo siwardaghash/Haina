@@ -20,6 +20,8 @@ public final class Board {
         public PlayerColor getOwner() { return owner; }
     }
 
+    /** On an outer ring the arrow is this many squares before its colour's corner start. */
+    public static final int ARROW_BEFORE_CORNER = 7;
     private final List<List<Square>> rings = new ArrayList<>();
     private final Difficulty difficulty;
 
@@ -36,16 +38,18 @@ public final class Board {
             rings.add(Collections.unmodifiableList(ring));
         }
         // Starts are on the outermost ring. Each arrow is the last square
-        // before its owner's next inner track (or home path for the base ring).
-        // On the base ring it is the middle square at the tip of the arm, two squares
-        // before the start, as in the project document's board pictures.
+        // before its owner's next inner track (or home path for the base ring),
+        // placed as in the project document's board pictures:
+        // base ring - the middle square at the tip of the arm, two squares before the start;
+        // outer rings - on the side, at the height of the arm (a "staircase" towards the
+        // centre), seven squares before the corner start.
         PlayerColor[] colors = {PlayerColor.RED, PlayerColor.GREEN,
                 PlayerColor.YELLOW, PlayerColor.BLUE};
         for (int r = 0; r < rings.size(); r++) {
             List<Square> ring = rings.get(r);
             for (int i = 0; i < colors.length; i++) {
                 int start = i * ring.size() / 4;
-                int before = r == 0 ? 2 : 1;
+                int before = r == 0 ? 2 : ARROW_BEFORE_CORNER;
                 Square arrow = ring.get((start + ring.size() - before) % ring.size());
                 arrow.type = SquareType.ARROW;
                 arrow.owner = colors[i];
