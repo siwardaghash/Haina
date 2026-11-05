@@ -940,7 +940,6 @@ public final class GameBoardScreen extends JPanel {
             drawCastle(g, left, top, cell, 9, 0, PlayerColor.GREEN);
             drawCastle(g, left, top, cell, 9, 9, PlayerColor.YELLOW);
             drawCastle(g, left, top, cell, 0, 9, PlayerColor.BLUE);
-            if (extra >= 1) drawStartGuides(g, left, top, cell, extra);
 
             // Central finish home.
             int c = left + 6 * cell, d = top + 6 * cell;
@@ -1111,55 +1110,6 @@ public final class GameBoardScreen extends JPanel {
                 case GREEN: return new int[]{7, index + 1};
                 case YELLOW: return new int[]{13 - index, 7};
                 default: return new int[]{7, 13 - index};
-            }
-        }
-
-        /**
-         * Lecturer's prototype feedback: on Medium and Hard the start square (#) is in the corner of the
-         * outermost track, away from the castle. A dashed arrow in the player's colour leads from each
-         * castle to its start square, and the start square gets a frame.
-         */
-        private void drawStartGuides(Graphics2D g, int left, int top, int cell, int extra) {
-            double inset = extra == 1 ? 1.0 : 2.0;
-            double side = 15 * cell + 2 * cell * inset;
-            int n = board.getRings().get(extra).size();
-            double square = side / (n / 4 + 1);
-            PlayerColor[] colors = {PlayerColor.RED, PlayerColor.GREEN, PlayerColor.YELLOW, PlayerColor.BLUE};
-            double[][] corners = {{left, top}, {left + 15 * cell, top}, {left + 15 * cell, top + 15 * cell}, {left, top + 15 * cell}};
-            for (int i = 0; i < 4; i++) {
-                double[] start = outerPoint(i * n / 4, n, left - cell * inset, top - cell * inset, side);
-                double fx = corners[i][0] + (i == 0 || i == 3 ? 1 : -1) * cell * 0.9;
-                double fy = corners[i][1] + (i < 2 ? 1 : -1) * cell * 0.9;
-                double dx = start[0] - fx, dy = start[1] - fy, len = Math.hypot(dx, dy);
-                double tx = start[0] - dx / len * square * 0.62, ty = start[1] - dy / len * square * 0.62;
-                Color color = playerColor(colors[i]).darker();
-                float width = Math.max(3f, cell / 9f);
-                g.setStroke(new BasicStroke(width + 2.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-                g.setColor(new Color(255, 255, 255, 200));
-                g.draw(new java.awt.geom.Line2D.Double(fx, fy, tx, ty));
-                g.setStroke(new BasicStroke(width, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND, 1f,
-                        new float[]{width * 2.2f, width * 1.6f}, 0f));
-                g.setColor(color);
-                g.draw(new java.awt.geom.Line2D.Double(fx, fy, tx, ty));
-                // arrow head at the start square
-                double ang = Math.atan2(dy, dx), head = Math.max(8, cell * .32);
-                java.awt.geom.Path2D tip = new java.awt.geom.Path2D.Double();
-                tip.moveTo(tx + Math.cos(ang) * head * .35, ty + Math.sin(ang) * head * .35);
-                tip.lineTo(tx - Math.cos(ang - .5) * head, ty - Math.sin(ang - .5) * head);
-                tip.lineTo(tx - Math.cos(ang + .5) * head, ty - Math.sin(ang + .5) * head);
-                tip.closePath();
-                g.setColor(Color.WHITE);
-                g.setStroke(new BasicStroke(2f));
-                g.draw(tip);
-                g.setColor(color);
-                g.fill(tip);
-                // frame around the start square
-                g.setStroke(new BasicStroke(3f));
-                g.setColor(Color.WHITE);
-                g.drawRoundRect((int) (start[0] - square / 2 - 2), (int) (start[1] - square / 2 - 2), (int) square + 4, (int) square + 4, 8, 8);
-                g.setStroke(new BasicStroke(2f));
-                g.setColor(color);
-                g.drawRoundRect((int) (start[0] - square / 2 - 4), (int) (start[1] - square / 2 - 4), (int) square + 8, (int) square + 8, 10, 10);
             }
         }
 
