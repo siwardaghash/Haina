@@ -206,6 +206,43 @@ public final class Game {
         return reachable > 0 && !hasFullMove();
     }
 
+    /**
+     * FR-17, for the board's messages: the route position of the opposing Double Block that
+     * stops this piece with the current dice, or -1 when no block is in its way.
+     */
+    public int getBlockAhead(Piece piece) {
+        if (piece.isFinished()) return -1;
+        if (piece.isInCastle())
+            return stepDie == 6 && hasOpposingBlock(piece.getColor(), piece.ringAt(0), piece.indexAt(0)) ? 0 : -1;
+        int requested = requestedMovement(piece);
+        if (requested <= 0 || !piece.isOnCommonPath()) return -1;
+        for (int distance = 1; distance <= requested; distance++) {
+            int progress = piece.getProgress() + distance;
+            if (progress >= piece.getCommonLength()) return -1;
+            if (hasOpposingBlock(piece.getColor(), piece.ringAt(progress), piece.indexAt(progress))) return progress;
+        }
+        return -1;
+    }
+
+    /** Why the current player's piece (0-3) cannot be moved with this roll, or null when it can. */
+    public String explainCannotMove(int index) {
+        if (gameOver || index < 0 || index >= 4 || canMove(index)) return null;
+        if (!rollAvailable) return "Roll the dice first.";
+        Piece piece = getCurrentPlayer().pieces.get(index);
+        if (piece.isFinished()) return "This piece is already home.";
+        if (piece.isInCastle())
+            return stepDie != 6 ? "Only a 6 brings a piece out of the castle." : "A Double Block is on the start square.";
+        int requested = requestedMovement(piece);
+        if (requested <= 0) return "0 steps this roll.";
+        if (piece.getProgress() + requested > piece.getFinishProgress()) return "Needs an exact roll to reach FINISH.";
+        int reachable = reachableMovement(piece);
+        if (reachable == 0) return "A Double Block is right ahead.";
+        return "Blocked ahead: another piece can move all " + requested + " steps.";
+    }
+
+    /** Start, protection and surprise squares are safe: nobody is captured there (see isProtected). */
+    public boolean isSafeSquare(int ring, int boardIndex) { return isProtected(ring, boardIndex); }
+
     private boolean hasAnyLegalMove() {
         for (int i = 0; i < 4; i++) if (canMove(i)) return true;
         return false;

@@ -195,6 +195,7 @@ public final class GameBoardScreen extends JPanel {
             if (game.isAwaitingSurpriseTarget()) chooseSurpriseTarget(index / 4, index % 4);
             else moveAnimated(index);
         });
+        canvas.setOnStuckPieceClicked(this::explainStuckPiece);
 
         // Only the dice and the arrow are repainted here, and only while a roll is awaited.
         hintTimer = new Timer(90, e -> {
@@ -270,6 +271,12 @@ public final class GameBoardScreen extends JPanel {
         controller.roll();
         Sound.roll();
         notice = explainUnusedRoll(roller, allInCastle);
+        java.util.List<Runnable> blockMessages = new java.util.ArrayList<>();
+        if (notice != null)
+            for (Piece p : roller.getPieces()) {
+                int block = game.getBlockAhead(p);
+                if (block >= 0) blockMessages.add(() -> sayBlock(p, block, "Double Block: can't pass"));
+            }
         animating = true;
         setControlsEnabled(false);
         boolean showExtra = game.getExtraDie() > 0;
@@ -285,6 +292,7 @@ public final class GameBoardScreen extends JPanel {
                 timer.stop();
                 animating = false;
                 refresh();
+                blockMessages.forEach(Runnable::run);
             }
         });
         timer.start();
@@ -319,13 +327,68 @@ public final class GameBoardScreen extends JPanel {
         Piece piece = game.getCurrentPlayer().getPieces().get(index);
         java.util.Map<Piece, Integer> atStart = positions();
         int before = piece.getProgress();
+        int block = game.getBlockAhead(piece);
         controller.move(index);
         captureSoundPending = game.getMessage().contains("Captured");
+        boolean stopped = game.getMessage().contains("Double Block");
+        boolean captured = captureSoundPending;
         int landing = game.getLastLanding();
         // Where everything stands once the dice move is walked (before any surprise moved it again).
         java.util.Map<Piece, Integer> atLanding = new java.util.HashMap<>(atStart);
         atLanding.put(piece, landing);
-        walk(piece, before, landing, () -> afterMove(atLanding));
+        walk(piece, before, landing, () -> {
+            announceLanding(piece, landing, captured);
+            if (stopped && block >= 0) sayBlock(piece, block, "Double Block: can't pass");
+            afterMove(atLanding);
+        });
+    }
+
+    /**
+     * Bonus: small messages right at the square where a special rule just happened:
+     * a capture, a new Double Block, or a safe square where nobody can be captured.
+     */
+    private void announceLanding(Piece piece, int landing, boolean captured) {
+        if (landing < 0 || landing >= piece.getCommonLength()) return;
+        Color color = BoardCanvas.playerColor(piece.getColor());
+        int ring = piece.ringAt(landing), index = piece.indexAt(landing);
+        int own = 0;
+        boolean opponentHere = false;
+        for (Game.Player player : game.getPlayers())
+            for (Piece other : player.getPieces())
+                if (other.isOnCommonPath() && other.getRing() == ring && other.getBoardIndex() == index) {
+                    if (other.getColor() == piece.getColor()) own++;
+                    else opponentHere = true;
+                }
+        if (captured) canvas.say(piece, landing, "Captured! Back to the castle", color);
+        else if (own >= 2) canvas.say(piece, landing, "Double Block formed!", color);
+        else if (opponentHere && game.isSafeSquare(ring, index)) canvas.say(piece, landing, "Safe square: no capture", color);
+    }
+
+    /** The message over an opposing Double Block, at the route position {@code block} of {@code piece}. */
+    private void sayBlock(Piece piece, int block, String text) {
+        Color owner = BoardCanvas.playerColor(piece.getColor());
+        int ring = piece.ringAt(block), index = piece.indexAt(block);
+        for (Game.Player player : game.getPlayers()) {
+            if (player.getColor() == piece.getColor()) continue;
+            int count = 0;
+            for (Piece other : player.getPieces())
+                if (other.isOnCommonPath() && other.getRing() == ring && other.getBoardIndex() == index) count++;
+            if (count >= 2) owner = BoardCanvas.playerColor(player.getColor());
+        }
+        canvas.say(piece, block, text, owner);
+    }
+
+    /** A click on one of the current player's pieces that cannot move: say why, where it happens. */
+    private void explainStuckPiece(int index) {
+        if (animating) return;
+        Piece piece = game.getCurrentPlayer().getPieces().get(index);
+        String reason = game.explainCannotMove(index);
+        if (reason == null) return;
+        int block = game.getBlockAhead(piece);
+        if (block >= 0) sayBlock(piece, block, "Double Block: piece " + piece.getNumber() + " can't pass");
+        if (block < 0 || reason.startsWith("Blocked ahead"))
+            canvas.say(piece, piece.getProgress(), reason, BoardCanvas.playerColor(piece.getColor()));
+        Sound.wrong();
     }
 
     /** After the dice move: capture sound, the surprise explanation and its walk, then questions. */
@@ -461,11 +524,19 @@ public final class GameBoardScreen extends JPanel {
         int selection = GameDialogs.askQuestion(this, q);
         if (selection < 0) { resolveSpecials(); return; }     // the window only closes through an answer
         java.util.Map<Piece, Integer> beforeAnswer = positions();
+        Game.Player answering = game.getCurrentPlayer();
         boolean correct = controller.answer(selection);
         if (correct) Sound.correct(); else Sound.wrong();
+        boolean capturedByAnswer = game.getMessage().contains("Captured");
         GameDialogs.showAnswerResult(this, correct, game.getMessage());
+        java.util.Map<Piece, Integer> afterAnswer = positions();
         showSurpriseIfAny();
-        animateChanges(beforeAnswer, this::resolveSpecials);
+        animateChanges(beforeAnswer, () -> {
+            for (Piece p : answering.getPieces())     // where the answer took the piece
+                if (beforeAnswer.get(p).intValue() != afterAnswer.get(p).intValue() && afterAnswer.get(p) >= 0)
+                    announceLanding(p, afterAnswer.get(p), capturedByAnswer);
+            resolveSpecials();
+        });
     }
 
     /** Brings the whole screen up to date: the panel, and the final results once the game is over. */
@@ -843,6 +914,27 @@ public final class GameBoardScreen extends JPanel {
         private final List<Integer> hitIndexes = new ArrayList<>();
         private boolean pointAtPieces;
         private java.util.function.IntConsumer onPieceClicked = index -> { };
+        /** The current player's pieces that cannot move with this roll; a click explains why. */
+        private final List<Rectangle> stuckBoxes = new ArrayList<>();
+        private final List<Integer> stuckIndexes = new ArrayList<>();
+        private java.util.function.IntConsumer onStuckPieceClicked = index -> { };
+
+        /** Bonus: a short message shown for a few seconds right above the square where something happened. */
+        private static final class Bubble {
+            final Piece piece; final int progress; final String text; final Color accent; final long born;
+            Bubble(Piece piece, int progress, String text, Color accent) {
+                this.piece = piece; this.progress = progress; this.text = text; this.accent = accent;
+                born = System.currentTimeMillis();
+            }
+        }
+        private static final long BUBBLE_MILLIS = 3200;
+        private final List<Bubble> bubbles = new ArrayList<>();
+        private final Timer bubbleTimer = new Timer(40, e -> {
+            long now = System.currentTimeMillis();
+            bubbles.removeIf(b -> now - b.born > BUBBLE_MILLIS);
+            if (bubbles.isEmpty()) ((Timer) e.getSource()).stop();
+            repaint();
+        });
 
         BoardCanvas(Board board, GameConfig config, Game game) {
             this.game = game;
@@ -857,7 +949,9 @@ public final class GameBoardScreen extends JPanel {
             addMouseListener(new MouseAdapter() {
                 @Override public void mouseClicked(MouseEvent e) {
                     int index = pieceAt(e.getPoint());
-                    if (index >= 0) onPieceClicked.accept(index);
+                    if (index >= 0) { onPieceClicked.accept(index); return; }
+                    for (int i = stuckBoxes.size() - 1; i >= 0; i--)
+                        if (stuckBoxes.get(i).contains(e.getPoint())) { onStuckPieceClicked.accept(stuckIndexes.get(i)); return; }
                 }
             });
             addMouseMotionListener(new MouseAdapter() {
@@ -869,6 +963,25 @@ public final class GameBoardScreen extends JPanel {
         }
 
         void setOnPieceClicked(java.util.function.IntConsumer listener) { onPieceClicked = listener; }
+        void setOnStuckPieceClicked(java.util.function.IntConsumer listener) { onStuckPieceClicked = listener; }
+
+        /** Shows {@code text} above the square of {@code piece} at route position {@code progress} (-1: its castle place). */
+        void say(Piece piece, int progress, String text, Color accent) {
+            bubbles.removeIf(b -> b.piece == piece && b.progress == progress);
+            bubbles.add(new Bubble(piece, progress, text, accent));
+            if (bubbles.size() > 3) bubbles.remove(0);
+            bubbleTimer.start();
+            repaint();
+        }
+
+        /** A current-player piece that cannot move: remember where it is, so a click on it can be explained. */
+        private void addStuckBox(Game.Player player, Piece piece, int cx, int cy, int size) {
+            if (hopPiece != null || !game.isAwaitingPiece() || player != game.getCurrentPlayer()
+                    || game.canMove(piece.getNumber() - 1) || piece.isFinished()) return;
+            int h = size, w = (int) (size * .78), pad = Math.max(4, size / 5), baseY = cy + h / 2;
+            stuckBoxes.add(new Rectangle(cx - w / 2 - pad, baseY - h - pad, w + 2 * pad, h + 2 * pad));
+            stuckIndexes.add(piece.getNumber() - 1);
+        }
         void setPointAtPieces(boolean point) { pointAtPieces = point; }
 
         /** The last drawn piece is on top, so search backwards. */
@@ -879,7 +992,7 @@ public final class GameBoardScreen extends JPanel {
         }
 
         @Override public void addNotify() { super.addNotify(); pulseTimer.start(); }
-        @Override public void removeNotify() { pulseTimer.stop(); super.removeNotify(); }
+        @Override public void removeNotify() { pulseTimer.stop(); bubbleTimer.stop(); super.removeNotify(); }
 
         void startHop(Piece piece, int fromProgress) { hopPiece = piece; hopProgress = fromProgress; repaint(); }
         /** Moves one square towards the target (forward or back); returns false once it is there. */
@@ -1071,6 +1184,8 @@ public final class GameBoardScreen extends JPanel {
             g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             hitBoxes.clear();
             hitIndexes.clear();
+            stuckBoxes.clear();
+            stuckIndexes.clear();
             int extra = board.getRings().size() - 1;
 
             int maxCell = extra == 0 ? 48 : 39;
@@ -1128,6 +1243,7 @@ public final class GameBoardScreen extends JPanel {
                 }
             }
             drawPieces(g, left, top, cell);
+            drawBubbles(g, left, top, cell);
             g.dispose();
         }
 
@@ -1179,6 +1295,7 @@ public final class GameBoardScreen extends JPanel {
                         size = Math.max(10, (int) (size * .62));
                     }
                     drawPin(g, (int) cx, (int) cy, size, color, click, lift);
+                    if (click < 0) addStuckBox(player, piece, (int) cx, (int) cy, size);
                 }
             }
             drawDoubleBlocks(g, left, top, cell);
@@ -1232,6 +1349,83 @@ public final class GameBoardScreen extends JPanel {
             }
         }
 
+        /** Centre of the square a piece stands on at {@code progress}; -1 is its place in the castle. */
+        private double[] squareCenter(Piece piece, int progress, int left, int top, int cell) {
+            if (progress < 0) {
+                PlayerColor color = piece.getColor();
+                int x = color == PlayerColor.GREEN || color == PlayerColor.YELLOW ? 9 : 0;
+                int y = color == PlayerColor.YELLOW || color == PlayerColor.BLUE ? 9 : 0;
+                int i = piece.getNumber() - 1;
+                return new double[]{left + (x + (i % 2 == 0 ? 2 : 4)) * cell, top + (y + (i / 2 == 0 ? 2 : 4)) * cell};
+            }
+            if (progress >= piece.getFinishProgress()) return new double[]{left + 7.5 * cell, top + 7.5 * cell};
+            int ring = piece.ringAt(progress);
+            if (ring > 0) {
+                double inset = ring == 1 ? 1.0 : 2.0;
+                return outerPoint(piece.indexAt(progress), board.getRings().get(ring).size(),
+                        left - cell * inset, top - cell * inset, 15 * cell + 2 * cell * inset);
+            }
+            int[] point = progress >= piece.getCommonLength()
+                    ? homeCoordinates(piece.getColor(), progress - piece.getCommonLength())
+                    : PATH[piece.indexAt(progress)];
+            return new double[]{left + point[0] * cell + cell / 2.0, top + point[1] * cell + cell / 2.0};
+        }
+
+        /** Each message is a white rounded box with a pointer down to its square; it pops in and fades out. */
+        private void drawBubbles(Graphics2D g, int left, int top, int cell) {
+            long now = System.currentTimeMillis();
+            Font font = new Font("SansSerif", Font.BOLD, Math.max(11, Math.min(15, cell / 3)));
+            List<Rectangle> placed = new ArrayList<>();   // later messages move aside instead of covering earlier ones
+            for (Bubble b : bubbles) {
+                long age = now - b.born;
+                float alpha = age < 150 ? age / 150f : age > BUBBLE_MILLIS - 450 ? Math.max(0, (BUBBLE_MILLIS - age) / 450f) : 1f;
+                double rise = age < 150 ? (1 - age / 150.0) * 8 : 0;
+                double[] at = squareCenter(b.piece, b.progress, left, top, cell);
+                Graphics2D c = (Graphics2D) g.create();
+                c.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, Math.min(1f, alpha)));
+                c.setFont(font);
+                FontMetrics fm = c.getFontMetrics();
+                int padX = 10, w = fm.stringWidth(b.text) + 2 * padX + 8, h = fm.getHeight() + 10, tip = 7;
+                int tipX = (int) at[0], tipY = (int) (at[1] - cell * .42 + rise);
+                int x = Math.max(4, Math.min(getWidth() - w - 4, tipX - w / 2));
+                int y = tipY - tip - h;
+                if (y < 4) {               // no room above (top row): show it below the square instead
+                    tipY = (int) (at[1] + cell * .42 - rise);
+                    y = tipY + tip;
+                }
+                boolean below = y > tipY;
+                for (int tries = 0; tries < 6; tries++) {
+                    Rectangle box = new Rectangle(x, y, w, h);
+                    Rectangle hit = null;
+                    for (Rectangle r : placed) if (r.intersects(box)) hit = r;
+                    if (hit == null) break;
+                    y = below ? hit.y + hit.height + 4 : hit.y - h - 4;
+                    if (y < 4) { below = true; y = hit.y + hit.height + 4; }
+                }
+                placed.add(new Rectangle(x, y, w, h));
+                java.awt.geom.Path2D pointer = new java.awt.geom.Path2D.Double();
+                int px = Math.max(x + 10, Math.min(x + w - 10, tipX));
+                int baseLine = below ? y + 1 : y + h - 1;
+                int half = Math.abs(baseLine - tipY) > 2 * tip ? 3 : tip;   // moved aside: a narrow stem
+                pointer.moveTo(px - half, baseLine);
+                pointer.lineTo(px + half, baseLine);
+                pointer.lineTo(px, tipY);
+                pointer.closePath();
+                c.setColor(new Color(0, 0, 0, 60));
+                c.fillRoundRect(x + 2, y + 3, w, h, h, h);
+                c.setColor(Color.WHITE);
+                c.fillRoundRect(x, y, w, h, h, h);
+                c.fill(pointer);
+                c.setColor(b.accent);
+                c.setStroke(new BasicStroke(2.2f));
+                c.drawRoundRect(x, y, w, h, h, h);
+                c.fillOval(x + padX - 2, y + h / 2 - 4, 8, 8);
+                c.setColor(new Color(25, 30, 45));
+                c.drawString(b.text, x + padX + 10, y + (h - fm.getHeight()) / 2 + fm.getAscent());
+                c.dispose();
+            }
+        }
+
         private void drawCastle(Graphics2D g, int left, int top, int cell, int x, int y, PlayerColor color) {
             int px = left + x * cell, py = top + y * cell;
             g.setColor(playerColor(color));
@@ -1264,6 +1458,10 @@ public final class GameBoardScreen extends JPanel {
                 for (Game.Player player : game.getPlayers())
                     if (player.getColor() == color && isMovable(player, player.getPieces().get(i))) click = i;
                 drawPin(g, tx, ty - radius / 3, Math.max(14, cell * 5 / 6), playerColor(color), click, 0);
+                if (click < 0)
+                    for (Game.Player player : game.getPlayers())
+                        if (player.getColor() == color)
+                            addStuckBox(player, player.getPieces().get(i), tx, ty - radius / 3, Math.max(14, cell * 5 / 6));
             }
             g.setFont(new Font("SansSerif", Font.BOLD, Math.max(9, cell / 3)));
             g.setColor(Color.WHITE);
