@@ -143,7 +143,7 @@ public class GameSetupScreen extends JPanel {
         });
 
         setPlayerCount(GameConfig.MIN_PLAYERS);
-        ticker = new Timer(16, e -> tick());
+        ticker = new Timer(33, e -> tick());   // ~30 FPS
     }
 
     @Override
