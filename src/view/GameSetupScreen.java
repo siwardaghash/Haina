@@ -98,6 +98,7 @@ public class GameSetupScreen extends JPanel {
     private int cw;
     private int top;
     private int rightX;
+    private int playersLabelY, namesLabelY, levelLabelY, buttonsY;
 
     public GameSetupScreen(Listener listener) {
         this.listener = listener;
@@ -289,35 +290,49 @@ public class GameSetupScreen extends JPanel {
         }
     }
 
+    /**
+     * The steps are one under the other, in the order they are filled in (prototype feedback):
+     * 01 how many players, 02 who is playing, 03 difficulty, then the buttons.
+     * Short windows get a compact version so everything still fits (down to the 1000x700 minimum).
+     */
     @Override
     public void doLayout() {
         int w = getWidth();
         int h = getHeight();
         cw = Math.min(1120, w - 80);
         x0 = (w - cw) / 2;
-        top = Math.max(8, (h - 640) / 2);
+        boolean compact = h < 752;
+        int header = compact ? 100 : 112, tileH = compact ? 104 : 122, cardH = compact ? 140 : 146;
+        int buttonGap = compact ? 6 : 16;
+        int fixed = header + 36 + tileH + 212 + cardH + buttonGap + 76;   // 36 = three 12 px labels
+        int gap = Math.max(4, Math.min(30, (h - 16 - fixed) / 2));
+        top = Math.max(0, (h - fixed - 2 * gap) / 2);
 
-        int leftW = (int) (cw * 0.33f);
-        int tileW = (leftW - 2 * GAP) / 3;
-        rightX = x0 + leftW + 36;
-        int cardW = (x0 + cw - rightX - 2 * GAP) / 3;
-        int rowA = top + 124;
+        playersLabelY = top + header;
+        int rowA = playersLabelY + 12;
+        int tileW = ((int) (cw * 0.42f) - 2 * GAP) / 3;
         for (int i = 0; i < countTiles.length; i++) {
-            countTiles[i].setBounds(x0 + i * (tileW + GAP), rowA, tileW, 146);
-        }
-        for (int i = 0; i < difficultyCards.length; i++) {
-            difficultyCards[i].setBounds(rightX + i * (cardW + GAP), rowA, cardW, 146);
+            countTiles[i].setBounds(x0 + i * (tileW + GAP), rowA, tileW, tileH);
         }
 
-        int rowB = top + 322;
+        namesLabelY = rowA + tileH + gap;
+        int rowB = namesLabelY + 12;
         int pw = (cw - 3 * GAP) / 4;
         for (int i = 0; i < playerCards.length; i++) {
             playerCards[i].setBase(x0 + i * (pw + GAP), rowB, pw, 212);
         }
 
-        int by = top + 556;
-        backBtn.setBounds(x0 - NeonButton.PAD, by, 200, 76);
-        startBtn.setBounds(x0 + cw - 280 + NeonButton.PAD, by, 280, 76);
+        levelLabelY = rowB + 212 + gap;
+        int rowC = levelLabelY + 12;
+        rightX = x0;
+        int cardW = (cw - 2 * GAP) / 3;
+        for (int i = 0; i < difficultyCards.length; i++) {
+            difficultyCards[i].setBounds(x0 + i * (cardW + GAP), rowC, cardW, cardH);
+        }
+
+        buttonsY = rowC + cardH + buttonGap;
+        backBtn.setBounds(x0 - NeonButton.PAD, buttonsY, 200, 76);
+        startBtn.setBounds(x0 + cw - 280 + NeonButton.PAD, buttonsY, 280, 76);
     }
 
     @Override
@@ -333,15 +348,15 @@ public class GameSetupScreen extends JPanel {
 
         g2.setComposite(AlphaComposite.SrcOver.derive(intro(0f)));
         paintHeader(g2);
-        paintSection(g2, "01", "HOW MANY PLAYERS", x0, top + 112);
-        paintSection(g2, "02", "DIFFICULTY", rightX, top + 112);
-        paintSection(g2, "03", "WHO'S PLAYING", x0, top + 310);
+        paintSection(g2, "01", "HOW MANY PLAYERS", x0, playersLabelY);
+        paintSection(g2, "02", "WHO'S PLAYING", x0, namesLabelY);
+        paintSection(g2, "03", "DIFFICULTY", rightX, levelLabelY);
 
         g2.setFont(Theme.ui(12f, Font.PLAIN));
         g2.setColor(MUTED);
         String hint = "Click a colour to take it (you swap with its owner)  •  max " + GameConfig.NAME_MAX_LENGTH + " characters";
         FontMetrics fm = g2.getFontMetrics();
-        g2.drawString(hint, x0 + cw - fm.stringWidth(hint), top + 310);
+        g2.drawString(hint, x0 + cw - fm.stringWidth(hint), namesLabelY);
 
         paintStatus(g2);
         g2.dispose();
@@ -424,7 +439,7 @@ public class GameSetupScreen extends JPanel {
         }
         g.setFont(Theme.semibold(14f));
         FontMetrics fm = g.getFontMetrics();
-        float cy = top + 556 + 38;
+        float cy = buttonsY + 38;
         float shake = (float) Math.sin(statusPulse * 40) * 6f * statusPulse;
         float tw = fm.stringWidth(status);
         float cx = x0 + cw / 2f - tw / 2f + shake + 20;
