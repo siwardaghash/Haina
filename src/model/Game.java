@@ -37,7 +37,7 @@ public final class Game {
     private boolean rollAvailable;
     private String message = "Roll the dice to begin.";
     private QuestionBank questionBank;
-    private QuestionBank.Question pendingQuestion;
+    private Question pendingQuestion;
     private Piece questionPiece;
     private int questionChain;
     public enum SurpriseEvent {
@@ -58,13 +58,13 @@ public final class Game {
         if (!awaitingSurpriseTarget || playerIndex < 0 || playerIndex >= players.size() || playerIndex == current
                 || pieceIndex < 0 || pieceIndex >= 4) return false;
         Piece candidate = players.get(playerIndex).pieces.get(pieceIndex);
-        return !candidate.isInCastle() && !candidate.isFinished();
+        return canMoveBackward(candidate);
     }
 
 
     /** Attach the bank at game start; no question window is shown in Easy mode. */
     public void setQuestionBank(QuestionBank bank) { this.questionBank = bank; }
-    public QuestionBank.Question getPendingQuestion() { return pendingQuestion; }
+    public Question getPendingQuestion() { return pendingQuestion; }
 
 
     public Game(GameConfig config, Board board) { this(config, board, new Random()); }
@@ -277,7 +277,7 @@ public final class Game {
         if (pendingQuestion == null || chosenIndex < 0 || chosenIndex > 3)
             throw new IllegalStateException("No valid answer to submit");
         lastSurprise = null;
-        QuestionBank.Question question = pendingQuestion;
+        Question question = pendingQuestion;
         boolean correct = question.getCorrect() == chosenIndex;
         int distance = "easy".equals(question.getLevel()) ? 1 : "medium".equals(question.getLevel()) ? 2 : 3;
         int direction = correct ? 1 : -1;
@@ -302,7 +302,8 @@ public final class Game {
                     + ". Movement: " + (target-original) + " step(s).";
         if (captured > 0) message += " Captured an opponent!";
         updateFinishingOrder();
-        if (!gameOver && !triggerSpecial(moved)) finishTurnAfterMove();
+        // FR-22: a piece that did not move does not trigger its square again.
+        if (!gameOver && (target == original || !triggerSpecial(moved))) finishTurnAfterMove();
         return correct;
     }
 
@@ -326,8 +327,7 @@ public final class Game {
                 awaitingSurpriseTarget = false;
                 for (int p = 0; p < players.size(); p++)
                     for (int i = 0; i < 4; i++)
-                        if (p != current && !players.get(p).pieces.get(i).isInCastle()
-                                && !players.get(p).pieces.get(i).isFinished()) awaitingSurpriseTarget = true;
+                        if (p != current && canMoveBackward(players.get(p).pieces.get(i))) awaitingSurpriseTarget = true;
                 if (!awaitingSurpriseTarget) {
                     message += " Surprise cancelled: no movable opponent piece.";
                     finishTurnAfterMove();
@@ -380,6 +380,18 @@ public final class Game {
     }
 
     /** Reverse route traversal; home-path positions can move back onto the common route. */
+    /**
+     * FR-28: only a piece that can really go back at least one step may be chosen.
+     * It cannot when it is in the castle, finished, on its start square (FR-21),
+     * or when an opposing Double Block is right behind it (FR-17).
+     */
+    private boolean canMoveBackward(Piece piece) {
+        if (piece.isInCastle() || piece.isFinished() || piece.getProgress() == 0) return false;
+        int behind = piece.getProgress() - 1;
+        return behind >= piece.getCommonLength()
+                || !hasOpposingBlock(piece.getColor(), piece.ringAt(behind), piece.indexAt(behind));
+    }
+
     private void moveBackwardWithBlock(Piece piece, int distance) {
         int original = piece.getProgress();
         int target = Math.max(0, original - distance);

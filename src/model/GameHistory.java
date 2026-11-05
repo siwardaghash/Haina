@@ -5,39 +5,23 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Local CSV history using the exact header required by the course. */
+/** Local CSV history using the exact header required by the course; one GameRecord per row. */
 public final class GameHistory {
     public static final String HEADER = "gameID,difficulty,timestamp(DD/MM/YYYY; HH:MM:SS),1st_place_name,2nd_place_name,3rd_place_name,4rd_place_name,game_duration(HH:MM:SS)";
-    private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("dd/MM/yyyy; HH:mm:ss");
     private final Path file;
 
     public GameHistory(Path file) { this.file = file; }
 
-    public synchronized void append(Game game) throws IOException {
-        if (!game.isGameOver()) throw new IllegalStateException("Only completed games may be saved");
-        List<String> rows = readRows();
+    /** Saves a finished game with the next sequential gameID; the file and header are created on first use. */
+    public synchronized GameRecord append(Game game) throws IOException {
         long maxId = 0;
-        for (int i = 1; i < rows.size(); i++) {
-            String[] values = rows.get(i).split(",", 2);
-            try { maxId = Math.max(maxId, Long.parseLong(values[0])); }
-            catch (NumberFormatException ignored) { /* Ignore malformed external rows. */ }
-        }
-        List<String> fields = new ArrayList<>();
-        fields.add(String.valueOf(maxId + 1));
-        fields.add(game.getDifficulty().name().toLowerCase(java.util.Locale.ROOT));
-        fields.add(LocalDateTime.ofInstant(Instant.ofEpochMilli(game.getFinishedAtMillis()), ZoneId.systemDefault()).format(TIME));
-        for (Game.Player player : game.getFinishingOrder()) fields.add(player.getName());
-        while (fields.size() < 7) fields.add("");
-        long sec = game.getDurationSeconds();
-        fields.add(String.format(java.util.Locale.ROOT, "%02d:%02d:%02d", sec / 3600, sec / 60 % 60, sec % 60));
+        for (GameRecord record : readRecords()) maxId = Math.max(maxId, record.getGameId());
+        GameRecord record = GameRecord.of(game, maxId + 1);
         StringBuilder line = new StringBuilder();
+        List<String> fields = record.toCsvFields();
         for (int i = 0; i < fields.size(); i++) {
             if (i > 0) line.append(',');
             line.append(escape(fields.get(i)));
@@ -47,19 +31,45 @@ public final class GameHistory {
         String prefix = Files.exists(file) && Files.size(file) > 0 ? "" : HEADER + "\n";
         Files.write(file, (prefix + line + "\n").getBytes(StandardCharsets.UTF_8),
                 StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+        return record;
     }
 
-    public List<String> readRows() throws IOException {
-        if (!Files.exists(file)) return new ArrayList<>();
+    /** All saved games; malformed rows are skipped, a wrong header is reported. */
+    public List<GameRecord> readRecords() throws IOException {
+        List<GameRecord> records = new ArrayList<>();
+        if (!Files.exists(file)) return records;
         List<String> rows = Files.readAllLines(file, StandardCharsets.UTF_8);
         if (!rows.isEmpty() && !HEADER.equals(rows.get(0)))
             throw new IOException("History CSV header does not match the course template: " + file);
-        return rows;
+        for (int i = 1; i < rows.size(); i++) {
+            GameRecord record = GameRecord.fromCsvFields(parseCsv(rows.get(i)));
+            if (record != null) records.add(record);
+        }
+        return records;
     }
 
     private static String escape(String value) {
         if (value.contains(",") || value.contains("\"") || value.contains("\n"))
             return "\"" + value.replace("\"", "\"\"") + "\"";
         return value;
+    }
+
+    /** CSV fields may be quoted when a player name contains a comma. */
+    static List<String> parseCsv(String line) {
+        List<String> fields = new ArrayList<>();
+        StringBuilder current = new StringBuilder();
+        boolean quoted = false;
+        for (int i = 0; i < line.length(); i++) {
+            char c = line.charAt(i);
+            if (quoted) {
+                if (c == '"' && i + 1 < line.length() && line.charAt(i + 1) == '"') { current.append('"'); i++; }
+                else if (c == '"') quoted = false;
+                else current.append(c);
+            } else if (c == '"') quoted = true;
+            else if (c == ',') { fields.add(current.toString()); current.setLength(0); }
+            else current.append(c);
+        }
+        fields.add(current.toString());
+        return fields;
     }
 }
