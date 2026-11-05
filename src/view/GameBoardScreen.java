@@ -908,21 +908,98 @@ public final class GameBoardScreen extends JPanel {
             }
             g.setColor(new Color(0, 0, 0, 70));
             g.fillOval(cx - w / 2, cy + h / 2 - h / 10, w, h / 5);
-            java.awt.geom.Path2D body = new java.awt.geom.Path2D.Double();
+            drawCharacter(g, cx, baseY, (int) (size * .9), h, color);
+        }
+
+        /**
+         * Bonus: each colour's pieces are a little character, so pieces are told apart by colour
+         * and by shape: red robot, green frog, yellow chick, blue cat. Drawn in code (no image files).
+         * The character stands on (cx, baseY) and is w wide and h tall.
+         */
+        private void drawCharacter(Graphics2D g, int cx, int baseY, int w, int h, Color color) {
+            Graphics2D c = (Graphics2D) g.create();
+            c.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            Color dark = color.darker().darker();
+            float line = Math.max(1.1f, h / 22f);
             double top = baseY - h;
-            body.moveTo(cx, baseY);
-            body.curveTo(cx - w * .62, top + h * .55, cx - w * .55, top, cx, top);
-            body.curveTo(cx + w * .55, top, cx + w * .62, top + h * .55, cx, baseY);
-            g.setColor(color);
-            g.fill(body);
-            g.setColor(color.darker().darker());
-            g.setStroke(new BasicStroke(1.3f));
-            g.draw(body);
-            int head = (int) (w * .52);
-            g.setColor(Color.WHITE);
-            g.fillOval(cx - head / 2, (int) (top + h * .2), head, head);
-            g.setColor(color.darker());
-            g.fillOval(cx - head / 4, (int) (top + h * .2) + head / 4, head / 2, head / 2);
+            double eyeY;
+            double eyeGap = w * .2, eye = Math.max(3, w * .26);
+            if (color.equals(playerColor(PlayerColor.RED))) {                 // robot
+                c.setColor(dark);
+                c.setStroke(new BasicStroke(line));
+                c.drawLine(cx, (int) (top + h * .02), cx, (int) (top + h * .16));
+                c.fillOval((int) (cx - h * .05), (int) (top - h * .02), (int) (h * .1), (int) (h * .1));
+                java.awt.geom.RoundRectangle2D head = new java.awt.geom.RoundRectangle2D.Double(cx - w * .4, top + h * .14, w * .8, h * .44, h * .14, h * .14);
+                java.awt.geom.RoundRectangle2D body = new java.awt.geom.RoundRectangle2D.Double(cx - w * .32, top + h * .6, w * .64, h * .4, h * .1, h * .1);
+                fillOutlined(c, body, color, dark, line);
+                fillOutlined(c, head, color, dark, line);
+                eyeY = top + h * .36;
+                c.setColor(new Color(255, 255, 255, 200));
+                c.fillRoundRect((int) (cx - w * .14), (int) (top + h * .72), (int) (w * .28), (int) (h * .12), 3, 3);
+            } else if (color.equals(playerColor(PlayerColor.GREEN))) {        // frog
+                java.awt.geom.Ellipse2D body = new java.awt.geom.Ellipse2D.Double(cx - w * .5, top + h * .3, w, h * .7);
+                fillOutlined(c, new java.awt.geom.Ellipse2D.Double(cx - eyeGap - eye * .8, top + h * .12, eye * 1.6, eye * 1.6), color, dark, line);
+                fillOutlined(c, new java.awt.geom.Ellipse2D.Double(cx + eyeGap - eye * .8, top + h * .12, eye * 1.6, eye * 1.6), color, dark, line);
+                fillOutlined(c, body, color, dark, line);
+                eyeY = top + h * .12 + eye * .8;
+                c.setColor(dark);
+                c.setStroke(new BasicStroke(line));
+                c.drawArc((int) (cx - w * .22), (int) (top + h * .5), (int) (w * .44), (int) (h * .22), 200, 140);
+            } else if (color.equals(playerColor(PlayerColor.YELLOW))) {       // chick
+                c.setColor(dark);
+                c.setStroke(new BasicStroke(line));
+                c.drawArc((int) (cx - w * .06), (int) (top), (int) (w * .16), (int) (h * .2), 90, 180);
+                c.drawArc((int) (cx - w * .02), (int) (top + h * .02), (int) (w * .16), (int) (h * .18), 90, 180);
+                java.awt.geom.Ellipse2D body = new java.awt.geom.Ellipse2D.Double(cx - w * .45, top + h * .12, w * .9, h * .88);
+                fillOutlined(c, body, color, dark, line);
+                eyeY = top + h * .4;
+                java.awt.geom.Path2D beak = new java.awt.geom.Path2D.Double();
+                beak.moveTo(cx - w * .1, top + h * .52);
+                beak.lineTo(cx + w * .1, top + h * .52);
+                beak.lineTo(cx, top + h * .66);
+                beak.closePath();
+                c.setColor(new Color(245, 140, 40));
+                c.fill(beak);
+            } else {                                                          // cat
+                java.awt.geom.Path2D ears = new java.awt.geom.Path2D.Double();
+                ears.moveTo(cx - w * .42, top + h * .38);
+                ears.lineTo(cx - w * .34, top + h * .02);
+                ears.lineTo(cx - w * .08, top + h * .24);
+                ears.closePath();
+                ears.moveTo(cx + w * .42, top + h * .38);
+                ears.lineTo(cx + w * .34, top + h * .02);
+                ears.lineTo(cx + w * .08, top + h * .24);
+                ears.closePath();
+                fillOutlined(c, ears, color, dark, line);
+                java.awt.geom.Ellipse2D body = new java.awt.geom.Ellipse2D.Double(cx - w * .45, top + h * .16, w * .9, h * .84);
+                fillOutlined(c, body, color, dark, line);
+                eyeY = top + h * .42;
+                c.setColor(dark);
+                c.setStroke(new BasicStroke(Math.max(1f, line * .8f)));
+                for (int side = -1; side <= 1; side += 2) {
+                    c.drawLine((int) (cx + side * w * .12), (int) (top + h * .6), (int) (cx + side * w * .4), (int) (top + h * .56));
+                    c.drawLine((int) (cx + side * w * .12), (int) (top + h * .64), (int) (cx + side * w * .4), (int) (top + h * .66));
+                }
+                c.fillOval((int) (cx - w * .05), (int) (top + h * .55), (int) (w * .1), (int) (w * .07));
+            }
+            // eyes: white with a dark pupil, the same on every character
+            for (int side = -1; side <= 1; side += 2) {
+                double ex = cx + side * eyeGap;
+                c.setColor(Color.WHITE);
+                c.fill(new java.awt.geom.Ellipse2D.Double(ex - eye / 2, eyeY - eye / 2, eye, eye));
+                c.setColor(new Color(25, 30, 45));
+                double pupil = eye * .5;
+                c.fill(new java.awt.geom.Ellipse2D.Double(ex - pupil / 2 + eye * .08, eyeY - pupil / 2, pupil, pupil));
+            }
+            c.dispose();
+        }
+
+        private static void fillOutlined(Graphics2D g, java.awt.Shape shape, Color fill, Color outline, float line) {
+            g.setColor(fill);
+            g.fill(shape);
+            g.setColor(outline);
+            g.setStroke(new BasicStroke(line));
+            g.draw(shape);
         }
 
         /** Arrow whose tip is at (cx, tipY), pointing down at a piece. */
