@@ -1,4 +1,4 @@
-package screens;
+package view;
 
 import java.awt.*;
 import java.awt.event.MouseAdapter;
@@ -12,9 +12,8 @@ import model.Piece;
 import model.Board;
 import model.GameConfig;
 import model.PlayerColor;
-import model.QuestionBank;
 import model.Question;
-import model.SysData;
+import controller.GameController;
 import java.util.Random;
 
 /** Polished responsive board view; all rules remain in model.Game. */
@@ -22,7 +21,8 @@ public final class GameBoardScreen extends JPanel {
     private static final Color INK = new Color(245, 248, 255);
     private static final Color MUTED = new Color(166, 184, 217);
     private static final Color GOLD = new Color(255, 199, 92);
-    private final Game game;
+    private final GameController controller;
+    private final Game game;           // read only: every action goes through the controller
     private final model.Difficulty difficulty;
     private boolean resultShown; 
     private final Runnable onBackToMenu;
@@ -49,17 +49,22 @@ public final class GameBoardScreen extends JPanel {
     private final JLabel gameClock = new JLabel("", SwingConstants.CENTER);
     private final Timer clockTimer = new Timer(1000, e -> updateClock());
 
+    /** Convenience for tests: a new game controller for this board. */
     public GameBoardScreen(GameConfig config, Board board, Runnable onBackToMenu) {
+        this(new GameController(config, board), onBackToMenu);
+    }
+
+    public GameBoardScreen(GameController controller, Runnable onBackToMenu) {
         this.onBackToMenu = onBackToMenu;
-        game = new Game(config, board);
+        this.controller = controller;
+        GameConfig config = controller.getConfig();
+        Board board = controller.getBoard();
+        game = controller.getGame();
         difficulty = config.getDifficulty();
-        try {
-            game.setQuestionBank(new QuestionBank(SysData.get(), new Random()));
-        } catch (Exception ex) {
+        if (controller.getBankError() != null)
             JOptionPane.showMessageDialog(this,
-                    "Question bank could not be loaded: " + ex.getMessage(),
+                    "Question bank could not be loaded: " + controller.getBankError(),
                     "Question bank error", JOptionPane.ERROR_MESSAGE);
-        }
         setLayout(new BorderLayout(12, 8));
         setOpaque(false);
         setBorder(BorderFactory.createEmptyBorder(14, 26, 17, 26));
@@ -239,7 +244,7 @@ public final class GameBoardScreen extends JPanel {
         boolean allInCastle = true;
         for (Piece p : roller.getPieces()) if (!p.isInCastle() && !p.isFinished()) allInCastle = false;
         lastRollBonus = game.isBonusRollReady();
-        game.roll();
+        controller.roll();
         Sound.roll();
         notice = explainUnusedRoll(roller, allInCastle);
         animating = true;
@@ -287,7 +292,7 @@ public final class GameBoardScreen extends JPanel {
         notice = null;
         Piece piece = game.getCurrentPlayer().getPieces().get(index);
         int before = piece.getProgress();
-        game.move(index);
+        controller.move(index);
         captureSoundPending = game.getMessage().contains("Captured");
         if (before < 0) Sound.hop();
         // Walk to the square the dice reached; a surprise there may move the piece again afterwards.
@@ -354,7 +359,7 @@ public final class GameBoardScreen extends JPanel {
         Game.Player owner = game.getPlayers().get(playerIndex);
         Piece target = owner.getPieces().get(pieceIndex);
         int before = target.getProgress();
-        int die = game.selectSurpriseTarget(playerIndex, pieceIndex);
+        int die = controller.chooseSurpriseTarget(playerIndex, pieceIndex);
         int moved = before - target.getProgress();
         Sound.capture();
         GameDialogs.info(this, GameDialogs.SURPRISE, "DIE: " + die,
@@ -388,7 +393,7 @@ public final class GameBoardScreen extends JPanel {
             Question q = game.getPendingQuestion();
             int selection = GameDialogs.askQuestion(this, q);
             if (selection < 0) continue;     // the window only closes through an answer
-            boolean correct = game.answerQuestion(selection);
+            boolean correct = controller.answer(selection);
             if (correct) Sound.correct(); else Sound.wrong();
             GameDialogs.showAnswerResult(this, correct, game.getMessage());
             showSurpriseIfAny();
@@ -459,7 +464,7 @@ public final class GameBoardScreen extends JPanel {
         results.append("\nDifficulty: ").append(game.getDifficulty().getLabel());   // FR-31
         results.append("\nDuration: ").append(String.format("%02d:%02d:%02d", sec/3600, sec/60%60, sec%60));
         try {
-            SysData.get().history().append(game);
+            controller.saveResult();
             results.append("\n\nResult saved to the game history.");
         } catch (java.io.IOException ex) {
             results.append("\n\nUnable to save result: ").append(ex.getMessage());

@@ -1,23 +1,21 @@
-package screens;
+package view;
 
 import java.awt.*;
 import java.util.Arrays;
 import javax.swing.*;
-import model.AdminAuth;
-import model.QuestionManager;
+import controller.AdminController;
 import model.Question;
-import model.SysData;
 
 /** Login-protected local question editor. */
 public final class AdminScreen extends JPanel {
     private static final Color BG = new Color(12,21,46), TEXT = new Color(239,243,255);
     private final Runnable back;
-    private final AdminAuth auth = SysData.get().admin();
-    private QuestionManager manager;
+    private final AdminController controller;
     private final DefaultListModel<Question> listModel = new DefaultListModel<>();
     private final JList<Question> list = new JList<>(listModel);
 
-    public AdminScreen(Runnable back) {
+    public AdminScreen(AdminController controller, Runnable back) {
+        this.controller=controller;
         this.back=back;
         setBackground(BG); setLayout(new BorderLayout(12,12));
         setBorder(BorderFactory.createEmptyBorder(22,28,22,28));
@@ -45,7 +43,7 @@ public final class AdminScreen extends JPanel {
     private void authenticate() {
         try {
             // SRS 3.6.3: a single predefined administrator; players cannot create accounts.
-            if (!auth.isInitialized()) {
+            if (!controller.hasAdministrator()) {
                 JOptionPane.showMessageDialog(this,
                     "The administrator file (data/admin.xml) is missing.\n"
                     + "Question management is not available.",
@@ -77,10 +75,9 @@ public final class AdminScreen extends JPanel {
             int result = showLoginDialog(loginPanel);
             if (result!=JOptionPane.OK_OPTION) {back.run();return;}
             char[] pwd=password.getPassword();boolean valid;
-            try { valid=auth.authenticate(username.getText(),pwd); }
+            try { valid=controller.login(username.getText(),pwd); }
             finally { Arrays.fill(pwd,'\0'); }
             if (!valid) {JOptionPane.showMessageDialog(this,"Invalid username or password.","Access denied",JOptionPane.ERROR_MESSAGE);back.run();return;}
-            manager=new QuestionManager(SysData.get());
             buildEditor();
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(this,ex.getMessage(),"Question bank error",JOptionPane.ERROR_MESSAGE);
@@ -225,7 +222,7 @@ public final class AdminScreen extends JPanel {
 
     private void refresh() {
         listModel.clear();
-        for (Question e: manager.getAll()) listModel.addElement(e);
+        for (Question e: controller.questions()) listModel.addElement(e);
     }
 
     private void editQuestion(Question existing) {
@@ -284,7 +281,7 @@ public final class AdminScreen extends JPanel {
         String[] values=new String[4];for(int i=0;i<4;i++)values[i]=answers[i].getText().trim();
         Question entry=new Question(id.getText().trim(),(String)level.getSelectedItem(),prompt.getText().trim(),values,(Integer)correct.getSelectedItem()-1);
         try {
-            if(existing==null)manager.add(entry);else manager.update(existing.getId(),entry);
+            if(existing==null)controller.add(entry);else controller.update(existing.getId(),entry);
             refresh();
         } catch(Exception ex) {JOptionPane.showMessageDialog(this,ex.getMessage(),"Cannot save",JOptionPane.ERROR_MESSAGE);}
     }
@@ -358,7 +355,7 @@ public final class AdminScreen extends JPanel {
     private void deleteQuestion() {
         Question selected=list.getSelectedValue();if(selected==null)return;
         if(JOptionPane.showConfirmDialog(this,"Delete " + selected.getId() + "?", "Confirm deletion",JOptionPane.YES_NO_OPTION)!=JOptionPane.YES_OPTION)return;
-        try {manager.delete(selected.getId());refresh();}
+        try {controller.delete(selected.getId());refresh();}
         catch(Exception ex) {JOptionPane.showMessageDialog(this,ex.getMessage(),"Cannot delete",JOptionPane.ERROR_MESSAGE);}
     }
     private void styleAdminButton(JButton button, Color bg, Color fg) {
