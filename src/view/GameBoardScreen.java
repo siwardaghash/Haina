@@ -185,6 +185,11 @@ public final class GameBoardScreen extends JPanel {
         dicePanel.add(movementInfo, BorderLayout.EAST);
         information.add(dicePanel, BorderLayout.EAST);
         controls.add(information, BorderLayout.NORTH);
+        // Space rolls the dice, like a click on the dice (prototype feedback).
+        getInputMap(WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke("SPACE"), "rollDice");
+        getActionMap().put("rollDice", new AbstractAction() {
+            @Override public void actionPerformed(java.awt.event.ActionEvent e) { if (canRoll()) rollAnimated(); }
+        });
         canvas.setOnPieceClicked(index -> {
             if (game.isAwaitingSurpriseTarget()) chooseSurpriseTarget(index / 4, index % 4);
             else moveAnimated(index);
@@ -690,6 +695,7 @@ public final class GameBoardScreen extends JPanel {
             setBorder(BorderFactory.createEmptyBorder(8, 12, 8, 12));
             setContentAreaFilled(false);
             setFocusPainted(false);
+            setFocusable(false);   // Space is for the dice, not for the focused button
             setOpaque(false);
             setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
             addMouseListener(new MouseAdapter() {
