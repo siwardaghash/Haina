@@ -1,4 +1,4 @@
-package screens;
+package view;
 
 import java.awt.Color;
 import java.awt.Font;

@@ -1,4 +1,4 @@
-package screens;
+package view;
 
 import java.awt.*;
 import java.awt.geom.Path2D;

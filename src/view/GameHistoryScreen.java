@@ -1,4 +1,4 @@
-package screens;
+package view;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -14,12 +14,12 @@ import javax.swing.JTable;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.SwingConstants;
 import model.GameRecord;
-import model.SysData;
+import controller.HistoryController;
 
 
 /** Read-only listing of completed games. */
 public final class GameHistoryScreen extends JPanel {
-    public GameHistoryScreen(Runnable back) {
+    public GameHistoryScreen(HistoryController controller, Runnable back) {
         setLayout(new BorderLayout(12, 12));
         setBackground(new Color(14, 25, 55));
         setBorder(BorderFactory.createEmptyBorder(30, 35, 30, 35));
@@ -33,7 +33,7 @@ public final class GameHistoryScreen extends JPanel {
         JLabel message = new JLabel(" ");
         message.setForeground(Color.WHITE);
         try {
-            for (GameRecord record : SysData.get().history().readRecords())
+            for (GameRecord record : controller.records())
                 model.addRow(record.toCsvFields().toArray());
             if (model.getRowCount() == 0) message.setText("No completed games saved yet.");
         } catch (IOException e) { message.setText("Could not load history: " + e.getMessage()); }
