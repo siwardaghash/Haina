@@ -1,4 +1,4 @@
-package app;
+package controller;
 
 import java.awt.Dimension;
 
@@ -9,13 +9,13 @@ import javax.swing.SwingUtilities;
 import javax.swing.WindowConstants;
 
 import model.GameConfig;
+import view.AdminScreen;
+import view.GameBoardScreen;
+import view.GameHistoryScreen;
+import view.GameSetupScreen;
+import view.HowToPlayScreen;
+import view.OpeningScreen;
 import model.Board;
-import screens.GameBoardScreen;
-import screens.GameHistoryScreen;
-import screens.AdminScreen;
-import screens.GameSetupScreen;
-import screens.OpeningScreen;
-import screens.HowToPlayScreen;
 
 public class Main {
 
