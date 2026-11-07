@@ -1,10 +1,10 @@
-package screens;
+package view;
 
-import static screens.Theme.TEXT;
-import static screens.Theme.alpha;
-import static screens.Theme.applyQuality;
-import static screens.Theme.easeOut;
-import static screens.Theme.mix;
+import static view.Theme.TEXT;
+import static view.Theme.alpha;
+import static view.Theme.applyQuality;
+import static view.Theme.easeOut;
+import static view.Theme.mix;
 
 import java.awt.AlphaComposite;
 import java.awt.BasicStroke;
