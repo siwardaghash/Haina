@@ -1,20 +1,20 @@
-package screens;
+package view;
 
-import static screens.Theme.BLUE;
-import static screens.Theme.GLASS;
-import static screens.Theme.GREEN;
-import static screens.Theme.MUTED;
-import static screens.Theme.PLAYERS;
-import static screens.Theme.RED;
-import static screens.Theme.TEXT;
-import static screens.Theme.VIOLET;
-import static screens.Theme.YELLOW;
-import static screens.Theme.alpha;
-import static screens.Theme.applyQuality;
-import static screens.Theme.approach;
-import static screens.Theme.clamp01;
-import static screens.Theme.easeOut;
-import static screens.Theme.mix;
+import static view.Theme.BLUE;
+import static view.Theme.GLASS;
+import static view.Theme.GREEN;
+import static view.Theme.MUTED;
+import static view.Theme.PLAYERS;
+import static view.Theme.RED;
+import static view.Theme.TEXT;
+import static view.Theme.VIOLET;
+import static view.Theme.YELLOW;
+import static view.Theme.alpha;
+import static view.Theme.applyQuality;
+import static view.Theme.approach;
+import static view.Theme.clamp01;
+import static view.Theme.easeOut;
+import static view.Theme.mix;
 
 import java.awt.AlphaComposite;
 import java.awt.BasicStroke;
