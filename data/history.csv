@@ -1,0 +1,2 @@
+gameID,difficulty,timestamp(DD/MM/YYYY; HH:MM:SS),1st_place_name,2nd_place_name,3rd_place_name,4rd_place_name,game_duration(HH:MM:SS)
+1,easy,08/11/2026; 02:38:31,aa,bb,,,00:08:39
