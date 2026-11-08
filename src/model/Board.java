@@ -45,8 +45,7 @@ public final class Board {
             List<Square> ring = rings.get(r);
             for (int i = 0; i < colors.length; i++) {
                 int start = i * ring.size() / 4;
-                int before = r == 0 ? 2 : 1;
-                Square arrow = ring.get((start + ring.size() - before) % ring.size());
+                int before = r == 0 ? 2 : ring.size() / 8 - 1;                Square arrow = ring.get((start + ring.size() - before) % ring.size());
                 arrow.type = SquareType.ARROW;
                 arrow.owner = colors[i];
                 if (r == rings.size() - 1) {

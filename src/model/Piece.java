@@ -16,8 +16,17 @@ public final class Piece {
         this.trackSizes = sizes[difficulty.ordinal()].clone();
         // Squares walked on each track: outer tracks are full laps; on the base track the
         // piece stops at its arrow, two squares before its start, so it walks 51 squares.
-        this.lapLengths = trackSizes.clone();
-        lapLengths[lapLengths.length - 1] = trackSizes[trackSizes.length - 1] - 1;
+
+		this.lapLengths = trackSizes.clone();
+		
+		for (int i = 0; i < lapLengths.length; i++) {
+		    int before = (i == lapLengths.length - 1)
+		            ? 2
+		            : trackSizes[i] / 8 - 1;
+		
+		    lapLengths[i] = trackSizes[i] - before + 1;
+		}
+
         int total = 0;
         for (int length : lapLengths) total += length;
         commonLength = total;
