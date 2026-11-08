@@ -19,6 +19,36 @@ import model.GameHistory;
 
 /** Read-only listing of completed games. */
 public final class GameHistoryScreen extends JPanel {
+	private float animationTime = 0f;
+	private final javax.swing.Timer backgroundTimer =
+	    new javax.swing.Timer(40, e -> {
+	        animationTime += 0.04f;
+	        repaint();
+	    });
+	@Override
+	public void addNotify() {
+	    super.addNotify();
+	    backgroundTimer.start();
+	}	
+	@Override
+	public void removeNotify() {
+	    backgroundTimer.stop();
+	    super.removeNotify();
+	}	
+	@Override
+	protected void paintComponent(java.awt.Graphics g) {
+	    super.paintComponent(g);	
+	    java.awt.Graphics2D g2 =
+	        (java.awt.Graphics2D) g.create();	
+	    Theme.applyQuality(g2);
+	    Theme.paintBackdrop(
+	        g2,
+	        getWidth(),
+	        getHeight(),
+	        animationTime
+	    );
+		    g2.dispose();
+	}
     public GameHistoryScreen(Runnable back) {
         setLayout(new BorderLayout(12, 12));
         setBackground(new Color(14, 25, 55));
@@ -63,8 +93,7 @@ public final class GameHistoryScreen extends JPanel {
 		        }
 		    }
 		};
-		table.setFillsViewportHeight(true);
-		table.setRowHeight(30);
+		table.setFillsViewportHeight(false);		table.setRowHeight(30);
 		table.setAutoCreateRowSorter(true);
 		table.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS);
 
@@ -87,32 +116,164 @@ public final class GameHistoryScreen extends JPanel {
         table.setShowVerticalLines(false);
 
         table.setFont(new Font("SansSerif", Font.PLAIN, 14));
+
+		table.setRowHeight(52);
+		table.setFont(new Font("SansSerif", Font.PLAIN, 16));
+		table.setIntercellSpacing(new java.awt.Dimension(0, 2));
+		
+		table.getTableHeader().setBackground(new Color(55, 43, 102));
+		table.getTableHeader().setForeground(new Color(230, 217, 255));
+		table.getTableHeader().setFont(
+		    new Font("SansSerif", Font.BOLD, 15)
+		);
+		table.getTableHeader().setPreferredSize(
+		    new java.awt.Dimension(0, 54)
+		);
+		
+		table.setDefaultRenderer(
+		    Object.class,
+		    new javax.swing.table.DefaultTableCellRenderer() {
+		        @Override
+		        public java.awt.Component getTableCellRendererComponent(
+		                JTable t, Object value, boolean selected,
+		                boolean focused, int row, int column) {
+		
+		            super.getTableCellRendererComponent(
+		                t, value, selected, focused, row, column
+		            );
+		
+		            setBorder(BorderFactory.createEmptyBorder(
+		                8, 12, 8, 12
+		            ));
+		
+		            if (selected) {
+		                setBackground(new Color(78, 62, 137));
+		                setForeground(Color.WHITE);
+		            } else {
+		                setBackground(row % 2 == 0
+		                    ? new Color(34, 32, 70)
+		                    : new Color(27, 35, 68));
+		
+		                setForeground(new Color(225, 231, 255));
+		
+		                if (t.convertColumnIndexToModel(column) == 3) {
+		                    setForeground(new Color(198, 166, 255));
+		                    setFont(getFont().deriveFont(Font.BOLD));
+		                } else {
+		                    setFont(getFont().deriveFont(Font.PLAIN));
+		                }
+		            }
+		            return this;
+		        }
+		    }
+		);
+
         JScrollPane scrollPane = new JScrollPane(table);
 
-        scrollPane.getViewport().setBackground(new Color(25, 40, 72));
+		scrollPane.setOpaque(false);
+		scrollPane.getViewport().setOpaque(false);
 
-        scrollPane.setBorder(
-            BorderFactory.createLineBorder(new Color(65, 90, 140), 1)
-        );
+		scrollPane.setBorder(BorderFactory.createEmptyBorder());
+		if (model.getRowCount() == 0) {
+		
+		    JPanel emptyArea = new JPanel(
+		        new java.awt.GridBagLayout()
+		    );
+		    emptyArea.setOpaque(false);
+		
+		    JPanel emptyCard = new JPanel(
+		        new BorderLayout(0, 15)
+		    ) {
+		        @Override
+		        protected void paintComponent(java.awt.Graphics g) {
+		            java.awt.Graphics2D g2 =
+		                (java.awt.Graphics2D) g.create();
+		
+		            Theme.applyQuality(g2);
+		
+		            int w = getWidth();
+		            int h = getHeight();
+		
+		            g2.setPaint(new java.awt.GradientPaint(
+		                0, 0, new Color(45, 34, 88),
+		                w, h, new Color(20, 45, 75)
+		            ));
+		            g2.fillRoundRect(3, 3, w - 6, h - 6, 28, 28);
+		
+		            g2.setColor(new Color(166, 137, 255, 190));
+		            g2.setStroke(new java.awt.BasicStroke(2f));
+		            g2.drawRoundRect(3, 3, w - 6, h - 6, 28, 28);
+		
+		            g2.dispose();
+		        }
+		    };
+		
+		    emptyCard.setOpaque(false);
+		    emptyCard.setBorder(
+		        BorderFactory.createEmptyBorder(35, 65, 35, 65)
+		    );
+		
+		    JLabel icon = new JLabel(
+		        "\u2726", SwingConstants.CENTER
+		    );
+		    icon.setFont(new Font("SansSerif", Font.BOLD, 48));
+		    icon.setForeground(new Color(174, 139, 245));
+		
+		    boolean loadError = message.getText()
+		        .startsWith("Could not load history:");
+		
+		    JLabel title = new JLabel(
+		        loadError ? "HISTORY UNAVAILABLE" : "YOUR STORY STARTS HERE",
+		        SwingConstants.CENTER
+		    );
+		    title.setFont(new Font("SansSerif", Font.BOLD, 23));
+		    title.setForeground(new Color(224, 209, 255));
+		
+		    JLabel subtitle = new JLabel(
+		        loadError ? message.getText()
+		                  : "Finish your first game to unlock your history!",
+		        SwingConstants.CENTER
+		    );
+		    subtitle.setFont(new Font("SansSerif", Font.PLAIN, 15));
+		    subtitle.setForeground(new Color(181, 192, 224));
+		
+		    JPanel words = new JPanel(
+		        new java.awt.GridLayout(2, 1, 0, 12)
+		    );
+		    words.setOpaque(false);
+		    words.add(title);
+		    words.add(subtitle);
+		
+		    emptyCard.add(icon, BorderLayout.NORTH);
+		    emptyCard.add(words, BorderLayout.CENTER);
+		
+		    emptyArea.add(emptyCard);
+		    add(emptyArea, BorderLayout.CENTER);
+		
+		} else {
+		    add(scrollPane, BorderLayout.CENTER);
+		}
+		JPanel header = new JPanel(new BorderLayout());
+		header.setOpaque(false);
+		
+		header.add(heading, BorderLayout.WEST);
+		
+		NeonButton backButton = new NeonButton(
+		    "Back to Menu",
+		    new Color(174, 139, 245),
+		    NeonButton.Glyph.BACK,
+		    null
+		);
+		
+		backButton.setChevron(false);
+		backButton.setPreferredSize(
+		    new java.awt.Dimension(240, 76)
+		);
+		backButton.addActionListener(e -> back.run());
+		
+		header.add(backButton, BorderLayout.EAST);
+		add(header, BorderLayout.NORTH);
 
-        add(scrollPane, BorderLayout.CENTER);
-        JButton backButton = new JButton("← Back to Menu");
-        JPanel header = new JPanel(new BorderLayout());
-        header.setOpaque(false);
-        header.add(heading, BorderLayout.WEST);
-
-        add(header, BorderLayout.NORTH);
-        backButton.setFont(new Font("SansSerif", Font.BOLD, 15));
-        backButton.setBackground(new Color(55, 85, 140));
-        backButton.setForeground(Color.WHITE);
-        backButton.setFocusPainted(false);
-        backButton.setCursor(
-            java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR)
-        );
-        Theme.solidButton(backButton);
-
-        backButton.addActionListener(e -> back.run());
-        header.add(backButton, BorderLayout.EAST);
         JPanel footer = new JPanel(new BorderLayout());
         footer.setOpaque(false);
         if (model.getRowCount() > 0) {
