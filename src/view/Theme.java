@@ -142,7 +142,33 @@ public final class Theme {
     }
 
     /** Dark gradient + breathing glow in each corner (one per player colour). */
+    private static java.awt.image.BufferedImage backdrop;
+    private static int backdropW, backdropH;
+    private static double backdropScale;
+    private static float backdropT = -1;
+
+    /**
+     * The animated background, kept in an image: the five large glows are expensive to draw every
+     * frame (about 60 ms on a Retina screen), while their slow pulse looks the same if refreshed
+     * five times a second.
+     */
     public static void paintBackdrop(Graphics2D g, int w, int h, float t) {
+        double scale = Math.max(1, g.getTransform().getScaleX());
+        if (backdrop == null || backdropW != w || backdropH != h || backdropScale != scale || Math.abs(t - backdropT) > 0.2f) {
+            int iw = (int) Math.ceil(w * scale), ih = (int) Math.ceil(h * scale);
+            if (backdrop == null || backdrop.getWidth() != iw || backdrop.getHeight() != ih)
+                backdrop = new java.awt.image.BufferedImage(Math.max(1, iw), Math.max(1, ih), java.awt.image.BufferedImage.TYPE_INT_RGB);
+            Graphics2D bg = backdrop.createGraphics();
+            bg.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            bg.scale(scale, scale);
+            drawBackdrop(bg, w, h, t);
+            bg.dispose();
+            backdropW = w; backdropH = h; backdropScale = scale; backdropT = t;
+        }
+        g.drawImage(backdrop, 0, 0, w, h, null);
+    }
+
+    private static void drawBackdrop(Graphics2D g, int w, int h, float t) {
         g.setPaint(new GradientPaint(0, 0, BG_TOP, 0, h, BG_BOTTOM));
         g.fillRect(0, 0, w, h);
         float r = Math.max(w, h) * 0.55f;

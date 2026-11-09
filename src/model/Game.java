@@ -37,7 +37,7 @@ public final class Game {
     private boolean rollAvailable;
     private String message = "Roll the dice to begin.";
     private QuestionBank questionBank;
-    private QuestionBank.Question pendingQuestion;
+    private Question pendingQuestion;
     private Piece questionPiece;
     private int questionChain;
     public enum SurpriseEvent {
@@ -58,13 +58,13 @@ public final class Game {
         if (!awaitingSurpriseTarget || playerIndex < 0 || playerIndex >= players.size() || playerIndex == current
                 || pieceIndex < 0 || pieceIndex >= 4) return false;
         Piece candidate = players.get(playerIndex).pieces.get(pieceIndex);
-        return !candidate.isInCastle() && !candidate.isFinished();
+        return canMoveBackward(candidate);
     }
 
 
     /** Attach the bank at game start; no question window is shown in Easy mode. */
     public void setQuestionBank(QuestionBank bank) { this.questionBank = bank; }
-    public QuestionBank.Question getPendingQuestion() { return pendingQuestion; }
+    public Question getPendingQuestion() { return pendingQuestion; }
 
 
     public Game(GameConfig config, Board board) { this(config, board, new Random()); }
@@ -117,7 +117,15 @@ public final class Game {
     public boolean isAwaitingPiece() { return awaitingPiece; }
     public String getMessage() { return message; }
 
-    public void roll() {
+    // Observer (MVC): views register here and are told after every player action.
+    private final List<GameObserver> observers = new ArrayList<>();
+    public void addObserver(GameObserver observer) { if (!observers.contains(observer)) observers.add(observer); }
+    public void removeObserver(GameObserver observer) { observers.remove(observer); }
+    private void notifyObservers() { for (GameObserver o : new ArrayList<>(observers)) o.gameChanged(this); }
+
+    public void roll() { doRoll(); notifyObservers(); }
+
+    private void doRoll() {
         if (gameOver) throw new IllegalStateException("Game already finished");
         if (awaitingPiece || pendingQuestion != null || awaitingSurpriseTarget) throw new IllegalStateException("Resolve the current action first");
         currentRollIsBonus = bonusRollReady;
@@ -198,6 +206,43 @@ public final class Game {
         return reachable > 0 && !hasFullMove();
     }
 
+    /**
+     * FR-17, for the board's messages: the route position of the opposing Double Block that
+     * stops this piece with the current dice, or -1 when no block is in its way.
+     */
+    public int getBlockAhead(Piece piece) {
+        if (piece.isFinished()) return -1;
+        if (piece.isInCastle())
+            return stepDie == 6 && hasOpposingBlock(piece.getColor(), piece.ringAt(0), piece.indexAt(0)) ? 0 : -1;
+        int requested = requestedMovement(piece);
+        if (requested <= 0 || !piece.isOnCommonPath()) return -1;
+        for (int distance = 1; distance <= requested; distance++) {
+            int progress = piece.getProgress() + distance;
+            if (progress >= piece.getCommonLength()) return -1;
+            if (hasOpposingBlock(piece.getColor(), piece.ringAt(progress), piece.indexAt(progress))) return progress;
+        }
+        return -1;
+    }
+
+    /** Why the current player's piece (0-3) cannot be moved with this roll, or null when it can. */
+    public String explainCannotMove(int index) {
+        if (gameOver || index < 0 || index >= 4 || canMove(index)) return null;
+        if (!rollAvailable) return "Roll the dice first.";
+        Piece piece = getCurrentPlayer().pieces.get(index);
+        if (piece.isFinished()) return "This piece is already home.";
+        if (piece.isInCastle())
+            return stepDie != 6 ? "Only a 6 brings a piece out of the castle." : "A Double Block is on the start square.";
+        int requested = requestedMovement(piece);
+        if (requested <= 0) return "0 steps this roll.";
+        if (piece.getProgress() + requested > piece.getFinishProgress()) return "Needs an exact roll to reach FINISH.";
+        int reachable = reachableMovement(piece);
+        if (reachable == 0) return "A Double Block is right ahead.";
+        return "Blocked ahead: another piece can move all " + requested + " steps.";
+    }
+
+    /** Start, protection and surprise squares are safe: nobody is captured there (see isProtected). */
+    public boolean isSafeSquare(int ring, int boardIndex) { return isProtected(ring, boardIndex); }
+
     private boolean hasAnyLegalMove() {
         for (int i = 0; i < 4; i++) if (canMove(i)) return true;
         return false;
@@ -225,7 +270,9 @@ public final class Game {
         return captured;
     }
 
-    public void move(int index) {
+    public void move(int index) { doMove(index); notifyObservers(); }
+
+    private void doMove(int index) {
         if (gameOver || !awaitingPiece || !canMove(index)) throw new IllegalArgumentException("Illegal piece selection");
         lastSurprise = null;
         Player player = getCurrentPlayer();
@@ -274,10 +321,16 @@ public final class Game {
 
     /** Answer a pending question. A correct answer moves forward; incorrect moves backward. */
     public boolean answerQuestion(int chosenIndex) {
+        boolean correct = doAnswer(chosenIndex);
+        notifyObservers();
+        return correct;
+    }
+
+    private boolean doAnswer(int chosenIndex) {
         if (pendingQuestion == null || chosenIndex < 0 || chosenIndex > 3)
             throw new IllegalStateException("No valid answer to submit");
         lastSurprise = null;
-        QuestionBank.Question question = pendingQuestion;
+        Question question = pendingQuestion;
         boolean correct = question.getCorrect() == chosenIndex;
         int distance = "easy".equals(question.getLevel()) ? 1 : "medium".equals(question.getLevel()) ? 2 : 3;
         int direction = correct ? 1 : -1;
@@ -302,7 +355,8 @@ public final class Game {
                     + ". Movement: " + (target-original) + " step(s).";
         if (captured > 0) message += " Captured an opponent!";
         updateFinishingOrder();
-        if (!gameOver && !triggerSpecial(moved)) finishTurnAfterMove();
+        // FR-22: a piece that did not move does not trigger its square again.
+        if (!gameOver && (target == original || !triggerSpecial(moved))) finishTurnAfterMove();
         return correct;
     }
 
@@ -326,8 +380,7 @@ public final class Game {
                 awaitingSurpriseTarget = false;
                 for (int p = 0; p < players.size(); p++)
                     for (int i = 0; i < 4; i++)
-                        if (p != current && !players.get(p).pieces.get(i).isInCastle()
-                                && !players.get(p).pieces.get(i).isFinished()) awaitingSurpriseTarget = true;
+                        if (p != current && canMoveBackward(players.get(p).pieces.get(i))) awaitingSurpriseTarget = true;
                 if (!awaitingSurpriseTarget) {
                     message += " Surprise cancelled: no movable opponent piece.";
                     finishTurnAfterMove();
@@ -365,6 +418,12 @@ public final class Game {
 
     /** Resolve the 10% opponent-back event after the active player selects a target. */
     public int selectSurpriseTarget(int playerIndex, int pieceIndex) {
+        int die = doSelectSurpriseTarget(playerIndex, pieceIndex);
+        notifyObservers();
+        return die;
+    }
+
+    private int doSelectSurpriseTarget(int playerIndex, int pieceIndex) {
         if (!canSelectSurpriseTarget(playerIndex, pieceIndex))
             throw new IllegalArgumentException("Choose a movable opponent piece");
         awaitingSurpriseTarget = false;
@@ -380,6 +439,18 @@ public final class Game {
     }
 
     /** Reverse route traversal; home-path positions can move back onto the common route. */
+    /**
+     * FR-28: only a piece that can really go back at least one step may be chosen.
+     * It cannot when it is in the castle, finished, on its start square (FR-21),
+     * or when an opposing Double Block is right behind it (FR-17).
+     */
+    private boolean canMoveBackward(Piece piece) {
+        if (piece.isInCastle() || piece.isFinished() || piece.getProgress() == 0) return false;
+        int behind = piece.getProgress() - 1;
+        return behind >= piece.getCommonLength()
+                || !hasOpposingBlock(piece.getColor(), piece.ringAt(behind), piece.indexAt(behind));
+    }
+
     private void moveBackwardWithBlock(Piece piece, int distance) {
         int original = piece.getProgress();
         int target = Math.max(0, original - distance);

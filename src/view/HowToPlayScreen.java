@@ -112,6 +112,9 @@ public class HowToPlayScreen extends JPanel {
 
         addCard(content, "04  THE BOARD",
             "• Pieces move clockwise from their start square (#).\n" +
+            "• Easy: one 52-square track, 4 protection squares (★), no question or surprise squares.\n" +
+            "• Medium: + an outer track of 64 squares; 8 ★, 6 question squares (2 of each level), 2 surprise squares.\n" +
+            "• Hard: + outer tracks of 64 and 72 squares; 12 ★, 9 question squares (3 of each level), 3 surprise squares.\n" +
             "• Medium and Hard have extra outer tracks. When your piece reaches an arrow (→) of your color, " +
             "it moves to the next inner track and continues with the remaining steps. " +
             "Arrows of other colors are regular squares.\n" +

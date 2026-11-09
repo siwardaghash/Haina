@@ -32,7 +32,7 @@ public final class AdminAuth {
     }
 
     /**
-     * Adds an administrator (one per team member). Only the team tool app.CreateAdmin calls this;
+     * Adds an administrator (one per team member). Only the team tool controller.CreateAdmin calls this;
      * the game itself never creates accounts.
      */
     public void addAdministrator(String username, char[] password) throws Exception {
