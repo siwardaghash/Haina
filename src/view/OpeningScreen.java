@@ -123,7 +123,7 @@ public class OpeningScreen extends JPanel {
             @Override public void actionPerformed(ActionEvent e) { exitBtn.doClick(); }
         });
 
-        ticker = new Timer(16, e -> tick());   // ~60 FPS
+        ticker = new Timer(33, e -> tick());   // ~30 FPS: smooth enough, and leaves time for clicks
     }
 
     // ------------------------------------------------------------------ lifecycle
@@ -428,11 +428,23 @@ public class OpeningScreen extends JPanel {
         g.setComposite(AlphaComposite.SrcOver);
     }
 
+    private java.awt.image.BufferedImage vignette;
+
+    /** The dark edges never change, so they are drawn once per window size and reused. */
     private void paintVignette(Graphics2D g, int w, int h) {
-        float r = (float) Math.hypot(w, h) * 0.62f;
-        g.setPaint(new RadialGradientPaint(new Point2D.Float(w / 2f, h / 2f), r, new float[] {0.55f, 1f},
-                new Color[] {new Color(0, 0, 0, 0), new Color(0, 0, 0, 150)}));
-        g.fillRect(0, 0, w, h);
+        double scale = Math.max(1, g.getTransform().getScaleX());
+        int iw = (int) Math.ceil(w * scale), ih = (int) Math.ceil(h * scale);
+        if (vignette == null || vignette.getWidth() != iw || vignette.getHeight() != ih) {
+            vignette = new java.awt.image.BufferedImage(Math.max(1, iw), Math.max(1, ih), java.awt.image.BufferedImage.TYPE_INT_ARGB);
+            Graphics2D vg = vignette.createGraphics();
+            vg.scale(scale, scale);
+            float r = (float) Math.hypot(w, h) * 0.62f;
+            vg.setPaint(new RadialGradientPaint(new Point2D.Float(w / 2f, h / 2f), r, new float[] {0.55f, 1f},
+                    new Color[] {new Color(0, 0, 0, 0), new Color(0, 0, 0, 150)}));
+            vg.fillRect(0, 0, w, h);
+            vg.dispose();
+        }
+        g.drawImage(vignette, 0, 0, w, h, null);
     }
 
     private void paintFooter(Graphics2D g, int w, int h) {

@@ -29,18 +29,43 @@ final class Sound {
         else startMusic();
     }
 
-    static void startMusic() {
+    private static volatile boolean musicWanted;
+    private static boolean preparing;
+
+    /**
+     * Starts the background music. The 17-second loop is generated on a background thread the first
+     * time (about half a second), so opening the board does not wait for it.
+     */
+    static synchronized void startMusic() {
+        musicWanted = true;
         if (muted) return;
+        if (music != null) { playMusic(); return; }
+        if (preparing) return;
+        preparing = true;
+        Thread worker = new Thread(() -> {
+            Clip clip = null;
+            try { clip = open(marimbaLoop()); } catch (Throwable ignored) { /* no audio device: stay silent */ }
+            synchronized (Sound.class) {
+                music = clip;
+                preparing = false;
+                if (musicWanted && !muted) playMusic();
+            }
+        }, "music-loader");
+        worker.setDaemon(true);
+        worker.start();
+    }
+
+    private static void playMusic() {
         try {
-            if (music == null) music = open(marimbaLoop());
-            if (!music.isRunning()) {
+            if (music != null && !music.isRunning()) {
                 music.setFramePosition(0);
                 music.loop(Clip.LOOP_CONTINUOUSLY);
             }
         } catch (Throwable ignored) { /* no audio device: stay silent */ }
     }
 
-    static void stopMusic() {
+    static synchronized void stopMusic() {
+        musicWanted = false;
         try { if (music != null) music.stop(); } catch (Throwable ignored) { }
     }
 
