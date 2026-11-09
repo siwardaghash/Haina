@@ -98,7 +98,6 @@ public class GameSetupScreen extends JPanel {
     private int cw;
     private int top;
     private int rightX;
-    private int playersLabelY, namesLabelY, levelLabelY, buttonsY;
 
     public GameSetupScreen(Listener listener) {
         this.listener = listener;
@@ -144,7 +143,7 @@ public class GameSetupScreen extends JPanel {
         });
 
         setPlayerCount(GameConfig.MIN_PLAYERS);
-        ticker = new Timer(33, e -> tick());   // ~30 FPS
+        ticker = new Timer(16, e -> tick());
     }
 
     @Override
@@ -290,50 +289,69 @@ public class GameSetupScreen extends JPanel {
         }
     }
 
-    /**
-     * The steps are one under the other, in the order they are filled in (prototype feedback):
-     * 01 how many players, 02 who is playing, 03 difficulty, then the buttons.
-     * Short windows get a compact version so everything still fits (down to the 1000x700 minimum).
-     */
-    @Override
-    public void doLayout() {
-        int w = getWidth();
-        int h = getHeight();
-        cw = Math.min(1120, w - 80);
-        x0 = (w - cw) / 2;
-        boolean compact = h < 752;
-        int header = compact ? 100 : 112, tileH = compact ? 104 : 122, cardH = compact ? 140 : 146;
-        int buttonGap = compact ? 6 : 16;
-        int fixed = header + 36 + tileH + 212 + cardH + buttonGap + 76;   // 36 = three 12 px labels
-        int gap = Math.max(4, Math.min(30, (h - 16 - fixed) / 2));
-        top = Math.max(0, (h - fixed - 2 * gap) / 2);
 
-        playersLabelY = top + header;
-        int rowA = playersLabelY + 12;
-        int tileW = ((int) (cw * 0.42f) - 2 * GAP) / 3;
-        for (int i = 0; i < countTiles.length; i++) {
-            countTiles[i].setBounds(x0 + i * (tileW + GAP), rowA, tileW, tileH);
-        }
+	@Override
+	public void doLayout() {
+	    int w = getWidth();
+	    int h = getHeight();
+	
+	    cw = Math.min(1120, w - 80);
+	    x0 = (w - cw) / 2;
+	    top = Math.max(8, (h - 700) / 2);
+	
+	    // 01 - HOW MANY PLAYERS
+	    int tileW = Math.min(190, (cw - 2 * GAP) / 3);
+	    int playersRow = top + 118;
+	
+	    for (int i = 0; i < countTiles.length; i++) {
+	        countTiles[i].setBounds(
+	            x0 + i * (tileW + GAP),
+	            playersRow,
+	            tileW,
+	            100
+	        );
+	    }
+	
+	    // 02 - DIFFICULTY (second row)
+	    rightX = x0;
+	    int cardW = (cw - 2 * GAP) / 3;
+	    int difficultyRow = top + 252;
+	
+	    for (int i = 0; i < difficultyCards.length; i++) {
+	        difficultyCards[i].setBounds(
+	            x0 + i * (cardW + GAP),
+	            difficultyRow,
+	            cardW,
+	            140
+	        );
+	    }
+	
+	    // 03 - WHO'S PLAYING (third row)
+	    int playerCardsRow = top + 424;
+	    int pw = (cw - 3 * GAP) / 4;
+	
+	    for (int i = 0; i < playerCards.length; i++) {
+	        playerCards[i].setBase(
+	            x0 + i * (pw + GAP),
+	            playerCardsRow,
+	            pw,
+	            185
+	        );
+	    }
+	
+	    // 04 - BUTTONS
+	    int by = top + 619;
+	
+	    backBtn.setBounds(
+	        x0 - NeonButton.PAD, by, 200, 66
+	    );
+	
+	    startBtn.setBounds(
+	        x0 + cw - 280 + NeonButton.PAD,
+	        by, 280, 66
+	    );
+	}
 
-        namesLabelY = rowA + tileH + gap;
-        int rowB = namesLabelY + 12;
-        int pw = (cw - 3 * GAP) / 4;
-        for (int i = 0; i < playerCards.length; i++) {
-            playerCards[i].setBase(x0 + i * (pw + GAP), rowB, pw, 212);
-        }
-
-        levelLabelY = rowB + 212 + gap;
-        int rowC = levelLabelY + 12;
-        rightX = x0;
-        int cardW = (cw - 2 * GAP) / 3;
-        for (int i = 0; i < difficultyCards.length; i++) {
-            difficultyCards[i].setBounds(x0 + i * (cardW + GAP), rowC, cardW, cardH);
-        }
-
-        buttonsY = rowC + cardH + buttonGap;
-        backBtn.setBounds(x0 - NeonButton.PAD, buttonsY, 200, 76);
-        startBtn.setBounds(x0 + cw - 280 + NeonButton.PAD, buttonsY, 280, 76);
-    }
 
     @Override
     protected void paintComponent(Graphics g) {
@@ -348,16 +366,16 @@ public class GameSetupScreen extends JPanel {
 
         g2.setComposite(AlphaComposite.SrcOver.derive(intro(0f)));
         paintHeader(g2);
-        paintSection(g2, "01", "HOW MANY PLAYERS", x0, playersLabelY);
-        paintSection(g2, "02", "WHO'S PLAYING", x0, namesLabelY);
-        paintSection(g2, "03", "DIFFICULTY", rightX, levelLabelY);
+		paintSection(g2, "01", "HOW MANY PLAYERS", x0, top + 108);
+		paintSection(g2, "02", "DIFFICULTY", x0, top + 240);
+		paintSection(g2, "03", "WHO'S PLAYING", x0, top + 412);
 
         g2.setFont(Theme.ui(12f, Font.PLAIN));
         g2.setColor(MUTED);
         String hint = "Click a colour to take it (you swap with its owner)  •  max " + GameConfig.NAME_MAX_LENGTH + " characters";
         FontMetrics fm = g2.getFontMetrics();
-        g2.drawString(hint, x0 + cw - fm.stringWidth(hint), namesLabelY);
-
+        g2.drawString(hint, x0 + cw - fm.stringWidth(hint), top + 412);
+        
         paintStatus(g2);
         g2.dispose();
     }
@@ -439,8 +457,7 @@ public class GameSetupScreen extends JPanel {
         }
         g.setFont(Theme.semibold(14f));
         FontMetrics fm = g.getFontMetrics();
-        float cy = buttonsY + 38;
-        float shake = (float) Math.sin(statusPulse * 40) * 6f * statusPulse;
+        float cy = backBtn.getY() + backBtn.getHeight() / 2f;        float shake = (float) Math.sin(statusPulse * 40) * 6f * statusPulse;
         float tw = fm.stringWidth(status);
         float cx = x0 + cw / 2f - tw / 2f + shake + 20;
 
@@ -572,6 +589,9 @@ public class GameSetupScreen extends JPanel {
             this.level = level;
             this.acc = DIFFICULTY_ACCENTS[order % DIFFICULTY_ACCENTS.length];
             this.delay = 0.25f + order * 0.07f;
+            setToolTipText("");
+            javax.swing.ToolTipManager.sharedInstance()
+            .setDismissDelay(Integer.MAX_VALUE);
             setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
             addMouseListener(new MouseAdapter() {
                 @Override public void mouseEntered(MouseEvent e) { hovered = true; }
@@ -579,6 +599,132 @@ public class GameSetupScreen extends JPanel {
                 @Override public void mousePressed(MouseEvent e) { setDifficulty(level); }
             });
         }
+
+@Override
+public javax.swing.JToolTip createToolTip() {
+    javax.swing.JToolTip tip = super.createToolTip();
+
+    tip.setBackground(new Color(22, 25, 52));
+    tip.setForeground(new Color(235, 238, 255));
+    tip.setFont(new Font("SansSerif", Font.PLAIN, 12));
+
+    tip.setBorder(
+        javax.swing.BorderFactory.createCompoundBorder(
+            javax.swing.BorderFactory.createLineBorder(
+                new Color(140, 115, 255), 2, true
+            ),
+            javax.swing.BorderFactory.createEmptyBorder(
+                12, 16, 12, 16
+            )
+        )
+    );
+
+    tip.setOpaque(true);
+    return tip;
+}
+
+@Override
+public String getToolTipText(MouseEvent e) {
+
+    // Show information only when hovering over the info icon
+    int iconX = getWidth() - 52;
+    int iconY = 20;
+
+    if (Math.abs(e.getX() - iconX) > 14 ||
+        Math.abs(e.getY() - iconY) > 14) {
+        return null;
+    }
+
+    if (level == Difficulty.EASY) {
+        return "<html><div style='width:290px'>"
+            + "<b>EASY MODE</b><br><br>"
+            + "BOARD: 52-square shared track and "
+            + "6 home-path squares per color.<br>"
+            + "DICE: Regular die (1-6).<br><br>"
+            + "SPECIAL SQUARES:<br>"
+            + "- 4 protection stars<br>"
+            + "- 4 directional arrows<br>"
+            + "- 4 starting squares (#)<br>"
+            + "- No questions or surprises<br><br>"
+			+ "<b>WHAT DO THE SYMBOLS MEAN?</b><br>"
+			+ "&#9733; Protection: Pieces cannot be captured.<br>"
+			+ "# Start: Protected entry square after rolling 6.<br>"
+			+ "&rarr; Arrow: Directs pieces toward their home path.<br><br>"
+            + "RULES:<br>"
+            + "- Roll 6 to enter the board.<br>"
+            + "- Rolling 6 grants another roll.<br>"
+            + "- Three consecutive sixes cancel the third roll.<br>"
+            + "- Reach home with an exact roll.<br><br>"
+            + "Best for learning the basic game!"
+            + "</div></html>";
+    }
+
+    if (level == Difficulty.MEDIUM) {
+        return "<html><div style='width:310px'>"
+            + "<b>MEDIUM MODE</b><br><br>"
+            + "BOARD: Standard 52-square track "
+            + "plus an additional 64-square outer ring.<br>"
+            + "DICE: Regular die + Boost die (1-3).<br>"
+            + "Boost multiplier = Boost result - 1.<br><br>"
+            + "SPECIAL SQUARES:<br>"
+            + "- 8 protection stars<br>"
+            + "- 8 directional arrows<br>"
+            + "- 4 starting squares (#)<br>"
+            + "- 6 question squares (2 per question level)<br>"
+            + "- 2 surprise squares<br><br>"
+			+ "<b>WHAT DO THE SYMBOLS MEAN?</b><br>"
+			+ "&#9733; Protection: Cannot be captured.<br>"
+			+ "? Question: Correct = forward, wrong = backward.<br>"
+			+ "Movement: Easy +/-1, Medium +/-2, Hard +/-3.<br>"
+			+ "! Surprise: A random event (may help or hurt).<br>"
+			+ "Surprise squares are also protected.<br>"
+			+ "# Start: Safe entry square after rolling 6.<br>"
+			+ "&rarr; Arrow: Follow to the next inner track.<br><br>"
+            + "QUESTIONS:<br>"
+            + "- Easy: move +/-1 step<br>"
+            + "- Medium: move +/-2 steps<br>"
+            + "- Hard: move +/-3 steps<br><br>"
+            + "SPECIAL EVENTS:<br>"
+            + "Surprises may advance, return or delay pieces.<br>"
+            + "Special-square positions are randomized.<br><br>"
+            + "Combines strategy, questions and surprises!"
+            + "</div></html>";
+    }
+
+    if (level == Difficulty.HARD) {
+        return "<html><div style='width:310px'>"
+            + "<b>HARD MODE</b><br><br>"
+            + "BOARD: Standard 52-square track "
+            + "plus 64-square and 72-square outer rings.<br>"
+            + "DICE: Regular die + UltraBoost die (1-6).<br>"
+            + "UltraBoost multiplier = result - 1.<br><br>"
+            + "SPECIAL SQUARES:<br>"
+            + "- 12 protection stars<br>"
+            + "- 12 directional arrows<br>"
+            + "- 4 starting squares (#)<br>"
+            + "- 9 question squares (3 per question level)<br>"
+            + "- 3 surprise squares<br><br>"
+			+ "<b>WHAT DO THE SYMBOLS MEAN?</b><br>"
+			+ "&#9733; Protection: Pieces cannot be captured.<br>"
+			+ "? Question: Correct = forward, wrong = backward.<br>"
+			+ "Movement: Easy +/-1, Medium +/-2, Hard +/-3.<br>"
+			+ "! Surprise: A random event (may help or hurt).<br>"
+			+ "Surprise squares are also protected.<br>"
+			+ "# Start: Protected entry square after rolling 6.<br>"
+			+ "&rarr; Arrow: Follow to the next inner track.<br><br>"
+            + "QUESTIONS:<br>"
+            + "- Easy: move +/-1 step<br>"
+            + "- Medium: move +/-2 steps<br>"
+            + "- Hard: move +/-3 steps<br><br>"
+            + "SPECIAL EVENTS:<br>"
+            + "Surprises may advance, return or delay pieces.<br>"
+            + "Special-square positions are randomized.<br><br>"
+            + "The most challenging game mode!"
+            + "</div></html>";
+    }
+
+    return null;
+}
 
         void update(float dt) {
             hover = approach(hover, hovered ? 1f : 0f, dt, 12f);
@@ -646,7 +792,10 @@ public class GameSetupScreen extends JPanel {
                 g2.setColor(alpha(TEXT, counts[i] == 0 ? 90 : 230));
                 g2.drawString(String.valueOf(counts[i]), ic + 12, icy + 4.5f);
             }
-
+			if (level == Difficulty.MEDIUM) {
+			    paintBadgeIcon(g2, w - 52, 20, 9f, "i", VIOLET);
+			}
+			paintBadgeIcon(g2, w - 52, 20, 9f, "i", VIOLET);
             paintCheck(g2, w - 20, 20, 9 * sel, acc);
             g2.dispose();
         }
@@ -792,7 +941,8 @@ public class GameSetupScreen extends JPanel {
             baseX = x;
             baseY = y;
             setBounds(x, y, w, h);
-            field.setBounds(16, 102, w - 32, 42);
+            field.setBounds(16, 90, w - 32, 36);        
+            
         }
 
         void update(float dt) {
@@ -816,7 +966,7 @@ public class GameSetupScreen extends JPanel {
         }
 
         private float swatchCy() {
-            return getHeight() - 32;
+            return getHeight() - 27;
         }
 
         private int swatchAt(Point p) {
