@@ -251,7 +251,13 @@ public class HowToPlayScreen extends JPanel {
         JLabel headingLabel = new JLabel(heading);
         headingLabel.setFont(new Font("SansSerif", Font.BOLD, 21));
         headingLabel.setForeground(accent);
-        card.add(headingLabel, BorderLayout.NORTH);
+        // icon badge left of the heading: "01  GAME SETUP" -> badge 1
+        int number = Integer.parseInt(heading.substring(0, 2));
+        JPanel headRow = new JPanel(new BorderLayout(14, 0));
+        headRow.setOpaque(false);
+        headRow.add(iconBadge(number, accent), BorderLayout.WEST);
+        headRow.add(headingLabel, BorderLayout.CENTER);
+        card.add(headRow, BorderLayout.NORTH);
 
         JTextArea body = new JTextArea(description);
         body.setFont(new Font("SansSerif", Font.PLAIN, 16));
@@ -286,7 +292,98 @@ public class HowToPlayScreen extends JPanel {
         parent.add(card);
         parent.add(Box.createVerticalStrut(14));
     }
+    /** Round glowing badge with a small drawn icon for card 1–8. */
+    private static JComponent iconBadge(int number, Color accent) {
+        JComponent badge = new JComponent() {
+            private static final long serialVersionUID = 1L;
 
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                Theme.applyQuality(g2);
+                float cx = getWidth() / 2f;
+                float cy = getHeight() / 2f;
+                float r = Math.min(getWidth(), getHeight()) / 2f - 5;
+                float k = r * 0.5f;   // half the size of the icon
+
+                // glow, tinted circle and neon ring
+                Theme.glow(g2, cx, cy, r + 5, accent, 90);
+                java.awt.geom.Ellipse2D circle =
+                        new java.awt.geom.Ellipse2D.Float(cx - r, cy - r, r * 2, r * 2);
+                g2.setColor(Theme.alpha(accent, 70));
+                g2.fill(circle);
+                g2.setColor(accent);
+                g2.setStroke(new BasicStroke(2f));
+                g2.draw(circle);
+
+                // the icon itself, in white
+                g2.setColor(Color.WHITE);
+                g2.setStroke(new BasicStroke(2.2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                switch (number) {
+                    case 1: { // game setup: a pawn
+                        Theme.paintPawn(g2, cx, cy - k * 0.45f, k * 1.0f, Color.WHITE, 255);
+                        break;
+                    }
+                    case 2: { // your turn: a circular arrow
+                        g2.draw(new java.awt.geom.Arc2D.Float(cx - k, cy - k, k * 2, k * 2,
+                                90, 280, java.awt.geom.Arc2D.OPEN));
+                        java.awt.geom.Path2D head = new java.awt.geom.Path2D.Float();
+                        head.moveTo(cx + k * 0.5f, cy - k);
+                        head.lineTo(cx - k * 0.1f, cy - k * 1.45f);
+                        head.lineTo(cx - k * 0.1f, cy - k * 0.55f);
+                        head.closePath();
+                        g2.fill(head);
+                        break;
+                    }
+                    case 3: { // the dice: a die showing five
+                        g2.draw(new java.awt.geom.RoundRectangle2D.Float(
+                                cx - k, cy - k, k * 2, k * 2, k * 0.6f, k * 0.6f));
+                        float p = k * 0.22f;
+                        float[][] pips = {{-0.5f, -0.5f}, {0.5f, -0.5f}, {0, 0}, {-0.5f, 0.5f}, {0.5f, 0.5f}};
+                        for (float[] pip : pips) {
+                            g2.fill(new java.awt.geom.Ellipse2D.Float(
+                                    cx + pip[0] * k - p, cy + pip[1] * k - p, p * 2, p * 2));
+                        }
+                        break;
+                    }
+                    case 4: { // the board: a 3 × 3 grid with a lit centre
+                        float t = k * 2 / 3f;
+                        g2.fill(new java.awt.geom.Rectangle2D.Float(cx - t / 2, cy - t / 2, t, t));
+                        g2.draw(new java.awt.geom.Rectangle2D.Float(cx - k, cy - k, k * 2, k * 2));
+                        g2.draw(new java.awt.geom.Line2D.Float(cx - t / 2, cy - k, cx - t / 2, cy + k));
+                        g2.draw(new java.awt.geom.Line2D.Float(cx + t / 2, cy - k, cx + t / 2, cy + k));
+                        g2.draw(new java.awt.geom.Line2D.Float(cx - k, cy - t / 2, cx + k, cy - t / 2));
+                        g2.draw(new java.awt.geom.Line2D.Float(cx - k, cy + t / 2, cx + k, cy + t / 2));
+                        break;
+                    }
+                    case 7: { // capture & protection: a star
+                        java.awt.geom.Path2D star = new java.awt.geom.Path2D.Float();
+                        for (int i = 0; i < 10; i++) {
+                            double angle = Math.toRadians(-90 + i * 36);
+                            float rr = (i % 2 == 0) ? k * 1.1f : k * 0.45f;
+                            float px = cx + (float) (Math.cos(angle) * rr);
+                            float py = cy + (float) (Math.sin(angle) * rr);
+                            if (i == 0) star.moveTo(px, py); else star.lineTo(px, py);
+                        }
+                        star.closePath();
+                        g2.fill(star);
+                        break;
+                    }
+                    default: { // 5 = ?, 6 = !, 8 = crown
+                        String symbol = number == 5 ? "?" : number == 6 ? "!" : "\u265B";
+                        g2.setFont(new Font("SansSerif", Font.BOLD, Math.round(r * 1.1f)));
+                        FontMetrics fm = g2.getFontMetrics();
+                        g2.drawString(symbol, cx - fm.stringWidth(symbol) / 2f,
+                                cy + (fm.getAscent() - fm.getDescent()) / 2f);
+                        break;
+                    }
+                }
+                g2.dispose();
+            }
+        };
+        badge.setPreferredSize(new Dimension(52, 52));
+        return badge;
+    }
     /** Follows the scroll pane's width so the text wraps instead of scrolling sideways. */
     private static final class WidthTrackingPanel extends JPanel implements Scrollable {
         private static final long serialVersionUID = 1L;
