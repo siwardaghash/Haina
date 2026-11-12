@@ -1262,10 +1262,9 @@ public final class GameBoardScreen extends JPanel {
                     double lift = piece == hopPiece ? cell * .35 : 0;
                     Color color = playerColor(piece.getColor());
                     if (progress >= piece.getFinishProgress()) {
-                        int size = Math.max(9, cell / 3);
-                        int x = left + 7 * cell + ((piece.getNumber() - 1) % 2) * size;
-                        int y = top + 7 * cell + ((piece.getNumber() - 1) / 2) * size;
-                        drawPin(g, x, y, Math.max(12, cell / 2), color, -1, 0);
+                        double[] center = finishedPieceCenter(piece, left, top, cell);
+                        drawPin(g, (int) center[0], (int) center[1],
+                                Math.max(9, cell / 3), color, -1, 0);
                         continue;
                     }
                     double cx, cy;
@@ -1348,7 +1347,16 @@ public final class GameBoardScreen extends JPanel {
                 }
             }
         }
+        private static double[] finishedPieceCenter(Piece piece, int left, int top, int cell) {
+            PlayerColor color = piece.getColor();
+            boolean right = color == PlayerColor.GREEN || color == PlayerColor.YELLOW;
+            boolean bottom = color == PlayerColor.BLUE || color == PlayerColor.YELLOW;
+            int slot = piece.getNumber() - 1;
 
+            double x = (right ? 8.06 : 6.32) + (slot % 2) * 0.62;
+            double y = (bottom ? 8.28 : 6.28) + (slot / 2) * 0.44;
+            return new double[] {left + x * cell, top + y * cell};
+        }
         /** Centre of the square a piece stands on at {@code progress}; -1 is its place in the castle. */
         private double[] squareCenter(Piece piece, int progress, int left, int top, int cell) {
             if (progress < 0) {
@@ -1358,7 +1366,9 @@ public final class GameBoardScreen extends JPanel {
                 int i = piece.getNumber() - 1;
                 return new double[]{left + (x + (i % 2 == 0 ? 2 : 4)) * cell, top + (y + (i / 2 == 0 ? 2 : 4)) * cell};
             }
-            if (progress >= piece.getFinishProgress()) return new double[]{left + 7.5 * cell, top + 7.5 * cell};
+            if (progress >= piece.getFinishProgress()) {
+                return finishedPieceCenter(piece, left, top, cell);
+            }
             int ring = piece.ringAt(progress);
             if (ring > 0) {
                 double inset = ring == 1 ? 1.0 : 2.0;
