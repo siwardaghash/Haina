@@ -558,9 +558,25 @@ public final class GameBoardScreen extends JPanel {
         refreshPanel();
         if (game.isGameOver() && !resultShown) {
             resultShown = true;
+
+            Game.Player winner = game.getFinishingOrder().get(0);
+            String winnerColor = winner.getColor().getLabel()
+                    .toUpperCase(java.util.Locale.ROOT);
+
+            status.setText(winnerColor + " WINS!");
+            status.setForeground(BoardCanvas.playerColor(winner.getColor()));
+            status.setFont(status.getFont().deriveFont(Font.BOLD, 24f));
+
             Sound.stopMusic();
             Sound.win();
-            SwingUtilities.invokeLater(this::showFinalResults);
+
+            Timer resultsDelay = new Timer(2200, e -> {
+                if (isShowing()) {
+                    showFinalResults();
+                }
+            });
+            resultsDelay.setRepeats(false);
+            resultsDelay.start();
         }
     }
 
