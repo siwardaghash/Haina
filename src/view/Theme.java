@@ -304,4 +304,89 @@ public final class Theme {
         bar.setOpaque(false);
         bar.setPreferredSize(new java.awt.Dimension(12, 0));
     }
+
+    /**
+     * Top-3 podium (2nd | 1st | 3rd) with a glowing pawn, name and caption for each place.
+     * {@code pawnColors} may be null; then every pawn takes its medal colour.
+     */
+    public static javax.swing.JComponent podium(String[] names, String[] captions, Color[] pawnColors) {
+        javax.swing.JComponent podium = new javax.swing.JComponent() {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            protected void paintComponent(java.awt.Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                applyQuality(g2);
+                int h = getHeight();
+                int slotW = Math.min(getWidth() / 3, 300);
+                int left = (getWidth() - slotW * 3) / 2;     // keeps the podium centred
+
+                int[] rankAtSlot = {1, 0, 2};                // left = 2nd, middle = 1st, right = 3rd
+                int[] blockH = {90, 66, 48};                 // block height for 1st, 2nd, 3rd
+                Color[] medal = {
+                        new Color(255, 210, 107),            // gold
+                        new Color(200, 212, 235),            // silver
+                        new Color(222, 150, 100)};           // bronze
+
+                for (int slot = 0; slot < 3; slot++) {
+                    int rank = rankAtSlot[slot];
+                    if (rank >= names.length) continue;      // fewer than 3 players
+                    Color c = medal[rank];
+                    Color pawn = pawnColors == null ? c : pawnColors[rank];
+
+                    int bx = left + slot * slotW + 14;
+                    int bw = slotW - 28;
+                    int by = h - blockH[rank];
+                    float cx = bx + bw / 2f;
+
+                    // podium block (taller than the panel, so only the top corners are round)
+                    java.awt.Shape block = new java.awt.geom.RoundRectangle2D.Float(
+                            bx, by, bw, blockH[rank] + 20, 18, 18);
+                    g2.setPaint(new GradientPaint(0, by, alpha(c, 110), 0, h, alpha(c, 15)));
+                    g2.fill(block);
+                    g2.setColor(alpha(c, 220));
+                    g2.setStroke(new java.awt.BasicStroke(2f));
+                    g2.draw(block);
+
+                    // big rank number on the block
+                    g2.setFont(display(32f));
+                    java.awt.FontMetrics fm = g2.getFontMetrics();
+                    String number = String.valueOf(rank + 1);
+                    g2.setColor(alpha(Color.WHITE, 210));
+                    g2.drawString(number, cx - fm.stringWidth(number) / 2f, by + 6 + fm.getAscent());
+
+                    // caption and name just above the block
+                    g2.setFont(ui(13f, Font.PLAIN));
+                    fm = g2.getFontMetrics();
+                    g2.setColor(MUTED);
+                    g2.drawString(captions[rank], cx - fm.stringWidth(captions[rank]) / 2f, by - 8);
+
+                    g2.setFont(semibold(17f));
+                    fm = g2.getFontMetrics();
+                    g2.setColor(c);
+                    g2.drawString(names[rank], cx - fm.stringWidth(names[rank]) / 2f, by - 26);
+
+                    // glowing pawn above the name
+                    float r = 15f;
+                    float cy = by - 48 - r * 1.5f;
+                    if (rank == 0) {
+                        glow(g2, cx, cy, 70f, c, 70);
+                    }
+                    paintPawn(g2, cx, cy, r, pawn, 255);
+
+                    // crown on the winner
+                    if (rank == 0) {
+                        g2.setFont(new Font("SansSerif", Font.BOLD, 24));
+                        fm = g2.getFontMetrics();
+                        g2.setColor(c);
+                        g2.drawString("\u265B", cx - fm.stringWidth("\u265B") / 2f, cy - r * 0.55f - 6);
+                    }
+                }
+                g2.dispose();
+            }
+        };
+        podium.setOpaque(false);
+        podium.setPreferredSize(new java.awt.Dimension(580, 200));
+        return podium;
+    }
 }
