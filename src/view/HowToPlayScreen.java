@@ -153,6 +153,8 @@ public class HowToPlayScreen extends JPanel {
             "The game ends when all players but one have finished; the last player is placed last. " +
             "The finishing order is shown and saved in the game history.",
             new Color(244, 166, 200));
+        // mini visuals inside the cards
+        cards.get(2).add(diceExample(), BorderLayout.SOUTH);    // 03 THE DICE
 
         JScrollPane scrollPane = new JScrollPane(content);
         scrollPane.setBorder(null);
@@ -310,6 +312,83 @@ public class HowToPlayScreen extends JPanel {
         cards.add(card);
         cardAccents.add(accent);
         parent.add(Box.createVerticalStrut(14));
+    }
+    /** Draws one die face with 1–6 pips. */
+    private static void drawDie(Graphics2D g2, float x, float y, float size,
+                                int value, Color face, Color pip) {
+        g2.setColor(face);
+        g2.fill(new java.awt.geom.RoundRectangle2D.Float(x, y, size, size, size * 0.3f, size * 0.3f));
+        // pip positions on a 3 × 3 grid: 0 = left/top, 1 = middle, 2 = right/bottom
+        int[][][] layouts = {
+                {{1, 1}},
+                {{0, 0}, {2, 2}},
+                {{0, 0}, {1, 1}, {2, 2}},
+                {{0, 0}, {2, 0}, {0, 2}, {2, 2}},
+                {{0, 0}, {2, 0}, {1, 1}, {0, 2}, {2, 2}},
+                {{0, 0}, {2, 0}, {0, 1}, {2, 1}, {0, 2}, {2, 2}}};
+        float r = size * 0.09f;
+        g2.setColor(pip);
+        for (int[] p : layouts[value - 1]) {
+            float px = x + size * (0.25f + 0.25f * p[0]);
+            float py = y + size * (0.25f + 0.25f * p[1]);
+            g2.fill(new java.awt.geom.Ellipse2D.Float(px - r, py - r, r * 2, r * 2));
+        }
+    }
+
+    /** Card 03 visual: Step 4 and BOOST 3 give 4 × (3 − 1) = 8 steps. */
+    private static JComponent diceExample() {
+        JComponent example = new JComponent() {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                Theme.applyQuality(g2);
+                Color dark = new Color(22, 26, 56);
+                float size = 46;
+                float top = 6;
+                float x = 4;
+                float textY = top + size / 2 + 8;
+
+                g2.setFont(Theme.display(22f));
+                FontMetrics big = g2.getFontMetrics();
+
+                // STEP die
+                drawDie(g2, x, top, size, 4, Color.WHITE, dark);
+                drawLabel(g2, "STEP", x + size / 2, top + size + 18, Color.WHITE);
+                x += size + 14;
+
+                g2.setFont(Theme.display(22f));
+                g2.setColor(MUTED);
+                g2.drawString("\u00D7  (", x, textY);
+                x += big.stringWidth("\u00D7  (") + 10;
+
+                // BOOST die
+                drawDie(g2, x, top, size, 3, Theme.YELLOW, dark);
+                drawLabel(g2, "BOOST", x + size / 2, top + size + 18, Theme.YELLOW);
+                x += size + 12;
+
+                g2.setFont(Theme.display(22f));
+                g2.setColor(MUTED);
+                g2.drawString("\u2212 1 )  =", x, textY);
+                x += big.stringWidth("\u2212 1 )  =") + 14;
+
+                // result
+                g2.setColor(new Color(100, 170, 255));
+                g2.drawString("8 STEPS", x, textY);
+
+                g2.dispose();
+            }
+
+            private void drawLabel(Graphics2D g2, String text, float centerX, float y, Color color) {
+                g2.setFont(Theme.semibold(11f));
+                FontMetrics fm = g2.getFontMetrics();
+                g2.setColor(Theme.alpha(color, 200));
+                g2.drawString(text, centerX - fm.stringWidth(text) / 2f, y);
+            }
+        };
+        example.setPreferredSize(new Dimension(400, 82));
+        return example;
     }
     /** Small neon pill button used for the quick-jump row. */
     private static JButton chip(String text, Color accent) {
