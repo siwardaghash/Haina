@@ -334,7 +334,7 @@ public final class GameHistoryScreen extends JPanel {
         JTable statsTable = new JTable(statsModel);
         statsTable.setAutoCreateRowSorter(true);
         statsTable.setFillsViewportHeight(true);
-        int visibleRows = Math.max(1, Math.min(statsModel.getRowCount(), 6));
+        int visibleRows = Math.max(1, Math.min(statsModel.getRowCount(), 4));
         statsTable.setPreferredScrollableViewportSize(
                 new java.awt.Dimension(580, visibleRows * 36));        statsTable.setRowHeight(36);
         statsTable.setBackground(new Color(32, 37, 70));
@@ -395,6 +395,14 @@ public final class GameHistoryScreen extends JPanel {
         top.setOpaque(false);
         top.add(heading, BorderLayout.NORTH);
         top.add(cards, BorderLayout.CENTER);
+
+        // rank players: most wins first, then best win rate, then name A–Z
+        List<PlayerStatistics> ranked = new java.util.ArrayList<>(PlayerStatistics.from(games));
+        ranked.sort(java.util.Comparator
+                .comparingInt(PlayerStatistics::wins).reversed()
+                .thenComparing(java.util.Comparator.comparingDouble(PlayerStatistics::winRate).reversed())
+                .thenComparing(PlayerStatistics::name, String.CASE_INSENSITIVE_ORDER));
+        top.add(podiumPanel(ranked), BorderLayout.SOUTH);
 
         JPanel panel = new JPanel(new BorderLayout(0, 16));
         panel.setBackground(new Color(20, 24, 49));
@@ -495,6 +503,87 @@ public final class GameHistoryScreen extends JPanel {
                         return this;
                     }
                 });
+    }
+    /** Top-3 podium: 2nd | 1st | 3rd, each with a glowing pawn, name and wins. */
+    private JPanel podiumPanel(List<PlayerStatistics> ranked) {
+        JPanel podium = new JPanel() {
+            @Override
+            protected void paintComponent(java.awt.Graphics g) {
+                java.awt.Graphics2D g2 = (java.awt.Graphics2D) g.create();
+                Theme.applyQuality(g2);
+                int w = getWidth();
+                int h = getHeight();
+                int slotW = w / 3;
+
+                int[] rankAtSlot = {1, 0, 2};          // left = 2nd, middle = 1st, right = 3rd
+                int[] blockH = {90, 66, 48};                  // block height for 1st, 2nd, 3rd
+                Color[] medal = {
+                        new Color(255, 210, 107),      // gold
+                        new Color(200, 212, 235),      // silver
+                        new Color(222, 150, 100)};     // bronze
+
+                for (int slot = 0; slot < 3; slot++) {
+                    int rank = rankAtSlot[slot];
+                    if (rank >= ranked.size()) continue;   // fewer than 3 players
+                    PlayerStatistics p = ranked.get(rank);
+                    Color c = medal[rank];
+
+                    int bx = slot * slotW + 14;
+                    int bw = slotW - 28;
+                    int by = h - blockH[rank];
+                    float cx = bx + bw / 2f;
+
+                    // podium block (taller than the panel, so only the top corners are round)
+                    java.awt.Shape block = new java.awt.geom.RoundRectangle2D.Float(
+                            bx, by, bw, blockH[rank] + 20, 18, 18);
+                    g2.setPaint(new java.awt.GradientPaint(
+                            0, by, Theme.alpha(c, 110), 0, h, Theme.alpha(c, 15)));
+                    g2.fill(block);
+                    g2.setColor(Theme.alpha(c, 220));
+                    g2.setStroke(new java.awt.BasicStroke(2f));
+                    g2.draw(block);
+
+                    // big rank number on the block
+                    g2.setFont(Theme.display(32f));
+                    java.awt.FontMetrics fm = g2.getFontMetrics();
+                    String number = String.valueOf(rank + 1);
+                    g2.setColor(Theme.alpha(Color.WHITE, 210));
+                    g2.drawString(number, cx - fm.stringWidth(number) / 2f, by + 6 + fm.getAscent());
+
+                    // wins and name just above the block
+                    g2.setFont(Theme.ui(13f, Font.PLAIN));
+                    fm = g2.getFontMetrics();
+                    String wins = p.wins() + (p.wins() == 1 ? " win" : " wins");
+                    g2.setColor(Theme.MUTED);
+                    g2.drawString(wins, cx - fm.stringWidth(wins) / 2f, by - 8);
+
+                    g2.setFont(Theme.semibold(17f));
+                    fm = g2.getFontMetrics();
+                    g2.setColor(c);
+                    g2.drawString(p.name(), cx - fm.stringWidth(p.name()) / 2f, by - 26);
+
+                    // glowing pawn above the name
+                    float r = 15f;
+                    float cy = by - 48 - r * 1.5f;
+                    if (rank == 0) {
+                        Theme.glow(g2, cx, cy, 70f, c, 70);
+                    }
+                    Theme.paintPawn(g2, cx, cy, r, c, 255);
+
+                    // crown on the winner
+                    if (rank == 0) {
+                        g2.setFont(new Font("SansSerif", Font.BOLD, 24));
+                        fm = g2.getFontMetrics();
+                        g2.setColor(c);
+                        g2.drawString("\u265B", cx - fm.stringWidth("\u265B") / 2f, cy - r * 0.55f - 6);
+                    }
+                }
+                g2.dispose();
+            }
+        };
+        podium.setOpaque(false);
+        podium.setPreferredSize(new java.awt.Dimension(580, 200));
+        return podium;
     }
     private JPanel statCard(String title, int count, Color accent) {
         JPanel card = new JPanel(new BorderLayout(0, 5)) {
