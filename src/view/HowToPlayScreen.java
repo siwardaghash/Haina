@@ -158,6 +158,7 @@ public class HowToPlayScreen extends JPanel {
         scrollPane.getViewport().setOpaque(false);
         scrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
         scrollPane.getVerticalScrollBar().setUnitIncrement(18);
+        Theme.neonScrollBar(scrollPane, new Color(174, 139, 245));
         // Wrapped text knows its height only once its width is known, so lay out again on resize.
         scrollPane.getViewport().addComponentListener(new java.awt.event.ComponentAdapter() {
             @Override public void componentResized(java.awt.event.ComponentEvent e) {
