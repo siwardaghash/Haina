@@ -16,6 +16,9 @@ import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.SwingConstants;
+import model.GameStatistics;
+import model.PlayerStatistics;
+import javax.swing.JOptionPane;
 
 
 /** Read-only listing of completed games. */
@@ -276,7 +279,114 @@ public final class GameHistoryScreen extends JPanel {
         if (model.getRowCount() > 0) {
             footer.add(message, BorderLayout.CENTER);
         }
+        NeonButton statisticsButton = new NeonButton(
+                "Scoreboard",
+                new Color(174, 139, 245),
+                NeonButton.Glyph.HISTORY,
+                null);
+        statisticsButton.setChevron(false);
+        statisticsButton.setPreferredSize(new java.awt.Dimension(240, 76));
+        statisticsButton.addActionListener(e -> showStatistics(controller));
+        footer.add(statisticsButton, BorderLayout.EAST);
         add(footer, BorderLayout.SOUTH);
     
         }
+    
+    private void showStatistics(HistoryController controller) {
+        List<GameRecord> games;
+        try {
+            games = controller.records();
+        } catch (IOException e) {
+            JOptionPane.showMessageDialog(this, "Could not load history: " + e.getMessage(),
+                    "Game & Player Statistics", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        if (games.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Finish a game to see your statistics.");
+            return;
+        }
+
+        GameStatistics totals = GameStatistics.from(games);
+        
+        DefaultTableModel statsModel = new DefaultTableModel(
+                new String[]{"Player", "Games played", "Wins", "Win rate (%)"}, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false;
+            }
+
+            @Override
+            public Class<?> getColumnClass(int column) {
+                if (column == 0) return String.class;
+                if (column == 3) return Double.class;
+                return Integer.class;
+            }
+        };
+
+        for (PlayerStatistics player : PlayerStatistics.from(games)) {
+            double rate = Math.round(player.winRate() * 10.0) / 10.0;
+            statsModel.addRow(new Object[]{player.name(), player.gamesPlayed(), player.wins(), rate});
+        }
+
+        Color lavender = new Color(198, 166, 255);
+
+        JTable statsTable = new JTable(statsModel);
+        statsTable.setAutoCreateRowSorter(true);
+        statsTable.setFillsViewportHeight(true);
+        statsTable.setPreferredScrollableViewportSize(new java.awt.Dimension(580, 240));
+        statsTable.setRowHeight(36);
+        statsTable.setBackground(new Color(32, 37, 70));
+        statsTable.setForeground(new Color(235, 240, 255));
+        statsTable.setSelectionBackground(new Color(78, 62, 137));
+        statsTable.setSelectionForeground(Color.WHITE);
+        statsTable.setGridColor(new Color(54, 61, 95));
+        statsTable.getTableHeader().setBackground(new Color(55, 43, 102));
+        statsTable.getTableHeader().setForeground(Color.WHITE);
+
+        JPanel cards = new JPanel(new java.awt.GridLayout(1, 4, 10, 0));
+        cards.setOpaque(false);
+        cards.add(statCard("TOTAL GAMES", totals.totalGames(), lavender));
+        cards.add(statCard("EASY", totals.easyGames(), new Color(89, 218, 166)));
+        cards.add(statCard("MEDIUM", totals.mediumGames(), new Color(255, 210, 107)));
+        cards.add(statCard("HARD", totals.hardGames(), new Color(255, 120, 150)));
+
+        JLabel heading = new JLabel("LUDO SCOREBOARD");
+        heading.setFont(new Font("SansSerif", Font.BOLD, 26));
+        heading.setForeground(lavender);
+
+        JPanel top = new JPanel(new BorderLayout(0, 12));
+        top.setOpaque(false);
+        top.add(heading, BorderLayout.NORTH);
+        top.add(cards, BorderLayout.CENTER);
+
+        JPanel panel = new JPanel(new BorderLayout(0, 16));
+        panel.setBackground(new Color(20, 24, 49));
+        panel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+        panel.add(top, BorderLayout.NORTH);
+        panel.add(new JScrollPane(statsTable), BorderLayout.CENTER);
+
+        JOptionPane.showMessageDialog(this, panel, "LUDO • Code Quest",
+                JOptionPane.PLAIN_MESSAGE);
+    }
+
+    private JPanel statCard(String title, int count, Color accent) {
+        JPanel card = new JPanel(new BorderLayout(0, 5));
+        card.setBackground(new Color(33, 38, 71));
+        card.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(3, 0, 0, 0, accent),
+                BorderFactory.createEmptyBorder(10, 8, 10, 8)));
+
+        JLabel value = new JLabel(String.valueOf(count), SwingConstants.CENTER);
+        value.setFont(new Font("SansSerif", Font.BOLD, 28));
+        value.setForeground(accent);
+
+        JLabel label = new JLabel(title, SwingConstants.CENTER);
+        label.setFont(new Font("SansSerif", Font.BOLD, 11));
+        label.setForeground(new Color(220, 225, 250));
+
+        card.add(value, BorderLayout.CENTER);
+        card.add(label, BorderLayout.SOUTH);
+        return card;
+    }
 }
