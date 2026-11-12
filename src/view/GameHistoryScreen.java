@@ -97,15 +97,7 @@ public final class GameHistoryScreen extends JPanel {
 		table.setAutoCreateRowSorter(true);
 		table.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS);
 
-        table.getTableHeader().setBackground(new Color(40, 60, 100));
-        table.getTableHeader().setForeground(Color.WHITE);
-        table.getTableHeader().setFont(
-            new Font("SansSerif", Font.BOLD, 14)
-        );
-        table.getTableHeader().setPreferredSize(
-            new java.awt.Dimension(0, 42)
-        );
-        table.getTableHeader().setReorderingAllowed(false);
+        styleNeonHeader(table, new Color(198, 166, 255));
         table.setBackground(new Color(25, 40, 72));
         table.setForeground(new Color(235, 242, 255));
 
@@ -121,14 +113,7 @@ public final class GameHistoryScreen extends JPanel {
 		table.setFont(new Font("SansSerif", Font.PLAIN, 16));
 		table.setIntercellSpacing(new java.awt.Dimension(0, 2));
 		
-		table.getTableHeader().setBackground(new Color(55, 43, 102));
-		table.getTableHeader().setForeground(new Color(230, 217, 255));
-		table.getTableHeader().setFont(
-		    new Font("SansSerif", Font.BOLD, 15)
-		);
-		table.getTableHeader().setPreferredSize(
-		    new java.awt.Dimension(0, 54)
-		);
+	
 		
 		table.setDefaultRenderer(
 		    Object.class,
@@ -381,26 +366,7 @@ public final class GameHistoryScreen extends JPanel {
         for (int i = 0; i < statsTable.getColumnCount(); i++) {
             statsTable.getColumnModel().getColumn(i).setCellRenderer(cellRenderer);
         }
-        statsTable.getTableHeader().setPreferredSize(new java.awt.Dimension(0, 44));
-        statsTable.getTableHeader().setReorderingAllowed(false);
-        statsTable.getTableHeader().setDefaultRenderer(
-                new javax.swing.table.DefaultTableCellRenderer() {
-                    @Override
-                    public java.awt.Component getTableCellRendererComponent(
-                            JTable t, Object value, boolean selected,
-                            boolean focused, int row, int column) {
-                        super.getTableCellRendererComponent(
-                                t, value, selected, focused, row, column);
-                        setHorizontalAlignment(SwingConstants.CENTER);
-                        setText(value == null ? "" : value.toString().toUpperCase());
-                        setFont(Theme.semibold(13f));
-                        setOpaque(true);
-                        setBackground(new Color(55, 43, 102));
-                        setForeground(lavender);
-                        setBorder(BorderFactory.createMatteBorder(0, 0, 2, 0, lavender));
-                        return this;
-                    }
-                });
+        styleNeonHeader(statsTable, lavender);
 
         JPanel cards = new JPanel(new java.awt.GridLayout(1, 4, 10, 0));
         cards.setOpaque(false);
@@ -458,6 +424,29 @@ public final class GameHistoryScreen extends JPanel {
         dialog.setVisible(true);
     }
 
+    /** Gives a table the Code Quest neon header: uppercase accent text, glowing underline. */
+    private static void styleNeonHeader(JTable table, Color accent) {
+        table.getTableHeader().setPreferredSize(new java.awt.Dimension(0, 46));
+        table.getTableHeader().setReorderingAllowed(false);
+        table.getTableHeader().setDefaultRenderer(
+                new javax.swing.table.DefaultTableCellRenderer() {
+                    @Override
+                    public java.awt.Component getTableCellRendererComponent(
+                            JTable t, Object value, boolean selected,
+                            boolean focused, int row, int column) {
+                        super.getTableCellRendererComponent(
+                                t, value, selected, focused, row, column);
+                        setHorizontalAlignment(SwingConstants.CENTER);
+                        setText(value == null ? "" : value.toString().toUpperCase());
+                        setFont(Theme.semibold(14f));
+                        setOpaque(true);
+                        setBackground(new Color(55, 43, 102));
+                        setForeground(accent);
+                        setBorder(BorderFactory.createMatteBorder(0, 0, 2, 0, accent));
+                        return this;
+                    }
+                });
+    }
     private JPanel statCard(String title, int count, Color accent) {
         JPanel card = new JPanel(new BorderLayout(0, 5)) {
             @Override
