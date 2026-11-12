@@ -292,8 +292,8 @@ public final class Game {
         awaitingPiece = false;
         rollAvailable = false;
         specialChain = 0;
-        if (!gameOver && !triggerSpecial(piece)) finishTurnAfterMove(piece.isFinished());   
-        }
+        if (!gameOver && !triggerSpecial(piece)) finishTurnAfterMove();
+    }
 
     private boolean triggerSpecial(Piece piece) {
         if (!piece.isOnCommonPath() || specialChain >= 12) return false;
@@ -356,11 +356,8 @@ public final class Game {
         if (captured > 0) message += " Captured an opponent!";
         updateFinishingOrder();
         // FR-22: a piece that did not move does not trigger its square again.
-        if (!gameOver && (target == original || !triggerSpecial(moved))) {
-            finishTurnAfterMove(moved.isFinished());
-        }
+        if (!gameOver && (target == original || !triggerSpecial(moved))) finishTurnAfterMove();
         return correct;
-    
     }
 
     /** Weighted outcomes: 10%, 10%, 10%, 30%, 30%, 10%. */
@@ -377,7 +374,7 @@ public final class Game {
                 piece.setProgress(piece.getFinishProgress());
                 updateFinishingOrder();
                 message += " Surprise: piece sent directly to FINISH!";
-                finishTurnAfterMove(piece.getColor() == getCurrentPlayer().getColor());
+                finishTurnAfterMove();
                 break;
             case OPPONENT_BACK:
                 awaitingSurpriseTarget = false;
@@ -469,28 +466,12 @@ public final class Game {
     }
 
     private void finishTurnAfterMove() {
-    	finishTurnAfterMove(false);
-    }
-
-    private void finishTurnAfterMove(boolean reachedFinish) {
         updateFinishingOrder();
         if (gameOver) return;
-
-        if (finishingOrder.contains(getCurrentPlayer())) {
-            advanceTurn();
-            return;
-        }
-
-        if (reachedFinish) {
-            message += " Roll again for reaching Finish Home.";
-            return;
-        }
-
         if (bonusRollReady) {
             message += " Bonus UltraBoost roll available!";
             return;
         }
-
         if (currentRollIsBonus || stepDie != 6) advanceTurn();
         else message += " Rolled 6: roll again.";
     }
