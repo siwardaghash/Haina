@@ -50,6 +50,10 @@ public class HowToPlayScreen extends JPanel {
     private static final Color CARD = new Color(24, 39, 73);
     private static final Color MUTED = new Color(175, 190, 215);
 
+    /** The rule cards and their colours, in order, for the quick-jump chips. */
+    private final java.util.List<JPanel> cards = new java.util.ArrayList<>();
+    private final java.util.List<Color> cardAccents = new java.util.ArrayList<>();
+
     public HowToPlayScreen(Runnable onBack) {
         setLayout(new BorderLayout());
         setBackground(BG);
@@ -166,6 +170,19 @@ public class HowToPlayScreen extends JPanel {
             }
         });
         add(scrollPane, BorderLayout.CENTER);
+
+        // quick-jump chips under the title
+        String[] chipNames = {"SETUP", "TURN", "DICE", "BOARD", "QUESTIONS", "SURPRISES", "CAPTURE", "WIN"};
+        JPanel chips = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+        chips.setOpaque(false);
+        chips.setBorder(new EmptyBorder(14, 0, 0, 0));
+        for (int i = 0; i < cards.size(); i++) {
+            JPanel target = cards.get(i);
+            JButton chip = chip(chipNames[i], cardAccents.get(i));
+            chip.addActionListener(e -> scrollToCard(scrollPane, target));
+            chips.add(chip);
+        }
+        header.add(chips, BorderLayout.SOUTH);
 
 		scrollPane.addHierarchyListener(e -> {
 		    if ((e.getChangeFlags()
@@ -290,7 +307,61 @@ public class HowToPlayScreen extends JPanel {
 		body.addMouseListener(hoverEffect);
 
         parent.add(card);
+        cards.add(card);
+        cardAccents.add(accent);
         parent.add(Box.createVerticalStrut(14));
+    }
+    /** Small neon pill button used for the quick-jump row. */
+    private static JButton chip(String text, Color accent) {
+        JButton chip = new JButton(text) {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                Theme.applyQuality(g2);
+                boolean hover = getModel().isRollover();
+                int w = getWidth();
+                int h = getHeight();
+                g2.setColor(Theme.alpha(accent, hover ? 90 : 35));
+                g2.fillRoundRect(1, 1, w - 2, h - 2, h, h);
+                g2.setColor(Theme.alpha(accent, hover ? 255 : 170));
+                g2.setStroke(new BasicStroke(1.5f));
+                g2.drawRoundRect(1, 1, w - 3, h - 3, h, h);
+                g2.setFont(getFont());
+                FontMetrics fm = g2.getFontMetrics();
+                g2.setColor(hover ? Color.WHITE : accent);
+                g2.drawString(getText(), (w - fm.stringWidth(getText())) / 2f,
+                        (h + fm.getAscent() - fm.getDescent()) / 2f);
+                g2.dispose();
+            }
+        };
+        chip.setFont(Theme.semibold(13f));
+        chip.setBorder(new EmptyBorder(7, 16, 7, 16));
+        chip.setContentAreaFilled(false);
+        chip.setFocusPainted(false);
+        chip.setOpaque(false);
+        chip.setRolloverEnabled(true);
+        chip.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        return chip;
+    }
+
+    /** Smoothly scrolls so that {@code card} is at the top of the view. */
+    private static void scrollToCard(JScrollPane scrollPane, JComponent card) {
+        JViewport viewport = scrollPane.getViewport();
+        int start = viewport.getViewPosition().y;
+        int max = Math.max(0, viewport.getView().getHeight() - viewport.getHeight());
+        int target = Math.min(card.getY(), max);
+        long began = System.currentTimeMillis();
+        Timer animation = new Timer(15, e -> {
+            float t = Math.min(1f, (System.currentTimeMillis() - began) / 350f);
+            int y = Math.round(start + (target - start) * Theme.easeOut(t));
+            viewport.setViewPosition(new Point(0, y));
+            if (t >= 1f) {
+                ((Timer) e.getSource()).stop();
+            }
+        });
+        animation.start();
     }
     /** Round glowing badge with a small drawn icon for card 1–8. */
     private static JComponent iconBadge(int number, Color accent) {
