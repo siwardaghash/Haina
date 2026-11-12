@@ -366,8 +366,36 @@ public final class GameHistoryScreen extends JPanel {
         panel.add(top, BorderLayout.NORTH);
         panel.add(new JScrollPane(statsTable), BorderLayout.CENTER);
 
-        JOptionPane.showMessageDialog(this, panel, "LUDO • Code Quest",
-                JOptionPane.PLAIN_MESSAGE);
+        javax.swing.JDialog dialog = new javax.swing.JDialog(
+                javax.swing.SwingUtilities.getWindowAncestor(this),
+                "LUDO • Code Quest",
+                java.awt.Dialog.ModalityType.APPLICATION_MODAL);
+        dialog.setUndecorated(true);
+
+        panel.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(lavender, 2),
+                BorderFactory.createEmptyBorder(20, 24, 20, 24)));
+
+        NeonButton closeButton = new NeonButton(
+                "Close", lavender, NeonButton.Glyph.BACK, null);
+        closeButton.setChevron(false);
+        closeButton.setPreferredSize(new java.awt.Dimension(200, 64));
+        closeButton.addActionListener(e -> dialog.dispose());
+
+        JPanel bottom = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.CENTER));
+        bottom.setOpaque(false);
+        bottom.add(closeButton);
+        panel.add(bottom, BorderLayout.SOUTH);
+
+        dialog.getRootPane().registerKeyboardAction(
+                e -> dialog.dispose(),
+                javax.swing.KeyStroke.getKeyStroke("ESCAPE"),
+                javax.swing.JComponent.WHEN_IN_FOCUSED_WINDOW);
+
+        dialog.setContentPane(panel);
+        dialog.pack();
+        dialog.setLocationRelativeTo(this);
+        dialog.setVisible(true);
     }
 
     private JPanel statCard(String title, int count, Color accent) {
