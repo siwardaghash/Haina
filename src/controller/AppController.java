@@ -57,7 +57,10 @@ public final class AppController {
     }
 
     private void showGame(GameConfig config) {
-        show(new GameBoardScreen(new GameController(config), this::showOpening));
+        show(new GameBoardScreen(
+                new GameController(config),
+                this::showOpening,
+                () -> showGame(config)));
     }
     private void show(JComponent screen) {
         frame.setContentPane(screen);
