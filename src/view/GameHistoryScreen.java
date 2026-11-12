@@ -371,12 +371,35 @@ public final class GameHistoryScreen extends JPanel {
     }
 
     private JPanel statCard(String title, int count, Color accent) {
-        JPanel card = new JPanel(new BorderLayout(0, 5));
-        card.setBackground(new Color(33, 38, 71));
-        card.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createMatteBorder(3, 0, 0, 0, accent),
-                BorderFactory.createEmptyBorder(10, 8, 10, 8)));
+        JPanel card = new JPanel(new BorderLayout(0, 5)) {
+            @Override
+            protected void paintComponent(java.awt.Graphics g) {
+                java.awt.Graphics2D g2 = (java.awt.Graphics2D) g.create();
+                Theme.applyQuality(g2);
+                int w = getWidth();
+                int h = getHeight();
+                java.awt.Shape shape = new java.awt.geom.RoundRectangle2D.Float(
+                        2, 2, w - 4, h - 4, 22, 22);
 
+                g2.setPaint(new java.awt.GradientPaint(
+                        0, 0, Theme.alpha(accent, 60),
+                        0, h, Theme.GLASS));
+                g2.fill(shape);
+
+                java.awt.Shape oldClip = g2.getClip();
+                g2.clip(shape);
+                Theme.glow(g2, w / 2f, h * 0.40f, w * 0.45f, accent, 70);
+                g2.setClip(oldClip);
+
+                g2.setColor(Theme.alpha(accent, 210));
+                g2.setStroke(new java.awt.BasicStroke(2f));
+                g2.draw(shape);
+
+                g2.dispose();
+            }
+        };
+        card.setOpaque(false);
+        card.setBorder(BorderFactory.createEmptyBorder(14, 10, 12, 10));
         JLabel value = new JLabel(String.valueOf(count), SwingConstants.CENTER);
         value.setFont(new Font("SansSerif", Font.BOLD, 28));
         value.setForeground(accent);
