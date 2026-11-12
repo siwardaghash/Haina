@@ -96,6 +96,10 @@ public final class GameHistoryScreen extends JPanel {
 		table.setFillsViewportHeight(false);		table.setRowHeight(30);
 		table.setAutoCreateRowSorter(true);
 		table.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS);
+        int[] widths = {60, 110, 230, 150, 130, 130, 130, 120};
+        for (int i = 0; i < widths.length; i++) {
+            table.getColumnModel().getColumn(i).setPreferredWidth(widths[i]);
+        }
 
         styleNeonHeader(table, new Color(198, 166, 255));
         table.setBackground(new Color(25, 40, 72));
@@ -131,23 +135,36 @@ public final class GameHistoryScreen extends JPanel {
 		                8, 12, 8, 12
 		            ));
 		
-		            if (selected) {
-		                setBackground(new Color(78, 62, 137));
-		                setForeground(Color.WHITE);
-		            } else {
-		                setBackground(row % 2 == 0
-		                    ? new Color(34, 32, 70)
-		                    : new Color(27, 35, 68));
-		
-		                setForeground(new Color(225, 231, 255));
-		
-		                if (t.convertColumnIndexToModel(column) == 3) {
-		                    setForeground(new Color(198, 166, 255));
-		                    setFont(getFont().deriveFont(Font.BOLD));
-		                } else {
-		                    setFont(getFont().deriveFont(Font.PLAIN));
-		                }
-		            }
+                    setHorizontalAlignment(SwingConstants.CENTER);
+                    setFont(Theme.ui(16f, Font.PLAIN));
+                    setForeground(new Color(225, 231, 255));
+                    if (selected) {
+                        setBackground(new Color(78, 62, 137));
+                    } else {
+                        setBackground(row % 2 == 0
+                                ? new Color(34, 32, 70)
+                                : new Color(27, 35, 68));
+                    }
+
+                    String text = value == null ? "" : value.toString();
+                    int col = t.convertColumnIndexToModel(column);
+                    if (col == 0) {                              // game ID
+                        setText("#" + text);
+                        setForeground(Theme.MUTED);
+                    } else if (col == 1) {                       // difficulty
+                        setText(text.toUpperCase());
+                        setFont(Theme.semibold(14f));
+                        if (text.equalsIgnoreCase("easy")) setForeground(new Color(89, 218, 166));
+                        else if (text.equalsIgnoreCase("medium")) setForeground(new Color(255, 210, 107));
+                        else if (text.equalsIgnoreCase("hard")) setForeground(new Color(255, 120, 150));
+                    } else if (col == 3 && !text.isEmpty()) {    // winner
+                        setText("\u265B  " + text);
+                        setFont(new Font("SansSerif", Font.BOLD, 17));
+                        setForeground(new Color(255, 210, 107));
+                    } else if (col == 7) {                       // duration
+                        setFont(Theme.mono(15f));
+                        setForeground(new Color(166, 184, 217));
+                    }
 		            return this;
 		        }
 		    }
