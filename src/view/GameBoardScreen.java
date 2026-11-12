@@ -348,6 +348,12 @@ public final class GameBoardScreen extends JPanel {
      * a capture, a new Double Block, or a safe square where nobody can be captured.
      */
     private void announceLanding(Piece piece, int landing, boolean captured) {
+    	if (landing == piece.getFinishProgress()) {
+    	    canvas.say(piece, landing, "★ PIECE HOME!",
+    	            BoardCanvas.playerColor(piece.getColor()));
+    	    Sound.win();
+    	    return;
+    	}
         if (landing < 0 || landing >= piece.getCommonLength()) return;
         Color color = BoardCanvas.playerColor(piece.getColor());
         int ring = piece.ringAt(landing), index = piece.indexAt(landing);
@@ -1219,7 +1225,7 @@ public final class GameBoardScreen extends JPanel {
             // The label goes on top of the home paths' last squares, on a dark pill so it stays readable.
             int finishSize = Math.max(10, cell / 3);
             g.setFont(new Font("SansSerif", Font.BOLD, finishSize));
-            while (finishSize > 7 && g.getFontMetrics().stringWidth("FINISH") > 3 * cell - 8)
+            while (finishSize > 7 && g.getFontMetrics().stringWidth("FINISH") > 3 * cell - 10)
                 g.setFont(new Font("SansSerif", Font.BOLD, --finishSize));
             FontMetrics fm = g.getFontMetrics();
             int pillW = fm.stringWidth("FINISH") + 10, pillH = fm.getHeight() + 2;
@@ -1348,13 +1354,12 @@ public final class GameBoardScreen extends JPanel {
             }
         }
         private static double[] finishedPieceCenter(Piece piece, int left, int top, int cell) {
-            PlayerColor color = piece.getColor();
-            boolean right = color == PlayerColor.GREEN || color == PlayerColor.YELLOW;
-            boolean bottom = color == PlayerColor.BLUE || color == PlayerColor.YELLOW;
+            int lastHomeIndex = piece.getFinishProgress() - piece.getCommonLength();
+            int[] tile = homeCoordinates(piece.getColor(), lastHomeIndex);
             int slot = piece.getNumber() - 1;
 
-            double x = (right ? 8.06 : 6.32) + (slot % 2) * 0.62;
-            double y = (bottom ? 8.28 : 6.28) + (slot / 2) * 0.44;
+            double x = tile[0] + 0.28 + (slot % 2) * 0.44;
+            double y = tile[1] + 0.28 + (slot / 2) * 0.44;
             return new double[] {left + x * cell, top + y * cell};
         }
         /** Centre of the square a piece stands on at {@code progress}; -1 is its place in the castle. */
