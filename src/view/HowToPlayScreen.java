@@ -11,6 +11,9 @@ public class HowToPlayScreen extends JPanel {
     private static final long serialVersionUID = 1L;
 
 	private float animationTime = 0f;
+
+	/** When the screen appeared; the cards slide in one after another from this moment. */
+	private long introStart = System.currentTimeMillis();
 	
 	private final Timer backgroundTimer = new Timer(40, e -> {
 	    animationTime += 0.04f;
@@ -20,6 +23,7 @@ public class HowToPlayScreen extends JPanel {
 	@Override
 	public void addNotify() {
 	    super.addNotify();
+	    introStart = System.currentTimeMillis();
 	    backgroundTimer.start();
 	}
 	
@@ -203,6 +207,7 @@ public class HowToPlayScreen extends JPanel {
 
     private void addCard(JPanel parent, String heading,
                          String description, Color accent) {
+        int index = cards.size();   // 0 for the first card, 1 for the second, ...
 
         // Each card is as tall as its wrapped text, so longer rules are never cut off.
 		JPanel card = new JPanel(new BorderLayout(0, 10)) {
@@ -213,6 +218,21 @@ public class HowToPlayScreen extends JPanel {
 		            Integer.MAX_VALUE,
 		            getPreferredSize().height
 		        );
+		    }
+
+		    // entrance: each card fades in and slides from the right, 90 ms after the previous one
+		    @Override
+		    public void paint(Graphics g) {
+		        float t = (System.currentTimeMillis() - introStart - index * 90) / 450f;
+		        float p = Theme.easeOut(Theme.clamp01(t));
+		        if (p <= 0f) {
+		            return;
+		        }
+		        Graphics2D g2 = (Graphics2D) g.create();
+		        g2.setComposite(AlphaComposite.SrcOver.derive(p));
+		        g2.translate((1f - p) * 50f, 0);
+		        super.paint(g2);
+		        g2.dispose();
 		    }
 		
 		    @Override
