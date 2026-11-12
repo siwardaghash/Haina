@@ -45,6 +45,10 @@ public class EndGameScreen extends JPanel {
     private static final Color MUTED = new Color(175, 190, 215);
 
     public EndGameScreen(String results, Runnable onBack) {
+        this(results, onBack, null);
+    }
+
+    public EndGameScreen(String results, Runnable onBack, Runnable onRematch) {
         setLayout(new BorderLayout(0, 20));
         setOpaque(false);
         setBorder(new EmptyBorder(35, 50, 35, 50));
@@ -206,6 +210,14 @@ public class EndGameScreen extends JPanel {
 
         JPanel footer = new JPanel(new FlowLayout(FlowLayout.CENTER));
         footer.setOpaque(false);
+        if (onRematch != null) {
+            NeonButton rematchButton = new NeonButton(
+                    "REMATCH", new Color(89, 218, 166), NeonButton.Glyph.PLAY, null);
+            rematchButton.setChevron(false);
+            rematchButton.setPreferredSize(new Dimension(240, 78));
+            rematchButton.addActionListener(e -> onRematch.run());
+            footer.add(rematchButton);
+        }
         footer.add(backButton);
         add(footer, BorderLayout.SOUTH);
     }

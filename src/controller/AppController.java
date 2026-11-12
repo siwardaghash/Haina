@@ -51,11 +51,17 @@ public final class AppController {
         show(new GameSetupScreen(new GameSetupScreen.Listener() {
             @Override public void onBack() { showOpening(); }
             @Override public void onStart(GameConfig config) {
-                show(new GameBoardScreen(new GameController(config), AppController.this::showOpening));
+            	showGame(config);
             }
         }));
     }
 
+    private void showGame(GameConfig config) {
+        show(new GameBoardScreen(
+                new GameController(config),
+                this::showOpening,
+                () -> showGame(config)));
+    }
     private void show(JComponent screen) {
         frame.setContentPane(screen);
         frame.revalidate();
