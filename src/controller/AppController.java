@@ -30,6 +30,10 @@ public final class AppController {
         frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
         showOpening();
         frame.pack();
+        java.awt.Rectangle usable = java.awt.GraphicsEnvironment
+                .getLocalGraphicsEnvironment().getMaximumWindowBounds();
+        frame.setSize(Math.min(frame.getWidth(), usable.width),
+                      Math.min(frame.getHeight(), usable.height));
         frame.setMinimumSize(new Dimension(1000, 700));
         frame.setLocationRelativeTo(null);
         frame.setVisible(true);
