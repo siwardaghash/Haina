@@ -45,7 +45,7 @@ public final class Piece {
     public int getNumber() { return number; }
     public int getProgress() { return progress; }
     public int getCommonLength() { return commonLength; }
-    public int getFinishProgress() { return commonLength + 6; }
+    public int getFinishProgress() { return commonLength + 5; }
     public boolean isInCastle() { return progress == -1; }
     public boolean isOnCommonPath() { return progress >= 0 && progress < commonLength; }
     public boolean isOnHomePath() { return progress >= commonLength && progress < getFinishProgress(); }
