@@ -91,8 +91,7 @@ public class EndGameScreen extends JPanel {
         info.setOpaque(false);
         info.add(infoChip("DIFFICULTY", difficulty.toUpperCase(), difficultyColor(difficulty)));
         info.add(infoChip("DURATION", duration, Theme.BLUE));
-        info.add(infoChip(saved ? "\u2713" : "!", saved ? "SAVED TO HISTORY" : "NOT SAVED",
-                saved ? Theme.GREEN : Theme.RED));
+        info.add(infoChip("HISTORY", saved ? "SAVED" : "NOT SAVED", saved ? Theme.GREEN : Theme.RED));
 
         JPanel center = new JPanel();
         center.setLayout(new BoxLayout(center, BoxLayout.Y_AXIS));
@@ -108,7 +107,8 @@ public class EndGameScreen extends JPanel {
         NeonButton backButton = new NeonButton(
                 "BACK TO MAIN MENU", new Color(174, 139, 245), NeonButton.Glyph.BACK, null);
         backButton.setChevron(false);
-        backButton.setPreferredSize(new Dimension(340, 78));
+        backButton.setPreferredSize(new Dimension(320, 78));
+        backButton.setFocusable(false);
         backButton.addActionListener(e -> {
             if (onBack != null) onBack.run();
         });
@@ -119,7 +119,8 @@ public class EndGameScreen extends JPanel {
             NeonButton rematchButton = new NeonButton(
                     "REMATCH", new Color(89, 218, 166), NeonButton.Glyph.PLAY, null);
             rematchButton.setChevron(false);
-            rematchButton.setPreferredSize(new Dimension(240, 78));
+            rematchButton.setPreferredSize(new Dimension(320, 78));
+            rematchButton.setFocusable(false);
             rematchButton.addActionListener(e -> onRematch.run());
             footer.add(rematchButton);
         }
@@ -353,7 +354,11 @@ public class EndGameScreen extends JPanel {
                 g2.dispose();
             }
         };
-        chip.setPreferredSize(new Dimension(label.length() * 9 + value.length() * 10 + 50, 38));
+        // width = padding + spaced-out label + gap + value + padding
+        FontMetrics labelFm = chip.getFontMetrics(Theme.semibold(12f));
+        FontMetrics valueFm = chip.getFontMetrics(Theme.semibold(15f));
+        int width = 18 + labelFm.stringWidth(label) + 2 * label.length() + 10 + valueFm.stringWidth(value) + 20;
+        chip.setPreferredSize(new Dimension(width, 38));
         return chip;
     }
 
