@@ -155,7 +155,7 @@ public class HowToPlayScreen extends JPanel {
             new Color(244, 166, 200));
         // mini visuals inside the cards
         cards.get(2).add(diceExample(), BorderLayout.SOUTH);    // 03 THE DICE
-
+        cards.get(5).add(surpriseChart(), BorderLayout.SOUTH);  // 06 SURPRISE SQUARES
         JScrollPane scrollPane = new JScrollPane(content);
         scrollPane.setBorder(null);
         scrollPane.setBackground(BG);
@@ -389,6 +389,50 @@ public class HowToPlayScreen extends JPanel {
         };
         example.setPreferredSize(new Dimension(400, 82));
         return example;
+    }
+    /** Card 06 visual: the chance of each surprise event as a neon bar. */
+    private static JComponent surpriseChart() {
+        String[] events = {"Straight to Finish Home", "Opponent piece moves back", "Back to the castle",
+                "Move back 3 steps", "Lose your next turn", "Roll again (Step + ULTRA)"};
+        int[] chances = {10, 10, 10, 30, 30, 10};
+        Color[] colors = {Theme.GREEN, Theme.BLUE, Theme.RED,
+                new Color(255, 145, 214), Theme.YELLOW, Theme.VIOLET};
+
+        JComponent chart = new JComponent() {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                Theme.applyQuality(g2);
+                int labelW = 230;
+                int rowH = 28;
+                float maxBar = Math.max(60, getWidth() - labelW - 70);
+
+                for (int i = 0; i < events.length; i++) {
+                    int y = 6 + i * rowH;
+
+                    g2.setFont(Theme.ui(14f, Font.PLAIN));
+                    g2.setColor(MUTED);
+                    g2.drawString(events[i], 4, y + 15);
+
+                    // faint full-length track, then the coloured bar (30% = full length)
+                    float barW = maxBar * chances[i] / 30f;
+                    g2.setColor(Theme.alpha(colors[i], 25));
+                    g2.fillRoundRect(labelW, y + 4, (int) maxBar, 12, 12, 12);
+                    g2.setPaint(new GradientPaint(labelW, 0, Theme.alpha(colors[i], 120),
+                            labelW + barW, 0, colors[i]));
+                    g2.fillRoundRect(labelW, y + 4, (int) barW, 12, 12, 12);
+
+                    g2.setFont(Theme.semibold(14f));
+                    g2.setColor(colors[i]);
+                    g2.drawString(chances[i] + "%", labelW + maxBar + 12, y + 15);
+                }
+                g2.dispose();
+            }
+        };
+        chart.setPreferredSize(new Dimension(400, 6 * 28 + 10));
+        return chart;
     }
     /** Small neon pill button used for the quick-jump row. */
     private static JButton chip(String text, Color accent) {
