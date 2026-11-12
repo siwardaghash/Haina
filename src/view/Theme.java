@@ -258,4 +258,50 @@ public final class Theme {
         heading.setBorder(javax.swing.BorderFactory.createEmptyBorder(4, 4, 18, 8));
         return heading;
     }
+
+    /** Slim rounded neon scrollbar without arrow buttons. */
+    public static void neonScrollBar(javax.swing.JScrollPane pane, Color accent) {
+        javax.swing.JScrollBar bar = pane.getVerticalScrollBar();
+        bar.setUI(new javax.swing.plaf.basic.BasicScrollBarUI() {
+            @Override
+            protected javax.swing.JButton createDecreaseButton(int orientation) {
+                return hiddenButton();
+            }
+
+            @Override
+            protected javax.swing.JButton createIncreaseButton(int orientation) {
+                return hiddenButton();
+            }
+
+            private javax.swing.JButton hiddenButton() {
+                javax.swing.JButton button = new javax.swing.JButton();
+                button.setPreferredSize(new java.awt.Dimension(0, 0));
+                return button;
+            }
+
+            @Override
+            protected void paintTrack(java.awt.Graphics g, javax.swing.JComponent c, java.awt.Rectangle r) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                applyQuality(g2);
+                g2.setColor(alpha(accent, 25));
+                g2.fillRoundRect(r.x + 3, r.y + 4, r.width - 6, r.height - 8, 6, 6);
+                g2.dispose();
+            }
+
+            @Override
+            protected void paintThumb(java.awt.Graphics g, javax.swing.JComponent c, java.awt.Rectangle r) {
+                if (r.isEmpty()) {
+                    return;
+                }
+                Graphics2D g2 = (Graphics2D) g.create();
+                applyQuality(g2);
+                boolean active = isThumbRollover() || isDragging;
+                g2.setColor(alpha(accent, active ? 230 : 150));
+                g2.fillRoundRect(r.x + 2, r.y + 2, r.width - 4, r.height - 4, 8, 8);
+                g2.dispose();
+            }
+        });
+        bar.setOpaque(false);
+        bar.setPreferredSize(new java.awt.Dimension(12, 0));
+    }
 }
