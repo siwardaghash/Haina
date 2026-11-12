@@ -57,7 +57,7 @@ public final class GameHistoryScreen extends JPanel {
         setLayout(new BorderLayout(12, 12));
         setBackground(new Color(14, 25, 55));
         setBorder(BorderFactory.createEmptyBorder(30, 35, 30, 35));
-        JLabel heading = neonHeading("GAME HISTORY", new Color(198, 166, 255), 36f);
+        JLabel heading = Theme.neonHeading("GAME HISTORY", new Color(198, 166, 255), 36f);
         String[] headers = {"ID", "Difficulty", "Date / Time", "1st", "2nd", "3rd", "4th", "Duration"};
         DefaultTableModel model = new DefaultTableModel(headers, 0) {
             @Override public boolean isCellEditable(int r, int c) { return false; }
@@ -390,7 +390,7 @@ public final class GameHistoryScreen extends JPanel {
         cards.add(statCard("MEDIUM", totals.mediumGames(), new Color(255, 210, 107)));
         cards.add(statCard("HARD", totals.hardGames(), new Color(255, 120, 150)));
 
-        JLabel heading = neonHeading("LUDO SCOREBOARD", lavender, 30f);
+        JLabel heading = Theme.neonHeading("LUDO SCOREBOARD", lavender, 30f);
         JPanel top = new JPanel(new BorderLayout(0, 12));
         top.setOpaque(false);
         top.add(heading, BorderLayout.NORTH);
@@ -443,44 +443,7 @@ public final class GameHistoryScreen extends JPanel {
         dialog.setLocationRelativeTo(this);
         dialog.setVisible(true);
     }
-    /** Big neon title: glowing gradient text with a fading accent bar underneath. */
-    private static JLabel neonHeading(String text, Color accent, float size) {
-        JLabel heading = new JLabel(text) {
-            @Override
-            protected void paintComponent(java.awt.Graphics g) {
-                java.awt.Graphics2D g2 = (java.awt.Graphics2D) g.create();
-                Theme.applyQuality(g2);
-                g2.setFont(getFont());
-                java.awt.FontMetrics fm = g2.getFontMetrics();
-                int x = 4;
-                int y = fm.getAscent() + 4;
-                int w = fm.stringWidth(getText());
-                float pulse = (float) (0.5 + 0.5 * Math.sin(System.currentTimeMillis() / 600.0));
-
-                // soft glow: the text drawn several times, slightly offset and see-through
-                g2.setColor(Theme.alpha(accent, (int) (30 + 35 * pulse)));
-                for (int dx = -3; dx <= 3; dx += 3) {
-                    for (int dy = -3; dy <= 3; dy += 3) {
-                        g2.drawString(getText(), x + dx, y + dy);
-                    }
-                }
-
-                // gradient text: white fading into the accent colour
-                g2.setPaint(new java.awt.GradientPaint(x, 0, Color.WHITE, x + w, 0, accent));
-                g2.drawString(getText(), x, y);
-
-                // accent bar under the title, fading out to the right
-                g2.setPaint(new java.awt.GradientPaint(
-                        x, 0, accent, x + w * 0.6f, 0, Theme.alpha(accent, 0)));
-                g2.fillRoundRect(x, y + 10, (int) (w * 0.6f), 4, 4, 4);
-
-                g2.dispose();
-            }
-        };
-        heading.setFont(Theme.display(size));
-        heading.setBorder(BorderFactory.createEmptyBorder(4, 4, 18, 8));
-        return heading;
-    }
+  
     /** Gives a table the Code Quest neon header: uppercase accent text, glowing underline. */
     private static void styleNeonHeader(JTable table, Color accent) {
         table.getTableHeader().setPreferredSize(new java.awt.Dimension(0, 46));
