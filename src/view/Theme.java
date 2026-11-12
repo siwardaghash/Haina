@@ -218,4 +218,90 @@ public final class Theme {
         }
         return Math.max(0, w);
     }
+
+    /** Big neon title: glowing gradient text with a fading accent bar underneath. */
+    public static javax.swing.JLabel neonHeading(String text, Color accent, float size) {
+        javax.swing.JLabel heading = new javax.swing.JLabel(text) {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            protected void paintComponent(java.awt.Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                applyQuality(g2);
+                g2.setFont(getFont());
+                java.awt.FontMetrics fm = g2.getFontMetrics();
+                int x = 4;
+                int y = fm.getAscent() + 4;
+                int w = fm.stringWidth(getText());
+                float pulse = (float) (0.5 + 0.5 * Math.sin(System.currentTimeMillis() / 600.0));
+
+                // soft glow: the text drawn several times, slightly offset and see-through
+                g2.setColor(alpha(accent, (int) (30 + 35 * pulse)));
+                for (int dx = -3; dx <= 3; dx += 3) {
+                    for (int dy = -3; dy <= 3; dy += 3) {
+                        g2.drawString(getText(), x + dx, y + dy);
+                    }
+                }
+
+                // gradient text: white fading into the accent colour
+                g2.setPaint(new GradientPaint(x, 0, Color.WHITE, x + w, 0, accent));
+                g2.drawString(getText(), x, y);
+
+                // accent bar under the title, fading out to the right
+                g2.setPaint(new GradientPaint(x, 0, accent, x + w * 0.6f, 0, alpha(accent, 0)));
+                g2.fillRoundRect(x, y + 10, (int) (w * 0.6f), 4, 4, 4);
+
+                g2.dispose();
+            }
+        };
+        heading.setFont(display(size));
+        heading.setBorder(javax.swing.BorderFactory.createEmptyBorder(4, 4, 18, 8));
+        return heading;
+    }
+
+    /** Slim rounded neon scrollbar without arrow buttons. */
+    public static void neonScrollBar(javax.swing.JScrollPane pane, Color accent) {
+        javax.swing.JScrollBar bar = pane.getVerticalScrollBar();
+        bar.setUI(new javax.swing.plaf.basic.BasicScrollBarUI() {
+            @Override
+            protected javax.swing.JButton createDecreaseButton(int orientation) {
+                return hiddenButton();
+            }
+
+            @Override
+            protected javax.swing.JButton createIncreaseButton(int orientation) {
+                return hiddenButton();
+            }
+
+            private javax.swing.JButton hiddenButton() {
+                javax.swing.JButton button = new javax.swing.JButton();
+                button.setPreferredSize(new java.awt.Dimension(0, 0));
+                return button;
+            }
+
+            @Override
+            protected void paintTrack(java.awt.Graphics g, javax.swing.JComponent c, java.awt.Rectangle r) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                applyQuality(g2);
+                g2.setColor(alpha(accent, 25));
+                g2.fillRoundRect(r.x + 3, r.y + 4, r.width - 6, r.height - 8, 6, 6);
+                g2.dispose();
+            }
+
+            @Override
+            protected void paintThumb(java.awt.Graphics g, javax.swing.JComponent c, java.awt.Rectangle r) {
+                if (r.isEmpty()) {
+                    return;
+                }
+                Graphics2D g2 = (Graphics2D) g.create();
+                applyQuality(g2);
+                boolean active = isThumbRollover() || isDragging;
+                g2.setColor(alpha(accent, active ? 230 : 150));
+                g2.fillRoundRect(r.x + 2, r.y + 2, r.width - 4, r.height - 4, 8, 8);
+                g2.dispose();
+            }
+        });
+        bar.setOpaque(false);
+        bar.setPreferredSize(new java.awt.Dimension(12, 0));
+    }
 }

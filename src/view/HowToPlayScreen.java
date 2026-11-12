@@ -11,6 +11,9 @@ public class HowToPlayScreen extends JPanel {
     private static final long serialVersionUID = 1L;
 
 	private float animationTime = 0f;
+
+	/** When the screen appeared; the cards slide in one after another from this moment. */
+	private long introStart = System.currentTimeMillis();
 	
 	private final Timer backgroundTimer = new Timer(40, e -> {
 	    animationTime += 0.04f;
@@ -20,6 +23,7 @@ public class HowToPlayScreen extends JPanel {
 	@Override
 	public void addNotify() {
 	    super.addNotify();
+	    introStart = System.currentTimeMillis();
 	    backgroundTimer.start();
 	}
 	
@@ -48,8 +52,11 @@ public class HowToPlayScreen extends JPanel {
 
     private static final Color BG = new Color(15, 25, 52);
     private static final Color CARD = new Color(24, 39, 73);
-    private static final Color TEXT = new Color(240, 245, 255);
     private static final Color MUTED = new Color(175, 190, 215);
+
+    /** The rule cards and their colours, in order, for the quick-jump chips. */
+    private final java.util.List<JPanel> cards = new java.util.ArrayList<>();
+    private final java.util.List<Color> cardAccents = new java.util.ArrayList<>();
 
     public HowToPlayScreen(Runnable onBack) {
         setLayout(new BorderLayout());
@@ -60,9 +67,7 @@ public class HowToPlayScreen extends JPanel {
         header.setOpaque(false);
         header.setBorder(new EmptyBorder(30, 45, 15, 45));
 
-        JLabel title = new JLabel("HOW TO PLAY");
-        title.setFont(new Font("SansSerif", Font.BOLD, 38));
-        title.setForeground(TEXT);
+        JLabel title = Theme.neonHeading("HOW TO PLAY", new Color(198, 166, 255), 38f);
         header.add(title, BorderLayout.WEST);
         
 		NeonButton back = new NeonButton(
@@ -152,7 +157,9 @@ public class HowToPlayScreen extends JPanel {
             "The game ends when all players but one have finished; the last player is placed last. " +
             "The finishing order is shown and saved in the game history.",
             new Color(244, 166, 200));
-
+        // mini visuals inside the cards
+        cards.get(2).add(diceExample(), BorderLayout.SOUTH);    // 03 THE DICE
+        cards.get(5).add(surpriseChart(), BorderLayout.SOUTH);  // 06 SURPRISE SQUARES
         JScrollPane scrollPane = new JScrollPane(content);
         scrollPane.setBorder(null);
         scrollPane.setBackground(BG);
@@ -161,6 +168,7 @@ public class HowToPlayScreen extends JPanel {
         scrollPane.getViewport().setOpaque(false);
         scrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
         scrollPane.getVerticalScrollBar().setUnitIncrement(18);
+        Theme.neonScrollBar(scrollPane, new Color(174, 139, 245));
         // Wrapped text knows its height only once its width is known, so lay out again on resize.
         scrollPane.getViewport().addComponentListener(new java.awt.event.ComponentAdapter() {
             @Override public void componentResized(java.awt.event.ComponentEvent e) {
@@ -168,6 +176,19 @@ public class HowToPlayScreen extends JPanel {
             }
         });
         add(scrollPane, BorderLayout.CENTER);
+
+        // quick-jump chips under the title
+        String[] chipNames = {"SETUP", "TURN", "DICE", "BOARD", "QUESTIONS", "SURPRISES", "CAPTURE", "WIN"};
+        JPanel chips = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+        chips.setOpaque(false);
+        chips.setBorder(new EmptyBorder(14, 0, 0, 0));
+        for (int i = 0; i < cards.size(); i++) {
+            JPanel target = cards.get(i);
+            JButton chip = chip(chipNames[i], cardAccents.get(i));
+            chip.addActionListener(e -> scrollToCard(scrollPane, target));
+            chips.add(chip);
+        }
+        header.add(chips, BorderLayout.SOUTH);
 
 		scrollPane.addHierarchyListener(e -> {
 		    if ((e.getChangeFlags()
@@ -186,6 +207,7 @@ public class HowToPlayScreen extends JPanel {
 
     private void addCard(JPanel parent, String heading,
                          String description, Color accent) {
+        int index = cards.size();   // 0 for the first card, 1 for the second, ...
 
         // Each card is as tall as its wrapped text, so longer rules are never cut off.
 		JPanel card = new JPanel(new BorderLayout(0, 10)) {
@@ -196,6 +218,21 @@ public class HowToPlayScreen extends JPanel {
 		            Integer.MAX_VALUE,
 		            getPreferredSize().height
 		        );
+		    }
+
+		    // entrance: each card fades in and slides from the right, 90 ms after the previous one
+		    @Override
+		    public void paint(Graphics g) {
+		        float t = (System.currentTimeMillis() - introStart - index * 90) / 450f;
+		        float p = Theme.easeOut(Theme.clamp01(t));
+		        if (p <= 0f) {
+		            return;
+		        }
+		        Graphics2D g2 = (Graphics2D) g.create();
+		        g2.setComposite(AlphaComposite.SrcOver.derive(p));
+		        g2.translate((1f - p) * 50f, 0);
+		        super.paint(g2);
+		        g2.dispose();
 		    }
 		
 		    @Override
@@ -253,7 +290,13 @@ public class HowToPlayScreen extends JPanel {
         JLabel headingLabel = new JLabel(heading);
         headingLabel.setFont(new Font("SansSerif", Font.BOLD, 21));
         headingLabel.setForeground(accent);
-        card.add(headingLabel, BorderLayout.NORTH);
+        // icon badge left of the heading: "01  GAME SETUP" -> badge 1
+        int number = Integer.parseInt(heading.substring(0, 2));
+        JPanel headRow = new JPanel(new BorderLayout(14, 0));
+        headRow.setOpaque(false);
+        headRow.add(iconBadge(number, accent), BorderLayout.WEST);
+        headRow.add(headingLabel, BorderLayout.CENTER);
+        card.add(headRow, BorderLayout.NORTH);
 
         JTextArea body = new JTextArea(description);
         body.setFont(new Font("SansSerif", Font.PLAIN, 16));
@@ -286,9 +329,275 @@ public class HowToPlayScreen extends JPanel {
 		body.addMouseListener(hoverEffect);
 
         parent.add(card);
+        cards.add(card);
+        cardAccents.add(accent);
         parent.add(Box.createVerticalStrut(14));
     }
+    /** Draws one die face with 1–6 pips. */
+    private static void drawDie(Graphics2D g2, float x, float y, float size,
+                                int value, Color face, Color pip) {
+        g2.setColor(face);
+        g2.fill(new java.awt.geom.RoundRectangle2D.Float(x, y, size, size, size * 0.3f, size * 0.3f));
+        // pip positions on a 3 × 3 grid: 0 = left/top, 1 = middle, 2 = right/bottom
+        int[][][] layouts = {
+                {{1, 1}},
+                {{0, 0}, {2, 2}},
+                {{0, 0}, {1, 1}, {2, 2}},
+                {{0, 0}, {2, 0}, {0, 2}, {2, 2}},
+                {{0, 0}, {2, 0}, {1, 1}, {0, 2}, {2, 2}},
+                {{0, 0}, {2, 0}, {0, 1}, {2, 1}, {0, 2}, {2, 2}}};
+        float r = size * 0.09f;
+        g2.setColor(pip);
+        for (int[] p : layouts[value - 1]) {
+            float px = x + size * (0.25f + 0.25f * p[0]);
+            float py = y + size * (0.25f + 0.25f * p[1]);
+            g2.fill(new java.awt.geom.Ellipse2D.Float(px - r, py - r, r * 2, r * 2));
+        }
+    }
 
+    /** Card 03 visual: Step 4 and BOOST 3 give 4 × (3 − 1) = 8 steps. */
+    private static JComponent diceExample() {
+        JComponent example = new JComponent() {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                Theme.applyQuality(g2);
+                Color dark = new Color(22, 26, 56);
+                float size = 46;
+                float top = 6;
+                float x = 4;
+                float textY = top + size / 2 + 8;
+
+                g2.setFont(Theme.display(22f));
+                FontMetrics big = g2.getFontMetrics();
+
+                // STEP die
+                drawDie(g2, x, top, size, 4, Color.WHITE, dark);
+                drawLabel(g2, "STEP", x + size / 2, top + size + 18, Color.WHITE);
+                x += size + 14;
+
+                g2.setFont(Theme.display(22f));
+                g2.setColor(MUTED);
+                g2.drawString("\u00D7  (", x, textY);
+                x += big.stringWidth("\u00D7  (") + 10;
+
+                // BOOST die
+                drawDie(g2, x, top, size, 3, Theme.YELLOW, dark);
+                drawLabel(g2, "BOOST", x + size / 2, top + size + 18, Theme.YELLOW);
+                x += size + 12;
+
+                g2.setFont(Theme.display(22f));
+                g2.setColor(MUTED);
+                g2.drawString("\u2212 1 )  =", x, textY);
+                x += big.stringWidth("\u2212 1 )  =") + 14;
+
+                // result
+                g2.setColor(new Color(100, 170, 255));
+                g2.drawString("8 STEPS", x, textY);
+
+                g2.dispose();
+            }
+
+            private void drawLabel(Graphics2D g2, String text, float centerX, float y, Color color) {
+                g2.setFont(Theme.semibold(11f));
+                FontMetrics fm = g2.getFontMetrics();
+                g2.setColor(Theme.alpha(color, 200));
+                g2.drawString(text, centerX - fm.stringWidth(text) / 2f, y);
+            }
+        };
+        example.setPreferredSize(new Dimension(400, 82));
+        return example;
+    }
+    /** Card 06 visual: the chance of each surprise event as a neon bar. */
+    private static JComponent surpriseChart() {
+        String[] events = {"Straight to Finish Home", "Opponent piece moves back", "Back to the castle",
+                "Move back 3 steps", "Lose your next turn", "Roll again (Step + ULTRA)"};
+        int[] chances = {10, 10, 10, 30, 30, 10};
+        Color[] colors = {Theme.GREEN, Theme.BLUE, Theme.RED,
+                new Color(255, 145, 214), Theme.YELLOW, Theme.VIOLET};
+
+        JComponent chart = new JComponent() {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                Theme.applyQuality(g2);
+                int labelW = 230;
+                int rowH = 28;
+                float maxBar = Math.max(60, getWidth() - labelW - 70);
+
+                for (int i = 0; i < events.length; i++) {
+                    int y = 6 + i * rowH;
+
+                    g2.setFont(Theme.ui(14f, Font.PLAIN));
+                    g2.setColor(MUTED);
+                    g2.drawString(events[i], 4, y + 15);
+
+                    // faint full-length track, then the coloured bar (30% = full length)
+                    float barW = maxBar * chances[i] / 30f;
+                    g2.setColor(Theme.alpha(colors[i], 25));
+                    g2.fillRoundRect(labelW, y + 4, (int) maxBar, 12, 12, 12);
+                    g2.setPaint(new GradientPaint(labelW, 0, Theme.alpha(colors[i], 120),
+                            labelW + barW, 0, colors[i]));
+                    g2.fillRoundRect(labelW, y + 4, (int) barW, 12, 12, 12);
+
+                    g2.setFont(Theme.semibold(14f));
+                    g2.setColor(colors[i]);
+                    g2.drawString(chances[i] + "%", labelW + maxBar + 12, y + 15);
+                }
+                g2.dispose();
+            }
+        };
+        chart.setPreferredSize(new Dimension(400, 6 * 28 + 10));
+        return chart;
+    }
+    /** Small neon pill button used for the quick-jump row. */
+    private static JButton chip(String text, Color accent) {
+        JButton chip = new JButton(text) {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                Theme.applyQuality(g2);
+                boolean hover = getModel().isRollover();
+                int w = getWidth();
+                int h = getHeight();
+                g2.setColor(Theme.alpha(accent, hover ? 90 : 35));
+                g2.fillRoundRect(1, 1, w - 2, h - 2, h, h);
+                g2.setColor(Theme.alpha(accent, hover ? 255 : 170));
+                g2.setStroke(new BasicStroke(1.5f));
+                g2.drawRoundRect(1, 1, w - 3, h - 3, h, h);
+                g2.setFont(getFont());
+                FontMetrics fm = g2.getFontMetrics();
+                g2.setColor(hover ? Color.WHITE : accent);
+                g2.drawString(getText(), (w - fm.stringWidth(getText())) / 2f,
+                        (h + fm.getAscent() - fm.getDescent()) / 2f);
+                g2.dispose();
+            }
+        };
+        chip.setFont(Theme.semibold(13f));
+        chip.setBorder(new EmptyBorder(7, 16, 7, 16));
+        chip.setContentAreaFilled(false);
+        chip.setFocusPainted(false);
+        chip.setOpaque(false);
+        chip.setRolloverEnabled(true);
+        chip.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        return chip;
+    }
+
+    /** Smoothly scrolls so that {@code card} is at the top of the view. */
+    private static void scrollToCard(JScrollPane scrollPane, JComponent card) {
+        JViewport viewport = scrollPane.getViewport();
+        int start = viewport.getViewPosition().y;
+        int max = Math.max(0, viewport.getView().getHeight() - viewport.getHeight());
+        int target = Math.min(card.getY(), max);
+        long began = System.currentTimeMillis();
+        Timer animation = new Timer(15, e -> {
+            float t = Math.min(1f, (System.currentTimeMillis() - began) / 350f);
+            int y = Math.round(start + (target - start) * Theme.easeOut(t));
+            viewport.setViewPosition(new Point(0, y));
+            if (t >= 1f) {
+                ((Timer) e.getSource()).stop();
+            }
+        });
+        animation.start();
+    }
+    /** Round glowing badge with a small drawn icon for card 1–8. */
+    private static JComponent iconBadge(int number, Color accent) {
+        JComponent badge = new JComponent() {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                Theme.applyQuality(g2);
+                float cx = getWidth() / 2f;
+                float cy = getHeight() / 2f;
+                float r = Math.min(getWidth(), getHeight()) / 2f - 5;
+                float k = r * 0.5f;   // half the size of the icon
+
+                // glow, tinted circle and neon ring
+                Theme.glow(g2, cx, cy, r + 5, accent, 90);
+                java.awt.geom.Ellipse2D circle =
+                        new java.awt.geom.Ellipse2D.Float(cx - r, cy - r, r * 2, r * 2);
+                g2.setColor(Theme.alpha(accent, 70));
+                g2.fill(circle);
+                g2.setColor(accent);
+                g2.setStroke(new BasicStroke(2f));
+                g2.draw(circle);
+
+                // the icon itself, in white
+                g2.setColor(Color.WHITE);
+                g2.setStroke(new BasicStroke(2.2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                switch (number) {
+                    case 1: { // game setup: a pawn
+                        Theme.paintPawn(g2, cx, cy - k * 0.45f, k * 1.0f, Color.WHITE, 255);
+                        break;
+                    }
+                    case 2: { // your turn: a circular arrow
+                        g2.draw(new java.awt.geom.Arc2D.Float(cx - k, cy - k, k * 2, k * 2,
+                                90, 280, java.awt.geom.Arc2D.OPEN));
+                        java.awt.geom.Path2D head = new java.awt.geom.Path2D.Float();
+                        head.moveTo(cx + k * 0.5f, cy - k);
+                        head.lineTo(cx - k * 0.1f, cy - k * 1.45f);
+                        head.lineTo(cx - k * 0.1f, cy - k * 0.55f);
+                        head.closePath();
+                        g2.fill(head);
+                        break;
+                    }
+                    case 3: { // the dice: a die showing five
+                        g2.draw(new java.awt.geom.RoundRectangle2D.Float(
+                                cx - k, cy - k, k * 2, k * 2, k * 0.6f, k * 0.6f));
+                        float p = k * 0.22f;
+                        float[][] pips = {{-0.5f, -0.5f}, {0.5f, -0.5f}, {0, 0}, {-0.5f, 0.5f}, {0.5f, 0.5f}};
+                        for (float[] pip : pips) {
+                            g2.fill(new java.awt.geom.Ellipse2D.Float(
+                                    cx + pip[0] * k - p, cy + pip[1] * k - p, p * 2, p * 2));
+                        }
+                        break;
+                    }
+                    case 4: { // the board: a 3 × 3 grid with a lit centre
+                        float t = k * 2 / 3f;
+                        g2.fill(new java.awt.geom.Rectangle2D.Float(cx - t / 2, cy - t / 2, t, t));
+                        g2.draw(new java.awt.geom.Rectangle2D.Float(cx - k, cy - k, k * 2, k * 2));
+                        g2.draw(new java.awt.geom.Line2D.Float(cx - t / 2, cy - k, cx - t / 2, cy + k));
+                        g2.draw(new java.awt.geom.Line2D.Float(cx + t / 2, cy - k, cx + t / 2, cy + k));
+                        g2.draw(new java.awt.geom.Line2D.Float(cx - k, cy - t / 2, cx + k, cy - t / 2));
+                        g2.draw(new java.awt.geom.Line2D.Float(cx - k, cy + t / 2, cx + k, cy + t / 2));
+                        break;
+                    }
+                    case 7: { // capture & protection: a star
+                        java.awt.geom.Path2D star = new java.awt.geom.Path2D.Float();
+                        for (int i = 0; i < 10; i++) {
+                            double angle = Math.toRadians(-90 + i * 36);
+                            float rr = (i % 2 == 0) ? k * 1.1f : k * 0.45f;
+                            float px = cx + (float) (Math.cos(angle) * rr);
+                            float py = cy + (float) (Math.sin(angle) * rr);
+                            if (i == 0) star.moveTo(px, py); else star.lineTo(px, py);
+                        }
+                        star.closePath();
+                        g2.fill(star);
+                        break;
+                    }
+                    default: { // 5 = ?, 6 = !, 8 = crown
+                        String symbol = number == 5 ? "?" : number == 6 ? "!" : "\u265B";
+                        g2.setFont(new Font("SansSerif", Font.BOLD, Math.round(r * 1.1f)));
+                        FontMetrics fm = g2.getFontMetrics();
+                        g2.drawString(symbol, cx - fm.stringWidth(symbol) / 2f,
+                                cy + (fm.getAscent() - fm.getDescent()) / 2f);
+                        break;
+                    }
+                }
+                g2.dispose();
+            }
+        };
+        badge.setPreferredSize(new Dimension(52, 52));
+        return badge;
+    }
     /** Follows the scroll pane's width so the text wraps instead of scrolling sideways. */
     private static final class WidthTrackingPanel extends JPanel implements Scrollable {
         private static final long serialVersionUID = 1L;
