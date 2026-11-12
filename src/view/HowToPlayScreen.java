@@ -48,7 +48,6 @@ public class HowToPlayScreen extends JPanel {
 
     private static final Color BG = new Color(15, 25, 52);
     private static final Color CARD = new Color(24, 39, 73);
-    private static final Color TEXT = new Color(240, 245, 255);
     private static final Color MUTED = new Color(175, 190, 215);
 
     public HowToPlayScreen(Runnable onBack) {
@@ -60,9 +59,7 @@ public class HowToPlayScreen extends JPanel {
         header.setOpaque(false);
         header.setBorder(new EmptyBorder(30, 45, 15, 45));
 
-        JLabel title = new JLabel("HOW TO PLAY");
-        title.setFont(new Font("SansSerif", Font.BOLD, 38));
-        title.setForeground(TEXT);
+        JLabel title = Theme.neonHeading("HOW TO PLAY", new Color(198, 166, 255), 38f);
         header.add(title, BorderLayout.WEST);
         
 		NeonButton back = new NeonButton(
