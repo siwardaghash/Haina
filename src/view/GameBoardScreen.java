@@ -49,6 +49,8 @@ public final class GameBoardScreen extends JPanel {
     /** FR-9: the total game time, updated every second. */
     private final JLabel gameClock = new JLabel("", SwingConstants.CENTER);
     private final Timer clockTimer = new Timer(1000, e -> updateClock());
+    
+    private final Runnable onRematch;
 
     /** Convenience for tests: a new game controller for this board. */
     public GameBoardScreen(GameConfig config, Board board, Runnable onBackToMenu) {
@@ -56,6 +58,12 @@ public final class GameBoardScreen extends JPanel {
     }
 
     public GameBoardScreen(GameController controller, Runnable onBackToMenu) {
+        this(controller, onBackToMenu, null);
+    }
+
+    public GameBoardScreen(GameController controller, Runnable onBackToMenu,
+                           Runnable onRematch) {
+        this.onRematch = onRematch;
         this.onBackToMenu = onBackToMenu;
         this.controller = controller;
         GameConfig config = controller.getConfig();
@@ -619,7 +627,7 @@ public final class GameBoardScreen extends JPanel {
             results.append("\n\nUnable to save result: ").append(ex.getMessage());
         }
         JFrame frame = (JFrame) SwingUtilities.getWindowAncestor(this);
-        frame.setContentPane(new EndGameScreen(results.toString(), onBackToMenu));
+        frame.setContentPane(new EndGameScreen(results.toString(), onBackToMenu, onRematch));
         frame.revalidate();
         frame.repaint();    }
 
