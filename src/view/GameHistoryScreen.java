@@ -334,15 +334,73 @@ public final class GameHistoryScreen extends JPanel {
         JTable statsTable = new JTable(statsModel);
         statsTable.setAutoCreateRowSorter(true);
         statsTable.setFillsViewportHeight(true);
-        statsTable.setPreferredScrollableViewportSize(new java.awt.Dimension(580, 240));
-        statsTable.setRowHeight(36);
+        int visibleRows = Math.max(1, Math.min(statsModel.getRowCount(), 6));
+        statsTable.setPreferredScrollableViewportSize(
+                new java.awt.Dimension(580, visibleRows * 36));        statsTable.setRowHeight(36);
         statsTable.setBackground(new Color(32, 37, 70));
         statsTable.setForeground(new Color(235, 240, 255));
         statsTable.setSelectionBackground(new Color(78, 62, 137));
         statsTable.setSelectionForeground(Color.WHITE);
         statsTable.setGridColor(new Color(54, 61, 95));
-        statsTable.getTableHeader().setBackground(new Color(55, 43, 102));
-        statsTable.getTableHeader().setForeground(Color.WHITE);
+        statsTable.setShowVerticalLines(false);
+
+        javax.swing.table.DefaultTableCellRenderer cellRenderer =
+                new javax.swing.table.DefaultTableCellRenderer() {
+                    @Override
+                    public java.awt.Component getTableCellRendererComponent(
+                            JTable t, Object value, boolean selected,
+                            boolean focused, int row, int column) {
+                        super.getTableCellRendererComponent(
+                                t, value, selected, focused, row, column);
+                        setHorizontalAlignment(SwingConstants.CENTER);
+                        setBorder(BorderFactory.createEmptyBorder(0, 10, 0, 10));
+                        setFont(Theme.ui(15f, Font.PLAIN));
+                        setForeground(new Color(225, 231, 255));
+                        if (selected) {
+                            setBackground(new Color(78, 62, 137));
+                        } else {
+                            setBackground(row % 2 == 0
+                                    ? new Color(34, 32, 70)
+                                    : new Color(27, 35, 68));
+                        }
+
+                        int col = t.convertColumnIndexToModel(column);
+                        if (col == 0) {                 // player name
+                            setFont(Theme.semibold(15f));
+                            setForeground(lavender);
+                        } else if (col == 3) {          // win rate
+                            double rate = ((Number) value).doubleValue();
+                            setText(new java.text.DecimalFormat("0.#").format(rate));
+                            setFont(Theme.semibold(15f));
+                            setForeground(rate >= 50 ? Theme.GREEN
+                                    : rate > 0 ? Theme.YELLOW : Theme.MUTED);
+                        }
+                        return this;
+                    }
+                };
+        for (int i = 0; i < statsTable.getColumnCount(); i++) {
+            statsTable.getColumnModel().getColumn(i).setCellRenderer(cellRenderer);
+        }
+        statsTable.getTableHeader().setPreferredSize(new java.awt.Dimension(0, 44));
+        statsTable.getTableHeader().setReorderingAllowed(false);
+        statsTable.getTableHeader().setDefaultRenderer(
+                new javax.swing.table.DefaultTableCellRenderer() {
+                    @Override
+                    public java.awt.Component getTableCellRendererComponent(
+                            JTable t, Object value, boolean selected,
+                            boolean focused, int row, int column) {
+                        super.getTableCellRendererComponent(
+                                t, value, selected, focused, row, column);
+                        setHorizontalAlignment(SwingConstants.CENTER);
+                        setText(value == null ? "" : value.toString().toUpperCase());
+                        setFont(Theme.semibold(13f));
+                        setOpaque(true);
+                        setBackground(new Color(55, 43, 102));
+                        setForeground(lavender);
+                        setBorder(BorderFactory.createMatteBorder(0, 0, 2, 0, lavender));
+                        return this;
+                    }
+                });
 
         JPanel cards = new JPanel(new java.awt.GridLayout(1, 4, 10, 0));
         cards.setOpaque(false);
@@ -364,8 +422,10 @@ public final class GameHistoryScreen extends JPanel {
         panel.setBackground(new Color(20, 24, 49));
         panel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
         panel.add(top, BorderLayout.NORTH);
-        panel.add(new JScrollPane(statsTable), BorderLayout.CENTER);
-
+        JScrollPane statsScroll = new JScrollPane(statsTable);
+        statsScroll.setBorder(BorderFactory.createLineBorder(Theme.alpha(lavender, 140), 1));
+        statsScroll.getViewport().setBackground(new Color(32, 37, 70));
+        panel.add(statsScroll, BorderLayout.CENTER);
         javax.swing.JDialog dialog = new javax.swing.JDialog(
                 javax.swing.SwingUtilities.getWindowAncestor(this),
                 "LUDO • Code Quest",
