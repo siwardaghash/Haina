@@ -589,6 +589,25 @@ public final class GameBoardScreen extends JPanel {
         if (game.isGameOver() && !resultShown) {
             resultShown = true;
 
+            if (game.isTeamMode()) {
+                status.setText(game.getMessage());
+                status.setForeground(GOLD);
+                status.setFont(status.getFont().deriveFont(Font.BOLD, 24f));
+                Sound.stopMusic();
+                Sound.win();
+
+                Timer teamResultsDelay = new Timer(2200, e -> {
+                    if (isShowing()) {
+                        JFrame frame = (JFrame) SwingUtilities.getWindowAncestor(this);
+                        frame.setContentPane(new TeamEndGameScreen(game, onBackToMenu, onRematch));
+                        frame.revalidate();
+                        frame.repaint();
+                    }
+                });
+                teamResultsDelay.setRepeats(false);
+                teamResultsDelay.start();
+                return;
+            }
             Game.Player winner = game.getFinishingOrder().get(0);
             String winnerColor = winner.getColor().getLabel()
                     .toUpperCase(java.util.Locale.ROOT);
@@ -631,10 +650,14 @@ public final class GameBoardScreen extends JPanel {
                 || difficulty.hasBoostDie() || difficulty.hasUltraBoostDie();
         extraDice.getParent().setVisible(hasExtra);
         extraDice.setValue(game.getExtraDie() == 0 ? 1 : game.getExtraDie());
-        extraCaption.setText(difficulty.hasUltraBoostDie() || lastRollBonus ? "ULTRA" : "BOOST");        Game.Player current = game.getCurrentPlayer();
+        extraCaption.setText(difficulty.hasUltraBoostDie() || lastRollBonus ? "ULTRA" : "BOOST");
+        Game.Player current = game.getCurrentPlayer();
         Color playerColor = BoardCanvas.playerColor(current.getColor());
 
-        playerTag.setText("●  " + current.getName().toUpperCase() + "'S TURN");
+        playerTag.setText("●  " + current.getName().toUpperCase() + "'S TURN"
+                + (game.isTeamMode()
+                        ? (game.getTeamOf(current.getColor()) == 0 ? "  [TEAM A]" : "  [TEAM B]")
+                        : ""));
         playerTag.setOpaque(false);
 
         playerTag.setBackground(playerColor);

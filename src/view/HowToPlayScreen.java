@@ -94,7 +94,8 @@ public class HowToPlayScreen extends JPanel {
 
         addCard(content, "01  GAME SETUP",
             "Choose 2–4 players, enter their names, select unique colors, " +
-            "and choose Easy, Medium, or Hard difficulty.",
+            "and choose Easy, Medium, or Hard difficulty. Select Classic for individual " +
+            "play or 2 vs 2 Teams for four-player partnerships.",
             new Color(86, 232, 201));
 
         addCard(content, "02  YOUR TURN",
@@ -153,10 +154,20 @@ public class HowToPlayScreen extends JPanel {
             new Color(255, 110, 140));
 
         addCard(content, "08  HOW TO WIN",
-            "Bring all four of your pieces to Finish Home. " +
+            "Classic Mode: Bring all four of your pieces to Finish Home. " +
             "The game ends when all players but one have finished; the last player is placed last. " +
             "The finishing order is shown and saved in the game history.",
             new Color(244, 166, 200));
+        addCard(content, "09  2 VS 2 TEAM MODE",
+            "• Choose 2 vs 2 Teams in Game Setup. Exactly four players take part.\n" +
+            "• TEAM A: RED + YELLOW.   TEAM B: GREEN + BLUE.\n" +
+            "• Players take individual turns and move only their own four pieces.\n" +
+            "• Teammates cannot capture each other. A teammate's Double Block is not an opposing block.\n" +
+            "• When a surprise lets you select an opponent, you can target only the other team.\n" +
+            "• The first team to bring all eight of its pieces to Finish Home wins.\n" +
+            "• Classic Mode remains unchanged. Team matches are not currently saved in Classic game history.",
+            new Color(109, 188, 255));
+
         // mini visuals inside the cards
         cards.get(2).add(diceExample(), BorderLayout.SOUTH);    // 03 THE DICE
         cards.get(5).add(surpriseChart(), BorderLayout.SOUTH);  // 06 SURPRISE SQUARES
@@ -178,7 +189,7 @@ public class HowToPlayScreen extends JPanel {
         add(scrollPane, BorderLayout.CENTER);
 
         // quick-jump chips under the title
-        String[] chipNames = {"SETUP", "TURN", "DICE", "BOARD", "QUESTIONS", "SURPRISES", "CAPTURE", "WIN"};
+        String[] chipNames = {"SETUP", "TURN", "DICE", "BOARD", "QUESTIONS", "SURPRISES", "CAPTURE", "WIN", "TEAMS"};
         JPanel chips = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
         chips.setOpaque(false);
         chips.setBorder(new EmptyBorder(14, 0, 0, 0));
