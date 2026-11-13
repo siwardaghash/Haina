@@ -125,7 +125,7 @@ public final class GameBoardScreen extends JPanel {
         soundButton.addActionListener(e -> {
             Sound.setMuted(!Sound.isMuted());
             soundButton.setText(Sound.isMuted() ? "SOUND OFF" : "SOUND ON");
-        });
+            });
         JPanel topButtons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
         topButtons.setOpaque(false);
         topButtons.add(soundButton);
