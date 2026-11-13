@@ -290,7 +290,7 @@ public class GameSetupScreen extends JPanel {
     private void refreshStatus() {
         Problem p = findProblem();
         if (p == null) {
-            status = (gameMode == GameConfig.GameMode.TEAMS_2V2 ? "2 vs 2: RED+BLUE vs GREEN+YELLOW" : playerCount + " players")
+            status = (gameMode == GameConfig.GameMode.TEAMS_2V2 ? "2 vs 2: RED+YELLOW vs GREEN+BLUE" : playerCount + " players")
                     + "  •  " + difficulty.getLabel() + "  •  press ENTER to roll";
             statusColor = GREEN;
         } else if (triedToStart) {
