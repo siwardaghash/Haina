@@ -297,13 +297,14 @@ public final class GameHistoryScreen extends JPanel {
         try {
             games = controller.records();
         } catch (IOException e) {
-            JOptionPane.showMessageDialog(this, "Could not load history: " + e.getMessage(),
-                    "Game & Player Statistics", JOptionPane.ERROR_MESSAGE);
+            Theme.neonMessage(this, "History error",
+                    "Could not load history: " + e.getMessage(), Theme.RED);
             return;
         }
 
         if (games.isEmpty()) {
-            JOptionPane.showMessageDialog(this, "Finish a game to see your statistics.");
+            Theme.neonMessage(this, "No games yet",
+                    "Finish a game to see your statistics.", new Color(198, 166, 255));
             return;
         }
 
@@ -419,6 +420,8 @@ public final class GameHistoryScreen extends JPanel {
         JScrollPane statsScroll = new JScrollPane(statsTable);
         statsScroll.setBorder(BorderFactory.createLineBorder(Theme.alpha(lavender, 140), 1));
         statsScroll.getViewport().setBackground(new Color(32, 37, 70));
+        statsScroll.setOpaque(false);
+        Theme.neonScrollBar(statsScroll, lavender);
         panel.add(statsScroll, BorderLayout.CENTER);
         javax.swing.JDialog dialog = new javax.swing.JDialog(
                 javax.swing.SwingUtilities.getWindowAncestor(this),

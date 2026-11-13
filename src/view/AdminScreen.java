@@ -39,6 +39,7 @@ public final class AdminScreen extends JPanel {
 	}
 
     private static final Color BG = new Color(12,21,46), TEXT = new Color(239,243,255);
+    private static final Color LAVENDER = new Color(198, 166, 255);
     private final Runnable back;
     private final AdminController controller;
     private final DefaultListModel<Question> listModel = new DefaultListModel<>();
@@ -60,11 +61,10 @@ public final class AdminScreen extends JPanel {
 		returnButton.setPreferredSize(new Dimension(240, 76));
 
         returnButton.addActionListener(e -> back.run());
-        JLabel title = new JLabel("QUESTION BANK  /  ADMIN",SwingConstants.CENTER);
-        title.setFont(new Font("SansSerif",Font.BOLD,27)); title.setForeground(TEXT);
+        JLabel title = Theme.neonHeading("QUESTION BANK", LAVENDER, 36f);
         JPanel header=new JPanel(new BorderLayout());header.setOpaque(false);
         header.add(returnButton, BorderLayout.EAST);
-        header.add(title,BorderLayout.CENTER);
+        header.add(title, BorderLayout.WEST);
         add(header,BorderLayout.NORTH);
         SwingUtilities.invokeLater(this::authenticate);
     }
@@ -73,32 +73,22 @@ public final class AdminScreen extends JPanel {
         try {
             // SRS 3.6.3: a single predefined administrator; players cannot create accounts.
             if (!controller.hasAdministrator()) {
-                JOptionPane.showMessageDialog(this,
-                    "The administrator file (data/admin.xml) is missing.\n"
-                    + "Question management is not available.",
-                    "Administrator not found", JOptionPane.ERROR_MESSAGE);
+                Theme.neonMessage(this, "Administrator not found",
+                        "The administrator file (data/admin.xml) is missing.\n"
+                        + "Question management is not available.", Theme.RED);
                 back.run();
                 return;
             }
             JTextField username = new JTextField(20);
             JPasswordField password = new JPasswordField(20);
+            Theme.styleNeonField(username, LAVENDER);
+            Theme.styleNeonField(password, LAVENDER);
 
             JPanel loginPanel = new JPanel(new GridLayout(4, 1, 8, 8));
             loginPanel.setOpaque(false);
-            loginPanel.setBorder(BorderFactory.createEmptyBorder(20, 25, 20, 25));
-
-            JLabel usernameLabel = new JLabel("USERNAME");
-            JLabel passwordLabel = new JLabel("PASSWORD");
-
-            usernameLabel.setForeground(TEXT);
-            passwordLabel.setForeground(TEXT);
-
-            usernameLabel.setFont(new Font("SansSerif", Font.BOLD, 13));
-            passwordLabel.setFont(new Font("SansSerif", Font.BOLD, 13));
-
-            loginPanel.add(usernameLabel);
+            loginPanel.add(fieldLabel("USERNAME"));
             loginPanel.add(username);
-            loginPanel.add(passwordLabel);
+            loginPanel.add(fieldLabel("PASSWORD"));
             loginPanel.add(password);
 
             int result = showLoginDialog(loginPanel);
@@ -106,109 +96,130 @@ public final class AdminScreen extends JPanel {
             char[] pwd=password.getPassword();boolean valid;
             try { valid=controller.login(username.getText(),pwd); }
             finally { Arrays.fill(pwd,'\0'); }
-            if (!valid) {JOptionPane.showMessageDialog(this,"Invalid username or password.","Access denied",JOptionPane.ERROR_MESSAGE);back.run();return;}
-            buildEditor();
+            if (!valid) {
+                Theme.neonMessage(this, "Access denied", "Invalid username or password.", Theme.RED);
+                SwingUtilities.invokeLater(this::authenticate);   // show the login again
+                return;
+            }         buildEditor();
         } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this,ex.getMessage(),"Question bank error",JOptionPane.ERROR_MESSAGE);
+            Theme.neonMessage(this, "Question bank error", ex.getMessage(), Theme.RED);
             back.run();
         }
     }
-    private int showLoginDialog(JPanel loginPanel) {
-        JDialog dialog = new JDialog(
-            SwingUtilities.getWindowAncestor(this),
-            "Administrator Login",
-            Dialog.ModalityType.APPLICATION_MODAL
-        );
+    /** Small label above an input field. */
+    private static JLabel fieldLabel(String text) {
+        JLabel label = new JLabel(text);
+        label.setFont(Theme.semibold(13f));
+        label.setForeground(Theme.MUTED);
+        return label;
+    }
 
+    /** Rounded neon card used as the background of the login and question popups. */
+    private static JPanel neonCard(LayoutManager layout, Color accent) {
+        JPanel card = new JPanel(layout) {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                Theme.applyQuality(g2);
+                int w = getWidth();
+                int h = getHeight();
+                g2.setPaint(new GradientPaint(0, 0, new Color(30, 26, 70), 0, h, new Color(12, 17, 42)));
+                g2.fillRoundRect(2, 2, w - 4, h - 4, 28, 28);
+                Theme.glow(g2, w / 2f, 0, w * 0.55f, accent, 60);
+                g2.setColor(Theme.alpha(accent, 230));
+                g2.setStroke(new BasicStroke(2f));
+                g2.drawRoundRect(2, 2, w - 5, h - 5, 28, 28);
+                g2.dispose();
+            }
+        };
+        card.setOpaque(false);
+        return card;
+    }
+
+    /** Glowing round badge with a padlock, shown above the login form. */
+    private static JComponent lockBadge(Color accent) {
+        JComponent badge = new JComponent() {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                Theme.applyQuality(g2);
+                float cx = getWidth() / 2f;
+                float cy = getHeight() / 2f;
+                Theme.glow(g2, cx, cy, 44, accent, 110);
+                g2.setColor(Theme.alpha(accent, 70));
+                g2.fill(new java.awt.geom.Ellipse2D.Float(cx - 26, cy - 26, 52, 52));
+                g2.setColor(accent);
+                g2.setStroke(new BasicStroke(2f));
+                g2.draw(new java.awt.geom.Ellipse2D.Float(cx - 26, cy - 26, 52, 52));
+                g2.setColor(Color.WHITE);
+                g2.setStroke(new BasicStroke(2.6f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                g2.draw(new java.awt.geom.Arc2D.Float(cx - 8, cy - 15, 16, 18, 0, 180, java.awt.geom.Arc2D.OPEN));
+                g2.draw(new java.awt.geom.Line2D.Float(cx - 8, cy - 6, cx - 8, cy - 2));
+                g2.draw(new java.awt.geom.Line2D.Float(cx + 8, cy - 6, cx + 8, cy - 2));
+                g2.fill(new java.awt.geom.RoundRectangle2D.Float(cx - 12, cy - 3, 24, 18, 5, 5));
+                g2.setColor(accent);
+                g2.fill(new java.awt.geom.Ellipse2D.Float(cx - 2.5f, cy + 3, 5, 5));
+                g2.dispose();
+            }
+        };
+        badge.setPreferredSize(new Dimension(80, 72));
+        return badge;
+    }
+    private int showLoginDialog(JPanel loginPanel) {
+        JDialog dialog = new JDialog(SwingUtilities.getWindowAncestor(this),
+                "Administrator Login", Dialog.ModalityType.APPLICATION_MODAL);
         dialog.setUndecorated(true);
-        dialog.setSize(420, 350);
-        dialog.setLocationRelativeTo(this);
+        Theme.transparentCorners(dialog);
         dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
 
-        Color navy = new Color(17, 31, 62);
-        Color green = new Color(83, 204, 146);
+        JPanel container = neonCard(new BorderLayout(0, 14), LAVENDER);
+        container.setBorder(BorderFactory.createEmptyBorder(18, 34, 24, 34));
 
-		JPanel container = new JPanel(new BorderLayout(0, 20)) {
-		    @Override
-		    protected void paintComponent(Graphics g) {
-		        Graphics2D g2 = (Graphics2D) g.create();
-		        Theme.applyQuality(g2);
-		
-		        g2.setPaint(new GradientPaint(
-		            0, 0, new Color(42, 32, 80),
-		            getWidth(), getHeight(),
-		            new Color(18, 37, 68)
-		        ));
-		
-		        g2.fillRoundRect(
-		            2, 2,
-		            getWidth() - 4,
-		            getHeight() - 4,
-		            26, 26
-		        );
-		
-		        g2.setColor(new Color(174, 139, 245));
-		        g2.setStroke(new BasicStroke(2f));
-		
-		        g2.drawRoundRect(
-		            2, 2,
-		            getWidth() - 4,
-		            getHeight() - 4,
-		            26, 26
-		        );
-		
-		        g2.dispose();
-		    }
-		};
-		
-		container.setOpaque(false);
-		container.setBorder(
-		    BorderFactory.createEmptyBorder(25, 30, 25, 30)
-		);
-		
-        JLabel title = new JLabel("ADMIN LOGIN", SwingConstants.CENTER);
-        title.setFont(new Font("SansSerif", Font.BOLD, 25));
-        title.setForeground(Color.WHITE);
-        container.add(title, BorderLayout.NORTH);
-
-        loginPanel.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
+        // lock badge and glowing title
+        JPanel top = new JPanel();
+        top.setLayout(new BoxLayout(top, BoxLayout.Y_AXIS));
+        top.setOpaque(false);
+        JComponent badge = lockBadge(LAVENDER);
+        badge.setAlignmentX(Component.CENTER_ALIGNMENT);
+        JPanel titleRow = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
+        titleRow.setOpaque(false);
+        titleRow.add(Theme.neonHeading("ADMIN LOGIN", LAVENDER, 28f));
+        top.add(badge);
+        top.add(titleRow);
+        container.add(top, BorderLayout.NORTH);
         container.add(loginPanel, BorderLayout.CENTER);
 
-        JPanel buttons = new JPanel(new GridLayout(1, 2, 15, 0));
-        buttons.setOpaque(false);
-
-        JButton cancel = new JButton("CANCEL");
-        cancel.setBackground(new Color(55, 75, 115));
-        cancel.setForeground(Color.WHITE);
-        cancel.setFont(new Font("SansSerif", Font.BOLD, 14));
-        cancel.setFocusPainted(false);
-        Theme.solidButton(cancel);
-
-        JButton login = new JButton("LOGIN");
-        login.setBackground(green);
-        login.setForeground(new Color(17, 31, 62));
-        login.setFont(new Font("SansSerif", Font.BOLD, 14));
-        login.setFocusPainted(false);
-        Theme.solidButton(login);
-
+        NeonButton cancel = new NeonButton("CANCEL", Theme.VIOLET, NeonButton.Glyph.BACK, null);
+        NeonButton login = new NeonButton("LOGIN", Theme.GREEN, NeonButton.Glyph.LOCK, null);
         final int[] result = {JOptionPane.CANCEL_OPTION};
-
+        for (NeonButton button : new NeonButton[]{cancel, login}) {
+            button.setChevron(false);
+            button.setFocusable(false);
+            button.setPreferredSize(new Dimension(200, 68));
+        }
         cancel.addActionListener(e -> dialog.dispose());
-
         login.addActionListener(e -> {
             result[0] = JOptionPane.OK_OPTION;
             dialog.dispose();
         });
-
+        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.CENTER, 14, 0));
+        buttons.setOpaque(false);
         buttons.add(cancel);
         buttons.add(login);
-
         container.add(buttons, BorderLayout.SOUTH);
 
+        // Esc = cancel, Enter = login
+        dialog.getRootPane().registerKeyboardAction(e -> dialog.dispose(),
+                KeyStroke.getKeyStroke("ESCAPE"), JComponent.WHEN_IN_FOCUSED_WINDOW);
         dialog.setContentPane(container);
         dialog.getRootPane().setDefaultButton(login);
+        dialog.setSize(500, 470);
+        dialog.setLocationRelativeTo(this);
         dialog.setVisible(true);
-
         return result[0];
     }
     private void buildEditor() {
@@ -457,8 +468,8 @@ public final class AdminScreen extends JPanel {
         try {
             if(existing==null)controller.add(entry);else controller.update(existing.getId(),entry);
             refresh();
-        } catch(Exception ex) {JOptionPane.showMessageDialog(this,ex.getMessage(),"Cannot save",JOptionPane.ERROR_MESSAGE);}
-    }
+        } catch(Exception ex) { Theme.neonMessage(this, "Cannot save", ex.getMessage(), Theme.RED); }
+        }
 
 	private int showQuestionDialog(JScrollPane formScroll, String titleText) {
 	    JDialog dialog = new JDialog(
@@ -558,10 +569,11 @@ public final class AdminScreen extends JPanel {
 
     private void deleteQuestion() {
         Question selected=list.getSelectedValue();if(selected==null)return;
-        if(JOptionPane.showConfirmDialog(this,"Delete " + selected.getId() + "?", "Confirm deletion",JOptionPane.YES_NO_OPTION)!=JOptionPane.YES_OPTION)return;
-        try {controller.delete(selected.getId());refresh();}
-        catch(Exception ex) {JOptionPane.showMessageDialog(this,ex.getMessage(),"Cannot delete",JOptionPane.ERROR_MESSAGE);}
-    }
+        if (!Theme.neonConfirm(this, "Confirm deletion",
+                "Delete question " + selected.getId() + "? This cannot be undone.",
+                "DELETE", Theme.RED)) return;        try {controller.delete(selected.getId());refresh();}
+                catch(Exception ex) { Theme.neonMessage(this, "Cannot delete", ex.getMessage(), Theme.RED); }
+                }
 
 	private static class GlowActionButton extends JButton {
 	

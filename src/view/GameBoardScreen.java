@@ -71,9 +71,8 @@ public final class GameBoardScreen extends JPanel {
         game = controller.getGame();
         difficulty = config.getDifficulty();
         if (controller.getBankError() != null)
-            JOptionPane.showMessageDialog(this,
-                    "Question bank could not be loaded: " + controller.getBankError(),
-                    "Question bank error", JOptionPane.ERROR_MESSAGE);
+            Theme.neonMessage(this, "Question bank error",
+                    "Question bank could not be loaded: " + controller.getBankError(), Theme.RED);
         setLayout(new BorderLayout(12, 8));
         setOpaque(false);
         setBorder(BorderFactory.createEmptyBorder(14, 26, 17, 26));
