@@ -143,34 +143,46 @@ public final class GameBoardScreen extends JPanel {
         boardCard.add(canvas, BorderLayout.CENTER);
         add(boardCard, BorderLayout.CENTER);
 
-        RoundedCard controls = new RoundedCard(new Color(17, 31, 62, 245), 25);
+        RoundedCard controls = new RoundedCard(Theme.GLASS, 28);
         controls.setLayout(new BorderLayout(5, 8));
         controls.setBorder(BorderFactory.createEmptyBorder(13, 16, 14, 16));
         JPanel information = new JPanel(new BorderLayout(10, 0));
         information.setOpaque(false);
         playerTag = new JLabel("", SwingConstants.LEFT) {
-            @Override
-            protected void paintComponent(java.awt.Graphics g) {
-                java.awt.Graphics2D g2 = (java.awt.Graphics2D) g.create();
+        	@Override
+        	protected void paintComponent(Graphics g) {
+        	    Graphics2D g2 = (Graphics2D) g.create();
+        	    Theme.applyQuality(g2);
 
-                g2.setRenderingHint(
-                    java.awt.RenderingHints.KEY_ANTIALIASING,
-                    java.awt.RenderingHints.VALUE_ANTIALIAS_ON
-                );
+        	    Color accent = getBackground();
 
-                g2.setColor(getBackground());
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 18, 18);
+        	    int h = Math.min(52, getHeight() - 8);
+        	    int y = (getHeight() - h) / 2;
 
-                g2.dispose();
-                super.paintComponent(g);
-            }
+        	    // Dark glass background
+        	    g2.setColor(new Color(12, 17, 38, 235));
+        	    g2.fillRoundRect(1, y, getWidth() - 3, h, 22, 22);
+
+        	    // Thin border matching the player's color
+        	    g2.setColor(new Color(
+        	        accent.getRed(),
+        	        accent.getGreen(),
+        	        accent.getBlue(),
+        	        190
+        	    ));
+        	    g2.setStroke(new BasicStroke(1.5f));
+        	    g2.drawRoundRect(1, y, getWidth() - 3, h, 22, 22);
+
+        	    g2.dispose();
+        	    super.paintComponent(g);
+        	}
         };
         // Same font and border as refresh() uses, so the tag is wide enough from the start.
         playerTag.setFont(new Font("SansSerif", Font.BOLD, 22));
         playerTag.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20));
         information.add(playerTag, BorderLayout.WEST);
-        gameClock.setForeground(INK);
-        gameClock.setFont(new Font("SansSerif", Font.BOLD, 20));
+        gameClock.setForeground(Theme.TEXT);
+        gameClock.setFont(Theme.semibold(17f));
         gameClock.setToolTipText("Total game time");
         updateClock();
         information.add(gameClock, BorderLayout.CENTER);
@@ -180,8 +192,8 @@ public final class GameBoardScreen extends JPanel {
         dice.setPreferredSize(new Dimension(66, 66));
 
         movementInfo = new JLabel("", SwingConstants.CENTER);
-        movementInfo.setForeground(INK);
-        movementInfo.setFont(new Font("SansSerif", Font.BOLD, 15));
+        movementInfo.setForeground(Theme.MUTED);
+        movementInfo.setFont(Theme.semibold(14f));
         // Wide enough for the longest text, "6 × (ULTRA 6 − 1) = 30 STEPS".
         movementInfo.setPreferredSize(new Dimension(300, 40));
         
@@ -620,17 +632,20 @@ public final class GameBoardScreen extends JPanel {
         extraDice.getParent().setVisible(hasExtra);
         extraDice.setValue(game.getExtraDie() == 0 ? 1 : game.getExtraDie());
         extraCaption.setText(difficulty.hasUltraBoostDie() || lastRollBonus ? "ULTRA" : "BOOST");        Game.Player current = game.getCurrentPlayer();
-        playerTag.setText("●  " + current.getName().toUpperCase() + "'S TURN");
-        playerTag.setForeground(BoardCanvas.playerColor(current.getColor()));
         Color playerColor = BoardCanvas.playerColor(current.getColor());
+
+        playerTag.setText("●  " + current.getName().toUpperCase() + "'S TURN");
         playerTag.setOpaque(false);
+
         playerTag.setBackground(playerColor);
-        playerTag.setForeground(Color.WHITE);
-        playerTag.setFont(new Font("SansSerif", Font.BOLD, 22));
+        playerTag.setForeground(Theme.TEXT);
+        playerTag.setFont(Theme.semibold(18f));
         playerTag.setBorder(
-            BorderFactory.createEmptyBorder(10, 20, 10, 20)
+            BorderFactory.createEmptyBorder(10, 18, 10, 18)
         );
-        playerTag.revalidate(); // the bigger font needs a new width, or long names are cut off
+
+        playerTag.revalidate();
+        playerTag.repaint();
         boolean highlight = notice != null || game.isAwaitingPiece() || game.isAwaitingSurpriseTarget();
         status.setText(game.isAwaitingSurpriseTarget()
                 ? "Surprise: " + current.getName() + ", click a glowing opponent piece to move it back."
