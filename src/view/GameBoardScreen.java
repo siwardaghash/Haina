@@ -137,7 +137,7 @@ public final class GameBoardScreen extends JPanel {
         add(topBar, BorderLayout.NORTH);
 
         canvas = new BoardCanvas(board, config, game);
-        RoundedCard boardCard = new RoundedCard(new Color(20, 34, 67, 242), 30);
+        RoundedCard boardCard = new RoundedCard(Theme.GLASS, 30);
         boardCard.setLayout(new BorderLayout());
         boardCard.setBorder(BorderFactory.createEmptyBorder(12, 14, 12, 14));
         boardCard.add(canvas, BorderLayout.CENTER);
