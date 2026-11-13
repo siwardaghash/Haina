@@ -19,6 +19,12 @@ import java.util.Random;
 
 /** Polished responsive board view; all rules remain in model.Game. */
 public final class GameBoardScreen extends JPanel {
+	private float animationTime = 0f;
+
+	private final Timer backgroundTimer = new Timer(60, e -> {
+	    animationTime += 0.04f;
+	    repaint();
+	});
     private static final Color INK = new Color(245, 248, 255);
     private static final Color MUTED = new Color(166, 184, 217);
     private static final Color GOLD = new Color(255, 199, 92);
@@ -99,19 +105,30 @@ public final class GameBoardScreen extends JPanel {
         topBar.add(heading, BorderLayout.CENTER);
 
         // Painted by FancyButton: the Mac look and feel ignores a plain JButton's background colour.
-        FancyButton exitButton = new FancyButton("EXIT GAME", new Color(241, 91, 105), Color.WHITE, true);
+        NeonButton exitButton = new NeonButton(
+        	    "Exit Game", Theme.RED, NeonButton.Glyph.BACK, null);
 
+        	exitButton.setChevron(false);
+        	exitButton.setPreferredSize(new Dimension(184, 64));
+        	exitButton.setFocusable(false);
+        	
         exitButton.addActionListener(e -> {
         	showExitConfirmation();
         });
 
         // Bonus: music and sound effects, with a button to turn them off.
-        FancyButton soundButton = new FancyButton(Sound.isMuted() ? "SOUND OFF" : "SOUND ON",
-                new Color(52, 74, 115), Color.WHITE, true);
+        NeonButton soundButton = new NeonButton(
+        	    Sound.isMuted() ? "Sound Off" : "Sound On",
+        	    Theme.VIOLET, NeonButton.Glyph.SOUND, null);
+
+        	soundButton.setChevron(false);
+        	soundButton.setPreferredSize(new Dimension(184, 64));
+        	soundButton.setFocusable(false);
+        	
         soundButton.addActionListener(e -> {
             Sound.setMuted(!Sound.isMuted());
-            soundButton.setText(Sound.isMuted() ? "SOUND OFF" : "SOUND ON");
-        });
+            soundButton.setText(Sound.isMuted() ? "Sound Off" : "Sound On");
+            });
         JPanel topButtons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
         topButtons.setOpaque(false);
         topButtons.add(soundButton);
@@ -120,40 +137,52 @@ public final class GameBoardScreen extends JPanel {
         add(topBar, BorderLayout.NORTH);
 
         canvas = new BoardCanvas(board, config, game);
-        RoundedCard boardCard = new RoundedCard(new Color(20, 34, 67, 242), 30);
+        RoundedCard boardCard = new RoundedCard(Theme.GLASS, 30);
         boardCard.setLayout(new BorderLayout());
         boardCard.setBorder(BorderFactory.createEmptyBorder(12, 14, 12, 14));
         boardCard.add(canvas, BorderLayout.CENTER);
         add(boardCard, BorderLayout.CENTER);
 
-        RoundedCard controls = new RoundedCard(new Color(17, 31, 62, 245), 25);
+        RoundedCard controls = new RoundedCard(Theme.GLASS, 28);
         controls.setLayout(new BorderLayout(5, 8));
         controls.setBorder(BorderFactory.createEmptyBorder(13, 16, 14, 16));
         JPanel information = new JPanel(new BorderLayout(10, 0));
         information.setOpaque(false);
         playerTag = new JLabel("", SwingConstants.LEFT) {
-            @Override
-            protected void paintComponent(java.awt.Graphics g) {
-                java.awt.Graphics2D g2 = (java.awt.Graphics2D) g.create();
+        	@Override
+        	protected void paintComponent(Graphics g) {
+        	    Graphics2D g2 = (Graphics2D) g.create();
+        	    Theme.applyQuality(g2);
 
-                g2.setRenderingHint(
-                    java.awt.RenderingHints.KEY_ANTIALIASING,
-                    java.awt.RenderingHints.VALUE_ANTIALIAS_ON
-                );
+        	    Color accent = getBackground();
 
-                g2.setColor(getBackground());
-                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 18, 18);
+        	    int h = Math.min(52, getHeight() - 8);
+        	    int y = (getHeight() - h) / 2;
 
-                g2.dispose();
-                super.paintComponent(g);
-            }
+        	    // Dark glass background
+        	    g2.setColor(new Color(12, 17, 38, 235));
+        	    g2.fillRoundRect(1, y, getWidth() - 3, h, 22, 22);
+
+        	    // Thin border matching the player's color
+        	    g2.setColor(new Color(
+        	        accent.getRed(),
+        	        accent.getGreen(),
+        	        accent.getBlue(),
+        	        190
+        	    ));
+        	    g2.setStroke(new BasicStroke(1.5f));
+        	    g2.drawRoundRect(1, y, getWidth() - 3, h, 22, 22);
+
+        	    g2.dispose();
+        	    super.paintComponent(g);
+        	}
         };
         // Same font and border as refresh() uses, so the tag is wide enough from the start.
         playerTag.setFont(new Font("SansSerif", Font.BOLD, 22));
         playerTag.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20));
         information.add(playerTag, BorderLayout.WEST);
-        gameClock.setForeground(INK);
-        gameClock.setFont(new Font("SansSerif", Font.BOLD, 20));
+        gameClock.setForeground(Theme.TEXT);
+        gameClock.setFont(Theme.semibold(17f));
         gameClock.setToolTipText("Total game time");
         updateClock();
         information.add(gameClock, BorderLayout.CENTER);
@@ -163,8 +192,8 @@ public final class GameBoardScreen extends JPanel {
         dice.setPreferredSize(new Dimension(66, 66));
 
         movementInfo = new JLabel("", SwingConstants.CENTER);
-        movementInfo.setForeground(INK);
-        movementInfo.setFont(new Font("SansSerif", Font.BOLD, 15));
+        movementInfo.setForeground(Theme.MUTED);
+        movementInfo.setFont(Theme.semibold(14f));
         // Wide enough for the longest text, "6 × (ULTRA 6 − 1) = 30 STEPS".
         movementInfo.setPreferredSize(new Dimension(300, 40));
         
@@ -226,10 +255,12 @@ public final class GameBoardScreen extends JPanel {
         super.addNotify();
         game.addObserver(observer);
         hintTimer.start(); clockTimer.start(); Sound.startMusic();
+        backgroundTimer.start();
     }
     @Override public void removeNotify() {
         game.removeObserver(observer);
         hintTimer.stop(); clockTimer.stop(); Sound.stopMusic();
+        backgroundTimer.stop();
         super.removeNotify();
     }
 
@@ -619,19 +650,25 @@ public final class GameBoardScreen extends JPanel {
                 || difficulty.hasBoostDie() || difficulty.hasUltraBoostDie();
         extraDice.getParent().setVisible(hasExtra);
         extraDice.setValue(game.getExtraDie() == 0 ? 1 : game.getExtraDie());
-        extraCaption.setText(difficulty.hasUltraBoostDie() || lastRollBonus ? "ULTRA" : "BOOST");        Game.Player current = game.getCurrentPlayer();
-        playerTag.setText("●  " + current.getName().toUpperCase() + "'S TURN"
-                + (game.isTeamMode() ? (game.getTeamOf(current.getColor()) == 0 ? "  [TEAM A]" : "  [TEAM B]") : ""));
-        playerTag.setForeground(BoardCanvas.playerColor(current.getColor()));
+        extraCaption.setText(difficulty.hasUltraBoostDie() || lastRollBonus ? "ULTRA" : "BOOST");
+        Game.Player current = game.getCurrentPlayer();
         Color playerColor = BoardCanvas.playerColor(current.getColor());
+
+        playerTag.setText("●  " + current.getName().toUpperCase() + "'S TURN"
+                + (game.isTeamMode()
+                        ? (game.getTeamOf(current.getColor()) == 0 ? "  [TEAM A]" : "  [TEAM B]")
+                        : ""));
         playerTag.setOpaque(false);
+
         playerTag.setBackground(playerColor);
-        playerTag.setForeground(Color.WHITE);
-        playerTag.setFont(new Font("SansSerif", Font.BOLD, 22));
+        playerTag.setForeground(Theme.TEXT);
+        playerTag.setFont(Theme.semibold(18f));
         playerTag.setBorder(
-            BorderFactory.createEmptyBorder(10, 20, 10, 20)
+            BorderFactory.createEmptyBorder(10, 18, 10, 18)
         );
-        playerTag.revalidate(); // the bigger font needs a new width, or long names are cut off
+
+        playerTag.revalidate();
+        playerTag.repaint();
         boolean highlight = notice != null || game.isAwaitingPiece() || game.isAwaitingSurpriseTarget();
         status.setText(game.isAwaitingSurpriseTarget()
                 ? "Surprise: " + current.getName() + ", click a glowing opponent piece to move it back."
@@ -666,15 +703,16 @@ public final class GameBoardScreen extends JPanel {
         frame.revalidate();
         frame.repaint();    }
 
-    @Override protected void paintComponent(Graphics g) {
-        Graphics2D g2 = (Graphics2D) g.create();
-        g2.setPaint(new GradientPaint(0, 0, new Color(14, 25, 55),
-                0, Math.max(1, getHeight()), new Color(5, 10, 25)));
-        g2.fillRect(0, 0, getWidth(), getHeight());
-        g2.dispose();
+    @Override
+    protected void paintComponent(Graphics g) {
         super.paintComponent(g);
-    }
 
+        Graphics2D g2 = (Graphics2D) g.create();
+        Theme.applyQuality(g2);
+        Theme.paintBackdrop(g2, getWidth(), getHeight(), animationTime);
+        g2.dispose();
+    }
+    
     private void showExitConfirmation() {
     	JDialog dialog = new JDialog(
     			SwingUtilities.getWindowAncestor(this),
@@ -1523,8 +1561,14 @@ public final class GameBoardScreen extends JPanel {
             }
             g.setFont(new Font("SansSerif", Font.BOLD, Math.max(9, cell / 3)));
             g.setColor(Color.WHITE);
-            drawCentered(g, color.getLabel().toUpperCase(), px + 3 * cell, py + (int)(.7 * cell));
-        }
+            for (Game.Player player : game.getPlayers()) {
+                if (player.getColor() == color) {
+                    drawCentered(g, player.getName().toUpperCase(),
+                            px + 3 * cell, py + (int)(.7 * cell));
+                    break;
+                }
+            }
+            }
 
         private void drawHomePath(Graphics2D g, int left, int top, int cell, PlayerColor color) {
             for (int i = 0; i < 6; i++) {
@@ -1624,10 +1668,10 @@ public final class GameBoardScreen extends JPanel {
             switch (s.getType()) {
                 case START: case ARROW: return playerColor(s.getOwner());
                 case PROTECTION: return new Color(196, 174, 252);
-                case QUESTION_EASY: return new Color(91, 218, 145);
-                case QUESTION_MEDIUM: return new Color(255, 218, 95);
-                case QUESTION_HARD: return new Color(245, 116, 120);
-                case SURPRISE: return new Color(248, 165, 227);
+                case QUESTION_EASY: return new Color(184, 240, 204);
+                case QUESTION_MEDIUM: return new Color(255, 230, 161);
+                case QUESTION_HARD: return new Color(248, 175, 192);
+                case SURPRISE: return new Color(227, 136, 198);
                 default: return EMPTY;
             }
         }
