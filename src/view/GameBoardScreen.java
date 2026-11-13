@@ -1645,10 +1645,10 @@ public final class GameBoardScreen extends JPanel {
             switch (s.getType()) {
                 case START: case ARROW: return playerColor(s.getOwner());
                 case PROTECTION: return new Color(196, 174, 252);
-                case QUESTION_EASY: return new Color(91, 218, 145);
-                case QUESTION_MEDIUM: return new Color(255, 218, 95);
-                case QUESTION_HARD: return new Color(245, 116, 120);
-                case SURPRISE: return new Color(248, 165, 227);
+                case QUESTION_EASY: return new Color(184, 240, 204);
+                case QUESTION_MEDIUM: return new Color(255, 230, 161);
+                case QUESTION_HARD: return new Color(248, 175, 192);
+                case SURPRISE: return new Color(227, 136, 198);
                 default: return EMPTY;
             }
         }
