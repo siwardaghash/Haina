@@ -170,101 +170,56 @@ public final class AdminScreen extends JPanel {
         return badge;
     }
     private int showLoginDialog(JPanel loginPanel) {
-        JDialog dialog = new JDialog(
-            SwingUtilities.getWindowAncestor(this),
-            "Administrator Login",
-            Dialog.ModalityType.APPLICATION_MODAL
-        );
-
+        JDialog dialog = new JDialog(SwingUtilities.getWindowAncestor(this),
+                "Administrator Login", Dialog.ModalityType.APPLICATION_MODAL);
         dialog.setUndecorated(true);
-        dialog.setSize(420, 350);
-        dialog.setLocationRelativeTo(this);
+        Theme.transparentCorners(dialog);
         dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
 
-        Color navy = new Color(17, 31, 62);
-        Color green = new Color(83, 204, 146);
+        JPanel container = neonCard(new BorderLayout(0, 14), LAVENDER);
+        container.setBorder(BorderFactory.createEmptyBorder(18, 34, 24, 34));
 
-		JPanel container = new JPanel(new BorderLayout(0, 20)) {
-		    @Override
-		    protected void paintComponent(Graphics g) {
-		        Graphics2D g2 = (Graphics2D) g.create();
-		        Theme.applyQuality(g2);
-		
-		        g2.setPaint(new GradientPaint(
-		            0, 0, new Color(42, 32, 80),
-		            getWidth(), getHeight(),
-		            new Color(18, 37, 68)
-		        ));
-		
-		        g2.fillRoundRect(
-		            2, 2,
-		            getWidth() - 4,
-		            getHeight() - 4,
-		            26, 26
-		        );
-		
-		        g2.setColor(new Color(174, 139, 245));
-		        g2.setStroke(new BasicStroke(2f));
-		
-		        g2.drawRoundRect(
-		            2, 2,
-		            getWidth() - 4,
-		            getHeight() - 4,
-		            26, 26
-		        );
-		
-		        g2.dispose();
-		    }
-		};
-		
-		container.setOpaque(false);
-		container.setBorder(
-		    BorderFactory.createEmptyBorder(25, 30, 25, 30)
-		);
-		
-        JLabel title = new JLabel("ADMIN LOGIN", SwingConstants.CENTER);
-        title.setFont(new Font("SansSerif", Font.BOLD, 25));
-        title.setForeground(Color.WHITE);
-        container.add(title, BorderLayout.NORTH);
-
-        loginPanel.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
+        // lock badge and glowing title
+        JPanel top = new JPanel();
+        top.setLayout(new BoxLayout(top, BoxLayout.Y_AXIS));
+        top.setOpaque(false);
+        JComponent badge = lockBadge(LAVENDER);
+        badge.setAlignmentX(Component.CENTER_ALIGNMENT);
+        JPanel titleRow = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
+        titleRow.setOpaque(false);
+        titleRow.add(Theme.neonHeading("ADMIN LOGIN", LAVENDER, 28f));
+        top.add(badge);
+        top.add(titleRow);
+        container.add(top, BorderLayout.NORTH);
         container.add(loginPanel, BorderLayout.CENTER);
 
-        JPanel buttons = new JPanel(new GridLayout(1, 2, 15, 0));
-        buttons.setOpaque(false);
-
-        JButton cancel = new JButton("CANCEL");
-        cancel.setBackground(new Color(55, 75, 115));
-        cancel.setForeground(Color.WHITE);
-        cancel.setFont(new Font("SansSerif", Font.BOLD, 14));
-        cancel.setFocusPainted(false);
-        Theme.solidButton(cancel);
-
-        JButton login = new JButton("LOGIN");
-        login.setBackground(green);
-        login.setForeground(new Color(17, 31, 62));
-        login.setFont(new Font("SansSerif", Font.BOLD, 14));
-        login.setFocusPainted(false);
-        Theme.solidButton(login);
-
+        NeonButton cancel = new NeonButton("CANCEL", Theme.VIOLET, NeonButton.Glyph.BACK, null);
+        NeonButton login = new NeonButton("LOGIN", Theme.GREEN, NeonButton.Glyph.LOCK, null);
         final int[] result = {JOptionPane.CANCEL_OPTION};
-
+        for (NeonButton button : new NeonButton[]{cancel, login}) {
+            button.setChevron(false);
+            button.setFocusable(false);
+            button.setPreferredSize(new Dimension(200, 68));
+        }
         cancel.addActionListener(e -> dialog.dispose());
-
         login.addActionListener(e -> {
             result[0] = JOptionPane.OK_OPTION;
             dialog.dispose();
         });
-
+        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.CENTER, 14, 0));
+        buttons.setOpaque(false);
         buttons.add(cancel);
         buttons.add(login);
-
         container.add(buttons, BorderLayout.SOUTH);
 
+        // Esc = cancel, Enter = login
+        dialog.getRootPane().registerKeyboardAction(e -> dialog.dispose(),
+                KeyStroke.getKeyStroke("ESCAPE"), JComponent.WHEN_IN_FOCUSED_WINDOW);
         dialog.setContentPane(container);
         dialog.getRootPane().setDefaultButton(login);
+        dialog.setSize(500, 470);
+        dialog.setLocationRelativeTo(this);
         dialog.setVisible(true);
-
         return result[0];
     }
     private void buildEditor() {
