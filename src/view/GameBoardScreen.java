@@ -19,6 +19,12 @@ import java.util.Random;
 
 /** Polished responsive board view; all rules remain in model.Game. */
 public final class GameBoardScreen extends JPanel {
+	private float animationTime = 0f;
+
+	private final Timer backgroundTimer = new Timer(60, e -> {
+	    animationTime += 0.04f;
+	    repaint();
+	});
     private static final Color INK = new Color(245, 248, 255);
     private static final Color MUTED = new Color(166, 184, 217);
     private static final Color GOLD = new Color(255, 199, 92);
@@ -226,10 +232,12 @@ public final class GameBoardScreen extends JPanel {
         super.addNotify();
         game.addObserver(observer);
         hintTimer.start(); clockTimer.start(); Sound.startMusic();
+        backgroundTimer.start();
     }
     @Override public void removeNotify() {
         game.removeObserver(observer);
         hintTimer.stop(); clockTimer.stop(); Sound.stopMusic();
+        backgroundTimer.stop();
         super.removeNotify();
     }
 
@@ -646,15 +654,16 @@ public final class GameBoardScreen extends JPanel {
         frame.revalidate();
         frame.repaint();    }
 
-    @Override protected void paintComponent(Graphics g) {
-        Graphics2D g2 = (Graphics2D) g.create();
-        g2.setPaint(new GradientPaint(0, 0, new Color(14, 25, 55),
-                0, Math.max(1, getHeight()), new Color(5, 10, 25)));
-        g2.fillRect(0, 0, getWidth(), getHeight());
-        g2.dispose();
+    @Override
+    protected void paintComponent(Graphics g) {
         super.paintComponent(g);
-    }
 
+        Graphics2D g2 = (Graphics2D) g.create();
+        Theme.applyQuality(g2);
+        Theme.paintBackdrop(g2, getWidth(), getHeight(), animationTime);
+        g2.dispose();
+    }
+    
     private void showExitConfirmation() {
     	JDialog dialog = new JDialog(
     			SwingUtilities.getWindowAncestor(this),
