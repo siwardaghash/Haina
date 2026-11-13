@@ -107,9 +107,9 @@ public final class AdminScreen extends JPanel {
             finally { Arrays.fill(pwd,'\0'); }
             if (!valid) {
                 Theme.neonMessage(this, "Access denied", "Invalid username or password.", Theme.RED);
-                back.run();
+                SwingUtilities.invokeLater(this::authenticate);   // show the login again
                 return;
-            }            buildEditor();
+            }         buildEditor();
         } catch (Exception ex) {
             Theme.neonMessage(this, "Question bank error", ex.getMessage(), Theme.RED);
             back.run();
