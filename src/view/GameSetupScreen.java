@@ -123,8 +123,8 @@ public class GameSetupScreen extends JPanel {
             add(playerCards[i]);
         }
 
-        modeTiles[0] = new ModeTile(GameConfig.GameMode.CLASSIC, "CLASSIC", "Every player for themselves", 0);
-        modeTiles[1] = new ModeTile(GameConfig.GameMode.TEAMS_2V2, "2 VS 2 TEAMS", "Red + Blue vs Green + Yellow", 1);
+        modeTiles[0] = new ModeTile(GameConfig.GameMode.CLASSIC, "CLASSIC", "2–4 players · Everyone plays individually", 0);
+        modeTiles[1] = new ModeTile(GameConfig.GameMode.TEAMS_2V2, "2 VS 2 TEAMS", "4 players · Two teams share one victory", 1);
         add(modeTiles[0]);
         add(modeTiles[1]);
 
@@ -297,7 +297,7 @@ public class GameSetupScreen extends JPanel {
             status = p.message;
             statusColor = RED;
         } else {
-            status = "Give every player a nickname to continue";
+            status = (gameMode == GameConfig.GameMode.TEAMS_2V2 ? "2 vs 2 TEAMS selected · " : "CLASSIC selected · ") + "give every player a nickname";
             statusColor = MUTED;
         }
     }
@@ -322,76 +322,66 @@ public class GameSetupScreen extends JPanel {
     }
 
 
-	@Override
-	public void doLayout() {
-	    int w = getWidth();
-	    int h = getHeight();
-	
-	    cw = Math.min(1120, w - 80);
-	    x0 = (w - cw) / 2;
-	    top = Math.max(8, (h - 700) / 2);
-	
-	    // 01 - HOW MANY PLAYERS
-	    int tileW = Math.min(190, (cw - 2 * GAP) / 3);
-	    int playersRow = top + 118;
-	
-	    for (int i = 0; i < countTiles.length; i++) {
-	        countTiles[i].setBounds(
-	            x0 + i * (tileW + GAP),
-	            playersRow,
-	            tileW,
-	            100
-	        );
-	    }
-	
-        // Mode selector fits beside the player-count tiles.
-        int modeX = x0 + 3 * (tileW + GAP) + 4;
-        int modeWidth = Math.max(200, x0 + cw - modeX);
-        int modeGap = 10;
-        int eachModeWidth = (modeWidth - modeGap) / 2;
-        modeTiles[0].setBounds(modeX, playersRow, eachModeWidth, 100);
-        modeTiles[1].setBounds(modeX + eachModeWidth + modeGap, playersRow,
-                modeWidth - eachModeWidth - modeGap, 100);
+    /**
+     * Four separate setup sections: players, difficulty, game mode, names.
+     * On shorter windows the vertical dimensions compress proportionally.
+     */
+    private float layoutScale = 1f;
 
-	    // 02 - DIFFICULTY (second row)
-	    rightX = x0;
-	    int cardW = (cw - 2 * GAP) / 3;
-	    int difficultyRow = top + 252;
-	
-	    for (int i = 0; i < difficultyCards.length; i++) {
-	        difficultyCards[i].setBounds(
-	            x0 + i * (cardW + GAP),
-	            difficultyRow,
-	            cardW,
-	            140
-	        );
-	    }
-	
-	    // 03 - WHO'S PLAYING (third row)
-	    int playerCardsRow = top + 424;
-	    int pw = (cw - 3 * GAP) / 4;
-	
-	    for (int i = 0; i < playerCards.length; i++) {
-	        playerCards[i].setBase(
-	            x0 + i * (pw + GAP),
-	            playerCardsRow,
-	            pw,
-	            185
-	        );
-	    }
-	
-	    // 04 - BUTTONS
-	    int by = top + 619;
-	
-	    backBtn.setBounds(
-	        x0 - NeonButton.PAD, by, 200, 66
-	    );
-	
-	    startBtn.setBounds(
-	        x0 + cw - 280 + NeonButton.PAD,
-	        by, 280, 66
-	    );
-	}
+    private int layoutY(int baseOffset) {
+        return top + Math.round(95 + (baseOffset - 95) * layoutScale);
+    }
+
+    @Override
+    public void doLayout() {
+        int w = getWidth();
+        int h = getHeight();
+
+        cw = Math.max(600, Math.min(1320, w - 60));
+        x0 = (w - cw) / 2;
+        layoutScale = Math.min(1f, Math.max(0.78f, (h - 100f) / 730f));
+        top = Math.max(4, (h - 830) / 2);
+
+        // Section 01 — number of players. No mode controls in this row.
+        int tileW = Math.min(230, (cw - 2 * GAP) / 3);
+        int playersRow = layoutY(118);
+        for (int i = 0; i < countTiles.length; i++) {
+            countTiles[i].setBounds(x0 + i * (tileW + GAP), playersRow,
+                    tileW, Math.round(100 * layoutScale));
+        }
+
+        // Section 02 — difficulty.
+        rightX = x0;
+        int cardW = (cw - 2 * GAP) / 3;
+        int difficultyRow = layoutY(252);
+        for (int i = 0; i < difficultyCards.length; i++) {
+            difficultyCards[i].setBounds(x0 + i * (cardW + GAP), difficultyRow,
+                    cardW, Math.round(148 * layoutScale));
+        }
+
+        // Section 03 — distinct, full-width game mode choice.
+        int modeY = layoutY(429);
+        int modeGap = GAP;
+        int modeW = (cw - modeGap) / 2;
+        int modeH = Math.round(78 * layoutScale);
+        modeTiles[0].setBounds(x0, modeY, modeW, modeH);
+        modeTiles[1].setBounds(x0 + modeW + modeGap, modeY,
+                cw - modeW - modeGap, modeH);
+
+        // Section 04 — player nicknames and colours.
+        int playerCardsRow = layoutY(563);
+        int pw = (cw - 3 * GAP) / 4;
+        for (int i = 0; i < playerCards.length; i++) {
+            playerCards[i].setBase(x0 + i * (pw + GAP), playerCardsRow,
+                    pw, Math.round(185 * layoutScale));
+        }
+
+        // Footer.
+        int by = layoutY(764);
+        int buttonH = Math.round(66 * layoutScale);
+        backBtn.setBounds(x0 - NeonButton.PAD, by, 200, buttonH);
+        startBtn.setBounds(x0 + cw - 280 + NeonButton.PAD, by, 280, buttonH);
+    }
 
 
     @Override
@@ -407,19 +397,16 @@ public class GameSetupScreen extends JPanel {
 
         g2.setComposite(AlphaComposite.SrcOver.derive(intro(0f)));
         paintHeader(g2);
-		paintSection(g2, "01", "HOW MANY PLAYERS", x0, top + 108);
-        g2.setFont(Theme.ui(12f, Font.BOLD));
-        g2.setColor(TEXT);
-        Theme.drawTracked(g2, "GAME MODE", modeTiles[0].getX() + 8, top + 108, 2.2f);
-		paintSection(g2, "02", "DIFFICULTY", x0, top + 240);
-		paintSection(g2, "03", "WHO'S PLAYING", x0, top + 412);
+        paintSection(g2, "01", "HOW MANY PLAYERS", x0, layoutY(108));
+        paintSection(g2, "02", "DIFFICULTY", x0, layoutY(240));
+        paintSection(g2, "03", "CHOOSE GAME MODE", x0, layoutY(415));
+        paintSection(g2, "04", "WHO'S PLAYING", x0, layoutY(551));
 
         g2.setFont(Theme.ui(12f, Font.PLAIN));
         g2.setColor(MUTED);
-        String hint = "Click a colour to take it (you swap with its owner)  •  max " + GameConfig.NAME_MAX_LENGTH + " characters";
+        String hint = "Click a colour to swap its owner  •  max " + GameConfig.NAME_MAX_LENGTH + " characters";
         FontMetrics fm = g2.getFontMetrics();
-        g2.drawString(hint, x0 + cw - fm.stringWidth(hint), top + 412);
-        
+        g2.drawString(hint, x0 + cw - fm.stringWidth(hint), layoutY(551));
         paintStatus(g2);
         g2.dispose();
     }
@@ -575,6 +562,7 @@ public class GameSetupScreen extends JPanel {
             setOpaque(false);
             setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
             getAccessibleContext().setAccessibleName(heading + ": " + description);
+            setToolTipText(heading + " — " + description + (mode == GameConfig.GameMode.TEAMS_2V2 ? ". Four players required." : ""));
             addActionListener(e -> selectMode(mode));
             addMouseListener(new MouseAdapter() {
                 @Override public void mouseEntered(MouseEvent e) { hovered = true; }
@@ -594,28 +582,43 @@ public class GameSetupScreen extends JPanel {
             applyQuality(g2);
             int w = getWidth(), h = getHeight();
             g2.setComposite(AlphaComposite.SrcOver.derive(in));
-            g2.translate(0, (1f - in) * 20f - hover * 3f + 3f);
-            Color accent = mode == GameConfig.GameMode.CLASSIC ? BLUE : VIOLET;
-            RoundRectangle2D rounded = new RoundRectangle2D.Float(3, 3, w - 6, h - 10, 22, 22);
-            paintCardFrame(g2, rounded, accent, selected, hover);
-            g2.setColor(alpha(accent, 40 + (int)(selected * 65)));
-            g2.fillRoundRect(17, 18, 34, 34, 11, 11);
-            g2.setFont(Theme.display(22f));
-            g2.setColor(accent);
-            g2.drawString(mode == GameConfig.GameMode.CLASSIC ? "1" : "2", 27, 44);
-            g2.setFont(Theme.semibold(14f));
-            g2.setColor(mix(TEXT, Color.WHITE, selected));
-            g2.drawString(heading, 59, 33);
-            g2.setFont(Theme.ui(10.5f, Font.PLAIN));
-            g2.setColor(mix(MUTED, TEXT, selected * 0.5f));
-            FontMetrics fm = g2.getFontMetrics();
-            float avail = w - 24;
-            String line = description;
-            if (fm.stringWidth(line) > avail) {
-                g2.setFont(Theme.ui(Math.max(9f, 10.5f * avail / fm.stringWidth(line)), Font.PLAIN));
+            g2.translate(0, (1f - in) * 16f - hover * 2f + 3f);
+            boolean active = gameMode == mode;
+            boolean teams = mode == GameConfig.GameMode.TEAMS_2V2;
+            Color accent = teams ? VIOLET : BLUE;
+            RoundRectangle2D r = new RoundRectangle2D.Float(3, 3, w - 6, h - 10, 20, 20);
+            paintCardFrame(g2, r, accent, selected, hover);
+
+            // A strong selection outline, rather than only a tiny checkmark.
+            if (active) {
+                g2.setStroke(new BasicStroke(2.6f));
+                g2.setColor(accent);
+                g2.draw(r);
             }
-            g2.drawString(line, 15, 75);
-            paintCheck(g2, w - 19, 19, 8 * selected, accent);
+
+            // A compact, accessible choice: two lines, never clipped by the card edge.
+            int centerY = h / 2 - 3;
+            g2.setColor(alpha(accent, active ? 95 : 42));
+            g2.fillRoundRect(15, centerY - 22, 46, 46, 13, 13);
+            if (teams) {
+                Theme.paintPawn(g2, 31, centerY, 7f, RED, 255);
+                Theme.paintPawn(g2, 45, centerY, 7f, BLUE, 255);
+            } else {
+                Theme.paintPawn(g2, 38, centerY, 9f, BLUE, 255);
+            }
+
+            // Title and short explanation; selection is unmistakable but not noisy.
+            g2.setFont(Theme.semibold(17f));
+            g2.setColor(Color.WHITE);
+            g2.drawString(heading, 76, centerY - 4);
+            g2.setFont(Theme.ui(12f, Font.PLAIN));
+            g2.setColor(active ? TEXT : MUTED);
+            g2.drawString(description, 76, centerY + 17);
+
+            // Selected marker in the same visual style as the existing count cards.
+            if (active) {
+                paintCheck(g2, w - 27, 24, 10f, accent);
+            }
             g2.dispose();
         }
     }
@@ -662,24 +665,24 @@ public class GameSetupScreen extends JPanel {
             paintCardFrame(g2, r, VIOLET, sel, hover);
 
             // big number
-            g2.setFont(Theme.display(54f));
+            g2.setFont(Theme.display(Math.min(43f, h * 0.46f)));
             FontMetrics fm = g2.getFontMetrics();
             String s = String.valueOf(count);
             g2.setColor(mix(MUTED, Color.WHITE, Math.max(sel, hover)));
-            g2.drawString(s, w / 2f - fm.stringWidth(s) / 2f, h * 0.50f);
+            g2.drawString(s, w / 2f - fm.stringWidth(s) / 2f, h * 0.49f);
 
             // row of pawns in the colours that will play
             float spacing = 17f;
             float sx = w / 2f - (count - 1) * spacing / 2f;
             for (int k = 0; k < count; k++) {
                 float bob = (float) Math.sin(t * 3 + k * 0.8) * 2f * sel;
-                Theme.paintPawn(g2, sx + k * spacing, h * 0.64f + bob, 5.5f, PLAYERS[k], (int) (110 + 145 * Math.max(sel, hover)));
+                Theme.paintPawn(g2, sx + k * spacing, h * 0.69f + bob, 4.0f, PLAYERS[k], (int) (110 + 145 * Math.max(sel, hover)));
             }
 
             g2.setFont(Theme.ui(10f, Font.BOLD));
             g2.setColor(alpha(MUTED, 220));
             String lbl = "PLAYERS";
-            Theme.drawTracked(g2, lbl, w / 2f - Theme.trackedWidth(g2, lbl, 2f) / 2f, h - 22, 2f);
+            Theme.drawTracked(g2, lbl, w / 2f - Theme.trackedWidth(g2, lbl, 2f) / 2f, h - 8, 2f);
 
             paintCheck(g2, w - 20, 20, 9 * sel, VIOLET);
             g2.dispose();
@@ -858,12 +861,13 @@ public String getToolTipText(MouseEvent e) {
             RoundRectangle2D r = new RoundRectangle2D.Float(3, 3, w - 6, h - 10, 22, 22);
             paintCardFrame(g2, r, acc, sel, hover);
 
-            paintBoardIcon(g2, 18, 18, 56);
+            float boardSize = Math.min(52f, h * 0.42f);
+            paintBoardIcon(g2, 18, Math.max(12f, h * 0.14f), boardSize);
 
-            float tx = 18 + 56 + 14;
+            float tx = 18 + boardSize + 14;
             g2.setFont(Theme.ui(19f, Font.BOLD));
             g2.setColor(mix(TEXT, Color.WHITE, sel));
-            g2.drawString(level.getLabel(), tx, 40);
+            g2.drawString(level.getLabel(), tx, h * 0.30f);
 
             String dice = level.hasUltraBoostDie() ? "+ UltraBoost die" : level.hasBoostDie() ? "+ Boost die" : "Regular die";
             String track = level.getExtraRings() == 0 ? "52-square track"
@@ -877,12 +881,12 @@ public String getToolTipText(MouseEvent e) {
                 g2.setFont(Theme.ui(Math.max(9f, 12f * room / widest), Font.PLAIN));
             }
             g2.setColor(mix(MUTED, TEXT, sel * 0.6f));
-            g2.drawString(dice, tx, 60);
-            g2.drawString(track, tx, 77);
+            g2.drawString(dice, tx, h * 0.44f);
+            g2.drawString(track, tx, h * 0.55f);
 
             // special-square chips
-            float chipY = h - 50;
-            float chipH = 26;
+            float chipY = h - 36;
+            float chipH = 23;
             float chipGap = 6;
             float chipW = (w - 32 - 2 * chipGap) / 3f;
             int[] counts = {level.getProtectSquares(), level.getQuestionSquares(), level.getSurpriseSquares()};
@@ -903,10 +907,7 @@ public String getToolTipText(MouseEvent e) {
                 g2.setColor(alpha(TEXT, counts[i] == 0 ? 90 : 230));
                 g2.drawString(String.valueOf(counts[i]), ic + 12, icy + 4.5f);
             }
-			if (level == Difficulty.MEDIUM) {
-			    paintBadgeIcon(g2, w - 52, 20, 9f, "i", VIOLET);
-			}
-			paintBadgeIcon(g2, w - 52, 20, 9f, "i", VIOLET);
+            paintBadgeIcon(g2, w - 52, 20, 9f, "i", VIOLET);
             paintCheck(g2, w - 20, 20, 9 * sel, acc);
             g2.dispose();
         }
@@ -1052,7 +1053,7 @@ public String getToolTipText(MouseEvent e) {
             baseX = x;
             baseY = y;
             setBounds(x, y, w, h);
-            field.setBounds(16, 90, w - 32, 36);        
+            field.setBounds(16, Math.round(h * 0.54f), w - 32, Math.min(36, Math.round(h * 0.20f)));        
             
         }
 
@@ -1077,7 +1078,7 @@ public String getToolTipText(MouseEvent e) {
         }
 
         private float swatchCy() {
-            return getHeight() - 27;
+            return getHeight() - 24;
         }
 
         private int swatchAt(Point p) {
@@ -1138,23 +1139,24 @@ public String getToolTipText(MouseEvent e) {
 
                 g2.setFont(Theme.ui(11f, Font.BOLD));
                 g2.setColor(MUTED);
-                Theme.drawTracked(g2, "PLAYER " + (index + 1), 92, 46, 2f);
+                Theme.drawTracked(g2, "PLAYER " + (index + 1), 92, 40, 2f);
                 if (gameMode == GameConfig.GameMode.TEAMS_2V2) {
                     String teamLabel = GameConfig.teamOf(color) == 0 ? "TEAM A" : "TEAM B";
                     g2.setFont(Theme.semibold(10f));
                     FontMetrics teamFont = g2.getFontMetrics();
                     int badgeWidth = teamFont.stringWidth(teamLabel) + 16;
                     float badgeX = w - badgeWidth - 13;
-                    g2.setColor(alpha(VIOLET, 60));
-                    g2.fillRoundRect((int) badgeX, 29, badgeWidth, 23, 12, 12);
-                    g2.setColor(alpha(VIOLET, 200));
-                    g2.drawRoundRect((int) badgeX, 29, badgeWidth, 23, 12, 12);
+                    Color badgeAccent = GameConfig.teamOf(color) == 0 ? BLUE : GREEN;
+                    g2.setColor(alpha(badgeAccent, 70));
+                    g2.fillRoundRect((int) badgeX, 24, badgeWidth, 23, 12, 12);
+                    g2.setColor(alpha(badgeAccent, 235));
+                    g2.drawRoundRect((int) badgeX, 24, badgeWidth, 23, 12, 12);
                     g2.setColor(TEXT);
-                    g2.drawString(teamLabel, badgeX + 8, 44);
+                    g2.drawString(teamLabel, badgeX + 8, 39);
                 }
                 g2.setFont(Theme.display(22f));
                 g2.setColor(acc);
-                g2.drawString(color.getLabel().toUpperCase(), 92, 72);
+                g2.drawString(color.getLabel().toUpperCase(), 92, 67);
 
                 paintSwatches(g2);
             }
@@ -1181,8 +1183,8 @@ public String getToolTipText(MouseEvent e) {
 
         private void paintAvatar(Graphics2D g, Color acc) {
             float cx = 50;
-            float cy = 56;
-            float rr = 30 + pop * 4;
+            float cy = 48;
+            float rr = 27 + pop * 3;
             g.setPaint(new RadialGradientPaint(new Point2D.Float(cx, cy), rr, new float[] {0f, 1f},
                     new Color[] {alpha(acc, 110), alpha(acc, 15)}));
             g.fill(new Ellipse2D.Float(cx - rr, cy - rr, rr * 2, rr * 2));
