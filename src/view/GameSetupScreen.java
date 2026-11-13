@@ -83,7 +83,7 @@ public class GameSetupScreen extends JPanel {
     private int playerCount = GameConfig.MIN_PLAYERS;
     private Difficulty difficulty = Difficulty.EASY;
     private GameConfig.GameMode gameMode = GameConfig.GameMode.CLASSIC;
-    private final javax.swing.JButton modeButton = new javax.swing.JButton();
+    private final ModeTile[] modeTiles = new ModeTile[2];
     private boolean triedToStart;
 
     private final CountTile[] countTiles = new CountTile[GameConfig.MAX_PLAYERS - GameConfig.MIN_PLAYERS + 1];
@@ -123,21 +123,10 @@ public class GameSetupScreen extends JPanel {
             add(playerCards[i]);
         }
 
-        modeButton.setFont(Theme.semibold(15f));
-        modeButton.setForeground(Color.WHITE);
-        modeButton.setBackground(new Color(53, 43, 110));
-        modeButton.setFocusPainted(false);
-        modeButton.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        Theme.solidButton(modeButton);
-        modeButton.addActionListener(e -> {
-            gameMode = gameMode == GameConfig.GameMode.CLASSIC
-                    ? GameConfig.GameMode.TEAMS_2V2 : GameConfig.GameMode.CLASSIC;
-            if (gameMode == GameConfig.GameMode.TEAMS_2V2) setPlayerCount(4);
-            updateModeButton();
-            refreshStatus();
-        });
-        updateModeButton();
-        add(modeButton);
+        modeTiles[0] = new ModeTile(GameConfig.GameMode.CLASSIC, "CLASSIC", "Every player for themselves", 0);
+        modeTiles[1] = new ModeTile(GameConfig.GameMode.TEAMS_2V2, "2 VS 2 TEAMS", "Red + Blue vs Green + Yellow", 1);
+        add(modeTiles[0]);
+        add(modeTiles[1]);
 
         backBtn = new NeonButton("Back", VIOLET, NeonButton.Glyph.BACK, null);
         backBtn.setChevron(false);
@@ -186,6 +175,9 @@ public class GameSetupScreen extends JPanel {
         for (CountTile c : countTiles) {
             c.update(dt);
         }
+        for (ModeTile tile : modeTiles) {
+            tile.update(dt);
+        }
         for (DifficultyCard c : difficultyCards) {
             c.update(dt);
         }
@@ -202,10 +194,19 @@ public class GameSetupScreen extends JPanel {
         return easeOut(clamp01((t - delay) / 0.45f));
     }
 
+    private void selectMode(GameConfig.GameMode selected) {
+        gameMode = selected;
+        if (selected == GameConfig.GameMode.TEAMS_2V2) {
+            setPlayerCount(4);
+        }
+        refreshStatus();
+        repaint();
+    }
+
     private void updateModeButton() {
-        modeButton.setText(gameMode == GameConfig.GameMode.CLASSIC
-                ? "MODE: CLASSIC" : "MODE: 2 vs 2 TEAMS");
-        modeButton.setToolTipText("Teams: RED + BLUE versus GREEN + YELLOW");
+        for (ModeTile tile : modeTiles) {
+            if (tile != null) tile.repaint();
+        }
     }
 
     private void setPlayerCount(int n) {
@@ -244,6 +245,7 @@ public class GameSetupScreen extends JPanel {
         }
         me.color = pc;
         me.pop = 1f;
+        repaint();
     }
 
     private int ownerOf(PlayerColor pc) {
@@ -344,8 +346,12 @@ public class GameSetupScreen extends JPanel {
 	
         // Mode selector fits beside the player-count tiles.
         int modeX = x0 + 3 * (tileW + GAP) + 4;
-        modeButton.setBounds(modeX, playersRow + 18,
-                Math.max(130, x0 + cw - modeX), 64);
+        int modeWidth = Math.max(200, x0 + cw - modeX);
+        int modeGap = 10;
+        int eachModeWidth = (modeWidth - modeGap) / 2;
+        modeTiles[0].setBounds(modeX, playersRow, eachModeWidth, 100);
+        modeTiles[1].setBounds(modeX + eachModeWidth + modeGap, playersRow,
+                modeWidth - eachModeWidth - modeGap, 100);
 
 	    // 02 - DIFFICULTY (second row)
 	    rightX = x0;
@@ -402,6 +408,9 @@ public class GameSetupScreen extends JPanel {
         g2.setComposite(AlphaComposite.SrcOver.derive(intro(0f)));
         paintHeader(g2);
 		paintSection(g2, "01", "HOW MANY PLAYERS", x0, top + 108);
+        g2.setFont(Theme.ui(12f, Font.BOLD));
+        g2.setColor(TEXT);
+        Theme.drawTracked(g2, "GAME MODE", modeTiles[0].getX() + 8, top + 108, 2.2f);
 		paintSection(g2, "02", "DIFFICULTY", x0, top + 240);
 		paintSection(g2, "03", "WHO'S PLAYING", x0, top + 412);
 
@@ -410,11 +419,6 @@ public class GameSetupScreen extends JPanel {
         String hint = "Click a colour to take it (you swap with its owner)  •  max " + GameConfig.NAME_MAX_LENGTH + " characters";
         FontMetrics fm = g2.getFontMetrics();
         g2.drawString(hint, x0 + cw - fm.stringWidth(hint), top + 412);
-        if (gameMode == GameConfig.GameMode.TEAMS_2V2) {
-            g2.setFont(Theme.semibold(12f));
-            g2.setColor(VIOLET);
-            g2.drawString("TEAM A: RED + BLUE     |     TEAM B: GREEN + YELLOW", x0, top + 405);
-        }
         
         paintStatus(g2);
         g2.dispose();
@@ -547,6 +551,73 @@ public class GameSetupScreen extends JPanel {
         p.lineTo(cx - r * 0.1f, cy + r * 0.38f);
         p.lineTo(cx + r * 0.48f, cy - r * 0.35f);
         g.draw(p);
+    }
+
+    // ================================================================== game mode selection
+    private final class ModeTile extends javax.swing.JButton {
+        private static final long serialVersionUID = 1L;
+        private final GameConfig.GameMode mode;
+        private final String heading;
+        private final String description;
+        private final float delay;
+        private boolean hovered;
+        private float hover;
+        private float selected;
+
+        ModeTile(GameConfig.GameMode mode, String heading, String description, int order) {
+            this.mode = mode;
+            this.heading = heading;
+            this.description = description;
+            this.delay = 0.18f + order * 0.08f;
+            setContentAreaFilled(false);
+            setBorderPainted(false);
+            setFocusPainted(false);
+            setOpaque(false);
+            setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            getAccessibleContext().setAccessibleName(heading + ": " + description);
+            addActionListener(e -> selectMode(mode));
+            addMouseListener(new MouseAdapter() {
+                @Override public void mouseEntered(MouseEvent e) { hovered = true; }
+                @Override public void mouseExited(MouseEvent e) { hovered = false; }
+            });
+        }
+
+        void update(float dt) {
+            hover = approach(hover, hovered ? 1f : 0f, dt, 12f);
+            selected = approach(selected, gameMode == mode ? 1f : 0f, dt, 12f);
+        }
+
+        @Override protected void paintComponent(Graphics g) {
+            float in = intro(delay);
+            if (in <= 0.001f) return;
+            Graphics2D g2 = (Graphics2D) g.create();
+            applyQuality(g2);
+            int w = getWidth(), h = getHeight();
+            g2.setComposite(AlphaComposite.SrcOver.derive(in));
+            g2.translate(0, (1f - in) * 20f - hover * 3f + 3f);
+            Color accent = mode == GameConfig.GameMode.CLASSIC ? BLUE : VIOLET;
+            RoundRectangle2D rounded = new RoundRectangle2D.Float(3, 3, w - 6, h - 10, 22, 22);
+            paintCardFrame(g2, rounded, accent, selected, hover);
+            g2.setColor(alpha(accent, 40 + (int)(selected * 65)));
+            g2.fillRoundRect(17, 18, 34, 34, 11, 11);
+            g2.setFont(Theme.display(22f));
+            g2.setColor(accent);
+            g2.drawString(mode == GameConfig.GameMode.CLASSIC ? "1" : "2", 27, 44);
+            g2.setFont(Theme.semibold(14f));
+            g2.setColor(mix(TEXT, Color.WHITE, selected));
+            g2.drawString(heading, 59, 33);
+            g2.setFont(Theme.ui(10.5f, Font.PLAIN));
+            g2.setColor(mix(MUTED, TEXT, selected * 0.5f));
+            FontMetrics fm = g2.getFontMetrics();
+            float avail = w - 24;
+            String line = description;
+            if (fm.stringWidth(line) > avail) {
+                g2.setFont(Theme.ui(Math.max(9f, 10.5f * avail / fm.stringWidth(line)), Font.PLAIN));
+            }
+            g2.drawString(line, 15, 75);
+            paintCheck(g2, w - 19, 19, 8 * selected, accent);
+            g2.dispose();
+        }
     }
 
     // ================================================================== 01: player count tile
@@ -1068,6 +1139,19 @@ public String getToolTipText(MouseEvent e) {
                 g2.setFont(Theme.ui(11f, Font.BOLD));
                 g2.setColor(MUTED);
                 Theme.drawTracked(g2, "PLAYER " + (index + 1), 92, 46, 2f);
+                if (gameMode == GameConfig.GameMode.TEAMS_2V2) {
+                    String teamLabel = GameConfig.teamOf(color) == 0 ? "TEAM A" : "TEAM B";
+                    g2.setFont(Theme.semibold(10f));
+                    FontMetrics teamFont = g2.getFontMetrics();
+                    int badgeWidth = teamFont.stringWidth(teamLabel) + 16;
+                    float badgeX = w - badgeWidth - 13;
+                    g2.setColor(alpha(VIOLET, 60));
+                    g2.fillRoundRect((int) badgeX, 29, badgeWidth, 23, 12, 12);
+                    g2.setColor(alpha(VIOLET, 200));
+                    g2.drawRoundRect((int) badgeX, 29, badgeWidth, 23, 12, 12);
+                    g2.setColor(TEXT);
+                    g2.drawString(teamLabel, badgeX + 8, 44);
+                }
                 g2.setFont(Theme.display(22f));
                 g2.setColor(acc);
                 g2.drawString(color.getLabel().toUpperCase(), 92, 72);
