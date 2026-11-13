@@ -23,6 +23,7 @@ public final class Game {
     private final Board board;
     private final Difficulty difficulty;
     private final boolean teamMode;
+    private int winningTeam = -1;
     private final Random random;
     private final List<Player> players = new ArrayList<>();
     private final long startedAtMillis = System.currentTimeMillis();
@@ -80,6 +81,7 @@ public final class Game {
         Collections.shuffle(players, random);
     }
     public boolean isTeamMode() { return teamMode; }
+    public int getWinningTeam() { return winningTeam; }
     public int getTeamOf(PlayerColor color) { return GameConfig.teamOf(color); }
     private boolean areTeammates(PlayerColor a, PlayerColor b) {
         return teamMode && GameConfig.teamOf(a) == GameConfig.teamOf(b);
@@ -103,9 +105,31 @@ public final class Game {
                 if (allFinished) finishingOrder.add(player);
             }
         }
-        // Team victory will be implemented in Commit 3. Do not end a team match
-        // using Classic Mode's individual finishing-order rule.
-        if (teamMode) return;
+        if (teamMode) {
+            for (int team = 0; team < 2; team++) {
+                final int candidateTeam = team;
+                boolean complete = true;
+                for (Player player : players) {
+                    if (GameConfig.teamOf(player.getColor()) != candidateTeam) continue;
+                    for (Piece piece : player.pieces) {
+                        if (!piece.isFinished()) { complete = false; break; }
+                    }
+                }
+                if (complete) {
+                    winningTeam = team;
+                    gameOver = true;
+                    finishedAtMillis = System.currentTimeMillis();
+                    awaitingPiece = false;
+                    rollAvailable = false;
+                    bonusRollReady = false;
+                    pendingQuestion = null;
+                    awaitingSurpriseTarget = false;
+                    message = "Team " + (team == 0 ? "RED + BLUE" : "GREEN + YELLOW") + " wins!";
+                    return;
+                }
+            }
+            return;
+        }
         if (finishingOrder.size() == players.size() - 1) {
             for (Player player : players) if (!finishingOrder.contains(player)) finishingOrder.add(player);
             gameOver = true;
