@@ -82,6 +82,8 @@ public class GameSetupScreen extends JPanel {
 
     private int playerCount = GameConfig.MIN_PLAYERS;
     private Difficulty difficulty = Difficulty.EASY;
+    private GameConfig.GameMode gameMode = GameConfig.GameMode.CLASSIC;
+    private final javax.swing.JButton modeButton = new javax.swing.JButton();
     private boolean triedToStart;
 
     private final CountTile[] countTiles = new CountTile[GameConfig.MAX_PLAYERS - GameConfig.MIN_PLAYERS + 1];
@@ -120,6 +122,22 @@ public class GameSetupScreen extends JPanel {
             playerCards[i] = new PlayerCard(i, colors[i]);
             add(playerCards[i]);
         }
+
+        modeButton.setFont(Theme.semibold(15f));
+        modeButton.setForeground(Color.WHITE);
+        modeButton.setBackground(new Color(53, 43, 110));
+        modeButton.setFocusPainted(false);
+        modeButton.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        Theme.solidButton(modeButton);
+        modeButton.addActionListener(e -> {
+            gameMode = gameMode == GameConfig.GameMode.CLASSIC
+                    ? GameConfig.GameMode.TEAMS_2V2 : GameConfig.GameMode.CLASSIC;
+            if (gameMode == GameConfig.GameMode.TEAMS_2V2) setPlayerCount(4);
+            updateModeButton();
+            refreshStatus();
+        });
+        updateModeButton();
+        add(modeButton);
 
         backBtn = new NeonButton("Back", VIOLET, NeonButton.Glyph.BACK, null);
         backBtn.setChevron(false);
@@ -184,7 +202,18 @@ public class GameSetupScreen extends JPanel {
         return easeOut(clamp01((t - delay) / 0.45f));
     }
 
+    private void updateModeButton() {
+        modeButton.setText(gameMode == GameConfig.GameMode.CLASSIC
+                ? "MODE: CLASSIC" : "MODE: 2 vs 2 TEAMS");
+        modeButton.setToolTipText("Teams: RED + BLUE versus GREEN + YELLOW");
+    }
+
     private void setPlayerCount(int n) {
+        if (gameMode == GameConfig.GameMode.TEAMS_2V2 && n != 4) {
+            // Clicking a 2/3-player tile returns to Classic mode.
+            gameMode = GameConfig.GameMode.CLASSIC;
+            updateModeButton();
+        }
         int old = playerCount;
         playerCount = n;
         for (PlayerCard c : playerCards) {
@@ -259,7 +288,8 @@ public class GameSetupScreen extends JPanel {
     private void refreshStatus() {
         Problem p = findProblem();
         if (p == null) {
-            status = playerCount + " players  •  " + difficulty.getLabel() + "  •  press ENTER to roll";
+            status = (gameMode == GameConfig.GameMode.TEAMS_2V2 ? "2 vs 2: RED+BLUE vs GREEN+YELLOW" : playerCount + " players")
+                    + "  •  " + difficulty.getLabel() + "  •  press ENTER to roll";
             statusColor = GREEN;
         } else if (triedToStart) {
             status = p.message;
@@ -285,7 +315,7 @@ public class GameSetupScreen extends JPanel {
             players.add(new GameConfig.PlayerSetup(nameOf(i), playerCards[i].color));
         }
         if (listener != null) {
-            listener.onStart(new GameConfig(difficulty, players));
+            listener.onStart(new GameConfig(difficulty, players, gameMode));
         }
     }
 
@@ -312,6 +342,11 @@ public class GameSetupScreen extends JPanel {
 	        );
 	    }
 	
+        // Mode selector fits beside the player-count tiles.
+        int modeX = x0 + 3 * (tileW + GAP) + 4;
+        modeButton.setBounds(modeX, playersRow + 18,
+                Math.max(130, x0 + cw - modeX), 64);
+
 	    // 02 - DIFFICULTY (second row)
 	    rightX = x0;
 	    int cardW = (cw - 2 * GAP) / 3;
@@ -375,6 +410,11 @@ public class GameSetupScreen extends JPanel {
         String hint = "Click a colour to take it (you swap with its owner)  •  max " + GameConfig.NAME_MAX_LENGTH + " characters";
         FontMetrics fm = g2.getFontMetrics();
         g2.drawString(hint, x0 + cw - fm.stringWidth(hint), top + 412);
+        if (gameMode == GameConfig.GameMode.TEAMS_2V2) {
+            g2.setFont(Theme.semibold(12f));
+            g2.setColor(VIOLET);
+            g2.drawString("TEAM A: RED + BLUE     |     TEAM B: GREEN + YELLOW", x0, top + 405);
+        }
         
         paintStatus(g2);
         g2.dispose();
