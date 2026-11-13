@@ -39,6 +39,7 @@ public final class AdminScreen extends JPanel {
 	}
 
     private static final Color BG = new Color(12,21,46), TEXT = new Color(239,243,255);
+    private static final Color LAVENDER = new Color(198, 166, 255);
     private final Runnable back;
     private final AdminController controller;
     private final DefaultListModel<Question> listModel = new DefaultListModel<>();
@@ -60,11 +61,10 @@ public final class AdminScreen extends JPanel {
 		returnButton.setPreferredSize(new Dimension(240, 76));
 
         returnButton.addActionListener(e -> back.run());
-        JLabel title = new JLabel("QUESTION BANK  /  ADMIN",SwingConstants.CENTER);
-        title.setFont(new Font("SansSerif",Font.BOLD,27)); title.setForeground(TEXT);
+        JLabel title = Theme.neonHeading("QUESTION BANK", LAVENDER, 36f);
         JPanel header=new JPanel(new BorderLayout());header.setOpaque(false);
         header.add(returnButton, BorderLayout.EAST);
-        header.add(title,BorderLayout.CENTER);
+        header.add(title, BorderLayout.WEST);
         add(header,BorderLayout.NORTH);
         SwingUtilities.invokeLater(this::authenticate);
     }
@@ -81,23 +81,14 @@ public final class AdminScreen extends JPanel {
             }
             JTextField username = new JTextField(20);
             JPasswordField password = new JPasswordField(20);
+            Theme.styleNeonField(username, LAVENDER);
+            Theme.styleNeonField(password, LAVENDER);
 
             JPanel loginPanel = new JPanel(new GridLayout(4, 1, 8, 8));
             loginPanel.setOpaque(false);
-            loginPanel.setBorder(BorderFactory.createEmptyBorder(20, 25, 20, 25));
-
-            JLabel usernameLabel = new JLabel("USERNAME");
-            JLabel passwordLabel = new JLabel("PASSWORD");
-
-            usernameLabel.setForeground(TEXT);
-            passwordLabel.setForeground(TEXT);
-
-            usernameLabel.setFont(new Font("SansSerif", Font.BOLD, 13));
-            passwordLabel.setFont(new Font("SansSerif", Font.BOLD, 13));
-
-            loginPanel.add(usernameLabel);
+            loginPanel.add(fieldLabel("USERNAME"));
             loginPanel.add(username);
-            loginPanel.add(passwordLabel);
+            loginPanel.add(fieldLabel("PASSWORD"));
             loginPanel.add(password);
 
             int result = showLoginDialog(loginPanel);
@@ -114,6 +105,69 @@ public final class AdminScreen extends JPanel {
             Theme.neonMessage(this, "Question bank error", ex.getMessage(), Theme.RED);
             back.run();
         }
+    }
+    /** Small label above an input field. */
+    private static JLabel fieldLabel(String text) {
+        JLabel label = new JLabel(text);
+        label.setFont(Theme.semibold(13f));
+        label.setForeground(Theme.MUTED);
+        return label;
+    }
+
+    /** Rounded neon card used as the background of the login and question popups. */
+    private static JPanel neonCard(LayoutManager layout, Color accent) {
+        JPanel card = new JPanel(layout) {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                Theme.applyQuality(g2);
+                int w = getWidth();
+                int h = getHeight();
+                g2.setPaint(new GradientPaint(0, 0, new Color(30, 26, 70), 0, h, new Color(12, 17, 42)));
+                g2.fillRoundRect(2, 2, w - 4, h - 4, 28, 28);
+                Theme.glow(g2, w / 2f, 0, w * 0.55f, accent, 60);
+                g2.setColor(Theme.alpha(accent, 230));
+                g2.setStroke(new BasicStroke(2f));
+                g2.drawRoundRect(2, 2, w - 5, h - 5, 28, 28);
+                g2.dispose();
+            }
+        };
+        card.setOpaque(false);
+        return card;
+    }
+
+    /** Glowing round badge with a padlock, shown above the login form. */
+    private static JComponent lockBadge(Color accent) {
+        JComponent badge = new JComponent() {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                Theme.applyQuality(g2);
+                float cx = getWidth() / 2f;
+                float cy = getHeight() / 2f;
+                Theme.glow(g2, cx, cy, 44, accent, 110);
+                g2.setColor(Theme.alpha(accent, 70));
+                g2.fill(new java.awt.geom.Ellipse2D.Float(cx - 26, cy - 26, 52, 52));
+                g2.setColor(accent);
+                g2.setStroke(new BasicStroke(2f));
+                g2.draw(new java.awt.geom.Ellipse2D.Float(cx - 26, cy - 26, 52, 52));
+                g2.setColor(Color.WHITE);
+                g2.setStroke(new BasicStroke(2.6f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                g2.draw(new java.awt.geom.Arc2D.Float(cx - 8, cy - 15, 16, 18, 0, 180, java.awt.geom.Arc2D.OPEN));
+                g2.draw(new java.awt.geom.Line2D.Float(cx - 8, cy - 6, cx - 8, cy - 2));
+                g2.draw(new java.awt.geom.Line2D.Float(cx + 8, cy - 6, cx + 8, cy - 2));
+                g2.fill(new java.awt.geom.RoundRectangle2D.Float(cx - 12, cy - 3, 24, 18, 5, 5));
+                g2.setColor(accent);
+                g2.fill(new java.awt.geom.Ellipse2D.Float(cx - 2.5f, cy + 3, 5, 5));
+                g2.dispose();
+            }
+        };
+        badge.setPreferredSize(new Dimension(80, 72));
+        return badge;
     }
     private int showLoginDialog(JPanel loginPanel) {
         JDialog dialog = new JDialog(
