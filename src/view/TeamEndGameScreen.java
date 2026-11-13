@@ -53,7 +53,7 @@ public final class TeamEndGameScreen extends JPanel {
                 BorderFactory.createLineBorder(color, 2),
                 BorderFactory.createEmptyBorder(20, 18, 20, 18)));
         card.add(label(title + (game.getWinningTeam() == team ? "  ★ WINNERS" : ""), color, 26));
-        card.add(label(team == 0 ? "RED + BLUE" : "GREEN + YELLOW", Theme.TEXT, 17));
+        card.add(label(team == 0 ? "RED + YELLOW" : "GREEN + BLUE", Theme.TEXT, 17));
         for (Game.Player player : game.getPlayers()) {
             if (GameConfig.teamOf(player.getColor()) != team) continue;
             int finished = 0;

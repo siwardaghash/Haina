@@ -78,10 +78,10 @@ public final class GameConfig {
 
     public GameMode getMode() { return mode; }
     public boolean isTeamMode() { return mode == GameMode.TEAMS_2V2; }
-    /** Fixed partnerships: RED + BLUE vs GREEN + YELLOW. */
+    /** Fixed partnerships: RED + YELLOW vs GREEN + BLUE. */
     public static int teamOf(PlayerColor color) {
         if (color == null) throw new IllegalArgumentException("Player colour is required");
-        return color == PlayerColor.RED || color == PlayerColor.BLUE ? 0 : 1;
+        return color == PlayerColor.RED || color == PlayerColor.YELLOW ? 0 : 1;
     }
     public Difficulty getDifficulty()     { return difficulty; }
     public List<PlayerSetup> getPlayers() { return players; }

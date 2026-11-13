@@ -55,8 +55,8 @@ public final class TeamModeRegressionTest {
 
     private static void configuration() {
         check(!new GameConfig(Difficulty.EASY, players()).isTeamMode(), "Classic is default");
-        check(GameConfig.teamOf(PlayerColor.RED) == GameConfig.teamOf(PlayerColor.BLUE), "Red + Blue team");
-        check(GameConfig.teamOf(PlayerColor.GREEN) == GameConfig.teamOf(PlayerColor.YELLOW), "Green + Yellow team");
+        check(GameConfig.teamOf(PlayerColor.RED) == GameConfig.teamOf(PlayerColor.YELLOW), "Red + Yellow team");
+        check(GameConfig.teamOf(PlayerColor.GREEN) == GameConfig.teamOf(PlayerColor.BLUE), "Green + Blue team");
         check(GameConfig.teamOf(PlayerColor.RED) != GameConfig.teamOf(PlayerColor.GREEN), "Distinct teams");
         try {
             new GameConfig(Difficulty.EASY, players().subList(0, 2), GameConfig.GameMode.TEAMS_2V2);
@@ -71,16 +71,16 @@ public final class TeamModeRegressionTest {
         finishPlayer(a, PlayerColor.RED);
         update(a);
         check(!a.isGameOver(), "One teammate finishing must not end the game");
-        finishPlayer(a, PlayerColor.BLUE);
+        finishPlayer(a, PlayerColor.YELLOW);
         update(a);
-        check(a.isGameOver() && a.getWinningTeam() == 0, "Red + Blue win as a team");
+        check(a.isGameOver() && a.getWinningTeam() == 0, "Red + Yellow win as a team");
         check(a.getFinishedAtMillis() > 0, "Team A finish time recorded");
 
         Game b = create(true);
         finishPlayer(b, PlayerColor.GREEN);
-        finishPlayer(b, PlayerColor.YELLOW);
+        finishPlayer(b, PlayerColor.BLUE);
         update(b);
-        check(b.isGameOver() && b.getWinningTeam() == 1, "Green + Yellow win as a team");
+        check(b.isGameOver() && b.getWinningTeam() == 1, "Green + Blue win as a team");
     }
 
     private static void classicStillWorks() throws Exception {
@@ -113,12 +113,12 @@ public final class TeamModeRegressionTest {
     private static void friendlyCapture() throws Exception {
         Game teams = create(true);
         Piece red = player(teams, PlayerColor.RED).getPieces().get(0);
-        Piece blue = player(teams, PlayerColor.BLUE).getPieces().get(0);
-        int[] positions = sharedSquare(teams, red, blue);
+        Piece yellow = player(teams, PlayerColor.YELLOW).getPieces().get(0);
+        int[] positions = sharedSquare(teams, red, yellow);
         red.setProgress(positions[0]);
-        blue.setProgress(positions[1]);
+        yellow.setProgress(positions[1]);
         int caught = (Integer) invoke(teams, "captureOnLanding", new Class<?>[]{Piece.class}, red);
-        check(caught == 0 && blue.getProgress() == positions[1], "Teammate is never captured");
+        check(caught == 0 && yellow.getProgress() == positions[1], "Teammate is never captured");
 
         Game classic = create(false);
         Piece classicRed = player(classic, PlayerColor.RED).getPieces().get(0);
@@ -132,18 +132,18 @@ public final class TeamModeRegressionTest {
 
     private static void friendlyBlock() throws Exception {
         Game teams = create(true);
-        Piece blue1 = player(teams, PlayerColor.BLUE).getPieces().get(0);
-        Piece blue2 = player(teams, PlayerColor.BLUE).getPieces().get(1);
+        Piece yellow1 = player(teams, PlayerColor.YELLOW).getPieces().get(0);
+        Piece yellow2 = player(teams, PlayerColor.YELLOW).getPieces().get(1);
         Piece red = player(teams, PlayerColor.RED).getPieces().get(0);
-        int[] loc = sharedSquare(teams, red, blue1);
-        blue1.setProgress(loc[1]);
-        blue2.setProgress(loc[1]);
-        int ring = blue1.getRing(), index = blue1.getBoardIndex();
+        int[] loc = sharedSquare(teams, red, yellow1);
+        yellow1.setProgress(loc[1]);
+        yellow2.setProgress(loc[1]);
+        int ring = yellow1.getRing(), index = yellow1.getBoardIndex();
         Class<?>[] sig = {PlayerColor.class, int.class, int.class};
         check(!(Boolean) invoke(teams, "hasOpposingBlock", sig, PlayerColor.RED, ring, index),
-                "Blue double block must not block Red teammate");
+                "Yellow double block must not block Red teammate");
         check((Boolean) invoke(teams, "hasOpposingBlock", sig, PlayerColor.GREEN, ring, index),
-                "Blue double block must block Green opponent");
+                "Yellow double block must block Green opponent");
     }
 
     public static void main(String[] args) throws Exception {

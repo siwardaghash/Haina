@@ -160,7 +160,7 @@ public class HowToPlayScreen extends JPanel {
             new Color(244, 166, 200));
         addCard(content, "09  2 VS 2 TEAM MODE",
             "• Choose 2 vs 2 Teams in Game Setup. Exactly four players take part.\n" +
-            "• TEAM A: RED + BLUE.   TEAM B: GREEN + YELLOW.\n" +
+            "• TEAM A: RED + YELLOW.   TEAM B: GREEN + BLUE.\n" +
             "• Players take individual turns and move only their own four pieces.\n" +
             "• Teammates cannot capture each other. A teammate's Double Block is not an opposing block.\n" +
             "• When a surprise lets you select an opponent, you can target only the other team.\n" +

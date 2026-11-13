@@ -124,7 +124,7 @@ public final class Game {
                     bonusRollReady = false;
                     pendingQuestion = null;
                     awaitingSurpriseTarget = false;
-                    message = "Team " + (team == 0 ? "RED + BLUE" : "GREEN + YELLOW") + " wins!";
+                    message = "Team " + (team == 0 ? "RED + YELLOW" : "GREEN + BLUE") + " wins!";
                     return;
                 }
             }
