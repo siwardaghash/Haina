@@ -22,6 +22,8 @@ public final class Game {
 
     private final Board board;
     private final Difficulty difficulty;
+    private final boolean teamMode;
+    private int winningTeam = -1;
     private final Random random;
     private final List<Player> players = new ArrayList<>();
     private final long startedAtMillis = System.currentTimeMillis();
@@ -55,7 +57,7 @@ public final class Game {
     public boolean isAwaitingSurpriseTarget() { return awaitingSurpriseTarget; }
     public boolean isBonusRollReady() { return bonusRollReady; }
     public boolean canSelectSurpriseTarget(int playerIndex, int pieceIndex) {
-        if (!awaitingSurpriseTarget || playerIndex < 0 || playerIndex >= players.size() || playerIndex == current
+        if (!awaitingSurpriseTarget || playerIndex < 0 || playerIndex >= players.size() || (playerIndex == current || areTeammates(players.get(playerIndex).getColor(), getCurrentPlayer().getColor()))
                 || pieceIndex < 0 || pieceIndex >= 4) return false;
         Piece candidate = players.get(playerIndex).pieces.get(pieceIndex);
         return canMoveBackward(candidate);
@@ -73,9 +75,16 @@ public final class Game {
             throw new IllegalArgumentException("Configuration, matching board, and random are required");
         this.board = board;
         this.difficulty = config.getDifficulty();
+        this.teamMode = config.isTeamMode();
         this.random = random;
         for (GameConfig.PlayerSetup p : config.getPlayers()) players.add(new Player(p, difficulty));
         Collections.shuffle(players, random);
+    }
+    public boolean isTeamMode() { return teamMode; }
+    public int getWinningTeam() { return winningTeam; }
+    public int getTeamOf(PlayerColor color) { return GameConfig.teamOf(color); }
+    private boolean areTeammates(PlayerColor a, PlayerColor b) {
+        return teamMode && GameConfig.teamOf(a) == GameConfig.teamOf(b);
     }
     public boolean isGameOver() { return gameOver; }
     public long getStartedAtMillis() { return startedAtMillis; }
@@ -95,6 +104,31 @@ public final class Game {
                 for (Piece piece : player.pieces) if (!piece.isFinished()) { allFinished = false; break; }
                 if (allFinished) finishingOrder.add(player);
             }
+        }
+        if (teamMode) {
+            for (int team = 0; team < 2; team++) {
+                final int candidateTeam = team;
+                boolean complete = true;
+                for (Player player : players) {
+                    if (GameConfig.teamOf(player.getColor()) != candidateTeam) continue;
+                    for (Piece piece : player.pieces) {
+                        if (!piece.isFinished()) { complete = false; break; }
+                    }
+                }
+                if (complete) {
+                    winningTeam = team;
+                    gameOver = true;
+                    finishedAtMillis = System.currentTimeMillis();
+                    awaitingPiece = false;
+                    rollAvailable = false;
+                    bonusRollReady = false;
+                    pendingQuestion = null;
+                    awaitingSurpriseTarget = false;
+                    message = "Team " + (team == 0 ? "RED + YELLOW" : "GREEN + BLUE") + " wins!";
+                    return;
+                }
+            }
+            return;
         }
         if (finishingOrder.size() == players.size() - 1) {
             for (Player player : players) if (!finishingOrder.contains(player)) finishingOrder.add(player);
@@ -179,7 +213,7 @@ public final class Game {
 
     private boolean hasOpposingBlock(PlayerColor movingColor, int ring, int boardIndex) {
         for (Player player : players) {
-            if (player.getColor() == movingColor) continue;
+            if (player.getColor() == movingColor || areTeammates(player.getColor(), movingColor)) continue;
             int occupied = 0;
             for (Piece piece : player.pieces)
                 if (piece.isOnCommonPath() && piece.getRing() == ring && piece.getBoardIndex() == boardIndex) occupied++;
@@ -259,7 +293,7 @@ public final class Game {
         int square = movedPiece.getBoardIndex();
         int captured = 0;
         for (Player player : players) {
-            if (player.getColor() == movedPiece.getColor()) continue;
+            if (player.getColor() == movedPiece.getColor() || areTeammates(player.getColor(), movedPiece.getColor())) continue;
             for (Piece opponent : player.pieces) {
                 if (opponent.isOnCommonPath() && opponent.getRing() == movedPiece.getRing() && opponent.getBoardIndex() == square) {
                     opponent.setProgress(-1);
@@ -380,7 +414,8 @@ public final class Game {
                 awaitingSurpriseTarget = false;
                 for (int p = 0; p < players.size(); p++)
                     for (int i = 0; i < 4; i++)
-                        if (p != current && canMoveBackward(players.get(p).pieces.get(i))) awaitingSurpriseTarget = true;
+                        if (p != current && !areTeammates(players.get(p).getColor(), getCurrentPlayer().getColor())
+                                && canMoveBackward(players.get(p).pieces.get(i))) awaitingSurpriseTarget = true;
                 if (!awaitingSurpriseTarget) {
                     message += " Surprise cancelled: no movable opponent piece.";
                     finishTurnAfterMove();

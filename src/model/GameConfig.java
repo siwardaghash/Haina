@@ -41,10 +41,20 @@ public final class GameConfig {
         }
     }
 
+    public enum GameMode { CLASSIC, TEAMS_2V2 }
+
+    private final GameMode mode;
     private final Difficulty difficulty;
     private final List<PlayerSetup> players;
 
     public GameConfig(Difficulty difficulty, List<PlayerSetup> players) {
+        this(difficulty, players, GameMode.CLASSIC);
+    }
+
+    public GameConfig(Difficulty difficulty, List<PlayerSetup> players, GameMode mode) {
+        if (mode == null) throw new IllegalArgumentException("Game mode is required");
+        if (mode == GameMode.TEAMS_2V2 && (players == null || players.size() != 4))
+            throw new IllegalArgumentException("Team mode requires exactly four players");
         if (difficulty == null) {
             throw new IllegalArgumentException("Difficulty is required");
         }
@@ -61,16 +71,24 @@ public final class GameConfig {
                 throw new IllegalArgumentException("Duplicate player colour: " + p.getColor());
             }
         }
+        this.mode = mode;
         this.difficulty = difficulty;
         this.players = Collections.unmodifiableList(new ArrayList<>(players));
     }
 
+    public GameMode getMode() { return mode; }
+    public boolean isTeamMode() { return mode == GameMode.TEAMS_2V2; }
+    /** Fixed partnerships: RED + YELLOW vs GREEN + BLUE. */
+    public static int teamOf(PlayerColor color) {
+        if (color == null) throw new IllegalArgumentException("Player colour is required");
+        return color == PlayerColor.RED || color == PlayerColor.YELLOW ? 0 : 1;
+    }
     public Difficulty getDifficulty()     { return difficulty; }
     public List<PlayerSetup> getPlayers() { return players; }
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder("Difficulty: ").append(difficulty.getLabel());
+        StringBuilder sb = new StringBuilder("Mode: ").append(mode).append("\nDifficulty: ").append(difficulty.getLabel());
         for (int i = 0; i < players.size(); i++) {
             sb.append("\nPlayer ").append(i + 1).append(": ").append(players.get(i));
         }
