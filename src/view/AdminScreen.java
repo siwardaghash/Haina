@@ -73,10 +73,9 @@ public final class AdminScreen extends JPanel {
         try {
             // SRS 3.6.3: a single predefined administrator; players cannot create accounts.
             if (!controller.hasAdministrator()) {
-                JOptionPane.showMessageDialog(this,
-                    "The administrator file (data/admin.xml) is missing.\n"
-                    + "Question management is not available.",
-                    "Administrator not found", JOptionPane.ERROR_MESSAGE);
+                Theme.neonMessage(this, "Administrator not found",
+                        "The administrator file (data/admin.xml) is missing.\n"
+                        + "Question management is not available.", Theme.RED);
                 back.run();
                 return;
             }
@@ -106,10 +105,13 @@ public final class AdminScreen extends JPanel {
             char[] pwd=password.getPassword();boolean valid;
             try { valid=controller.login(username.getText(),pwd); }
             finally { Arrays.fill(pwd,'\0'); }
-            if (!valid) {JOptionPane.showMessageDialog(this,"Invalid username or password.","Access denied",JOptionPane.ERROR_MESSAGE);back.run();return;}
-            buildEditor();
+            if (!valid) {
+                Theme.neonMessage(this, "Access denied", "Invalid username or password.", Theme.RED);
+                back.run();
+                return;
+            }            buildEditor();
         } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this,ex.getMessage(),"Question bank error",JOptionPane.ERROR_MESSAGE);
+            Theme.neonMessage(this, "Question bank error", ex.getMessage(), Theme.RED);
             back.run();
         }
     }
@@ -457,8 +459,8 @@ public final class AdminScreen extends JPanel {
         try {
             if(existing==null)controller.add(entry);else controller.update(existing.getId(),entry);
             refresh();
-        } catch(Exception ex) {JOptionPane.showMessageDialog(this,ex.getMessage(),"Cannot save",JOptionPane.ERROR_MESSAGE);}
-    }
+        } catch(Exception ex) { Theme.neonMessage(this, "Cannot save", ex.getMessage(), Theme.RED); }
+        }
 
 	private int showQuestionDialog(JScrollPane formScroll, String titleText) {
 	    JDialog dialog = new JDialog(
@@ -558,10 +560,11 @@ public final class AdminScreen extends JPanel {
 
     private void deleteQuestion() {
         Question selected=list.getSelectedValue();if(selected==null)return;
-        if(JOptionPane.showConfirmDialog(this,"Delete " + selected.getId() + "?", "Confirm deletion",JOptionPane.YES_NO_OPTION)!=JOptionPane.YES_OPTION)return;
-        try {controller.delete(selected.getId());refresh();}
-        catch(Exception ex) {JOptionPane.showMessageDialog(this,ex.getMessage(),"Cannot delete",JOptionPane.ERROR_MESSAGE);}
-    }
+        if (!Theme.neonConfirm(this, "Confirm deletion",
+                "Delete question " + selected.getId() + "? This cannot be undone.",
+                "DELETE", Theme.RED)) return;        try {controller.delete(selected.getId());refresh();}
+                catch(Exception ex) { Theme.neonMessage(this, "Cannot delete", ex.getMessage(), Theme.RED); }
+                }
 
 	private static class GlowActionButton extends JButton {
 	
