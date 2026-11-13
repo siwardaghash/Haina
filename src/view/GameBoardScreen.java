@@ -559,13 +559,22 @@ public final class GameBoardScreen extends JPanel {
             resultShown = true;
 
             if (game.isTeamMode()) {
-                // Show the winning team on the board. The dedicated team
-                // results screen will be added in the next commit.
                 status.setText(game.getMessage());
                 status.setForeground(GOLD);
                 status.setFont(status.getFont().deriveFont(Font.BOLD, 24f));
                 Sound.stopMusic();
                 Sound.win();
+
+                Timer teamResultsDelay = new Timer(2200, e -> {
+                    if (isShowing()) {
+                        JFrame frame = (JFrame) SwingUtilities.getWindowAncestor(this);
+                        frame.setContentPane(new TeamEndGameScreen(game, onBackToMenu, onRematch));
+                        frame.revalidate();
+                        frame.repaint();
+                    }
+                });
+                teamResultsDelay.setRepeats(false);
+                teamResultsDelay.start();
                 return;
             }
             Game.Player winner = game.getFinishingOrder().get(0);
