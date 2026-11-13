@@ -691,68 +691,89 @@ public final class GameBoardScreen extends JPanel {
     }
     
     private void showExitConfirmation() {
-    	JDialog dialog = new JDialog(
-    			SwingUtilities.getWindowAncestor(this),
-    			"Exit Game",
-    			Dialog.ModalityType.APPLICATION_MODAL
-    			);
-    	
-    	dialog.setUndecorated(true);
-    	dialog.setSize(440, 260);
-    	dialog.setLocationRelativeTo(this);
+        JDialog dialog = new JDialog(
+                SwingUtilities.getWindowAncestor(this),
+                "Exit Game", Dialog.ModalityType.APPLICATION_MODAL);
+        dialog.setUndecorated(true);
+        dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
 
-    	Color navy = new Color(17, 31, 62);
-    	Color text = new Color(245, 248, 255);
-    	Color muted = new Color(166, 184, 217);
+        final boolean[] exitConfirmed = {false};
 
-    	JPanel panel = new JPanel(new BorderLayout(15, 18));
-    	panel.setBackground(navy);
-    	panel.setBorder(BorderFactory.createCompoundBorder(
-    			BorderFactory.createLineBorder(new Color(85, 112, 165), 2),
-    			BorderFactory.createEmptyBorder(28, 30, 25, 30)
-    			));
+        JPanel panel = new JPanel(new BorderLayout(0, 18)) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                Theme.applyQuality(g2);
 
-    	JLabel title = new JLabel("EXIT CURRENT GAME?", SwingConstants.CENTER);
-    	title.setFont(new Font("SansSerif", Font.BOLD, 23));
-    	title.setForeground(new Color(241, 91, 105));
-    	panel.add(title, BorderLayout.NORTH);
+                g2.setPaint(new GradientPaint(
+                        0, 0, new Color(37, 24, 54),
+                        0, getHeight(), new Color(13, 18, 42)));
+                g2.fillRect(0, 0, getWidth(), getHeight());
 
-    	JLabel message = new JLabel(
-    			"<html><div style='text-align:center;'>"
-    					+ "Your progress will be lost.<br>"
-    					+ "This unfinished game will not be saved."
-    					+ "</div></html>",
-    					SwingConstants.CENTER
-    			);
-    	message.setFont(new Font("SansSerif", Font.PLAIN, 16));
-    	message.setForeground(muted);
-    	panel.add(message, BorderLayout.CENTER);
+                g2.setColor(Theme.RED);
+                g2.setStroke(new BasicStroke(1.7f));
+                g2.drawRect(1, 1, getWidth() - 3, getHeight() - 3);
+                g2.dispose();
+            }
+        };
+        panel.setBorder(BorderFactory.createEmptyBorder(24, 36, 24, 36));
 
-    	JPanel buttons = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 0));
-    	buttons.setOpaque(false);
+        panel.add(
+                Theme.neonHeading("EXIT CURRENT GAME?", Theme.RED, 22f),
+                BorderLayout.NORTH);
 
-    	FancyButton cancel = new FancyButton("KEEP PLAYING",
-    			new Color(77, 198, 149), navy, true);
+        JLabel message = new JLabel(
+                "<html>Your progress will be lost.<br>" +
+                "This unfinished game will not be saved.</html>");
+        message.setFont(Theme.ui(17f, Font.PLAIN));
+        message.setForeground(Theme.TEXT);
+        message.setPreferredSize(new Dimension(520, 76));
+        panel.add(message, BorderLayout.CENTER);
 
-    	FancyButton exit = new FancyButton("EXIT GAME",
-    			new Color(241, 91, 105), text, true);
+        JPanel actions = new JPanel(new FlowLayout(FlowLayout.CENTER, 12, 0));
+        actions.setOpaque(false);
 
-    	cancel.setPreferredSize(new Dimension(160, 45));
-    	exit.setPreferredSize(new Dimension(160, 45));
+        NeonButton stay = new NeonButton(
+                "Keep Playing", Theme.VIOLET,
+                NeonButton.Glyph.PLAY, null);
+        stay.setChevron(false);
+        stay.setFocusable(false);
+        stay.setPreferredSize(new Dimension(240, 72));
+        stay.addActionListener(e -> dialog.dispose());
 
-    	cancel.addActionListener(e -> dialog.dispose());
+        NeonButton exit = new NeonButton(
+                "Exit Game", Theme.RED,
+                NeonButton.Glyph.BACK, null);
+        exit.setChevron(false);
+        exit.setFocusable(false);
+        exit.setPreferredSize(new Dimension(220, 72));
+        exit.addActionListener(e -> {
+            exitConfirmed[0] = true;
+            dialog.dispose();
+        });
 
-    	exit.addActionListener(e -> {
-    		dialog.dispose();
-    			onBackToMenu.run();
-    	});
+        actions.add(stay);
+        actions.add(exit);
+        panel.add(actions, BorderLayout.SOUTH);
 
-    	buttons.add(cancel);
-    	buttons.add(exit);
-    	panel.add(buttons, BorderLayout.SOUTH);
+        dialog.getRootPane().registerKeyboardAction(
+                e -> dialog.dispose(),
+                KeyStroke.getKeyStroke("ESCAPE"),
+                JComponent.WHEN_IN_FOCUSED_WINDOW);
 
-    	dialog.setContentPane(panel);
-    	dialog.setVisible(true);
+        dialog.getRootPane().registerKeyboardAction(
+                e -> dialog.dispose(),
+                KeyStroke.getKeyStroke("ENTER"),
+                JComponent.WHEN_IN_FOCUSED_WINDOW);
+
+        dialog.setContentPane(panel);
+        dialog.pack();
+        dialog.setLocationRelativeTo(this);
+        dialog.setVisible(true);
+
+        if (exitConfirmed[0]) {
+            onBackToMenu.run();
+        }
     }
 
     private static final class RoundedCard extends JPanel {
