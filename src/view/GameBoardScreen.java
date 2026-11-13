@@ -105,19 +105,30 @@ public final class GameBoardScreen extends JPanel {
         topBar.add(heading, BorderLayout.CENTER);
 
         // Painted by FancyButton: the Mac look and feel ignores a plain JButton's background colour.
-        FancyButton exitButton = new FancyButton("EXIT GAME", new Color(241, 91, 105), Color.WHITE, true);
+        NeonButton exitButton = new NeonButton(
+        	    "Exit Game", Theme.RED, NeonButton.Glyph.BACK, null);
 
+        	exitButton.setChevron(false);
+        	exitButton.setPreferredSize(new Dimension(184, 64));
+        	exitButton.setFocusable(false);
+        	
         exitButton.addActionListener(e -> {
         	showExitConfirmation();
         });
 
         // Bonus: music and sound effects, with a button to turn them off.
-        FancyButton soundButton = new FancyButton(Sound.isMuted() ? "SOUND OFF" : "SOUND ON",
-                new Color(52, 74, 115), Color.WHITE, true);
+        NeonButton soundButton = new NeonButton(
+        	    Sound.isMuted() ? "Sound Off" : "Sound On",
+        	    Theme.VIOLET, NeonButton.Glyph.SOUND, null);
+
+        	soundButton.setChevron(false);
+        	soundButton.setPreferredSize(new Dimension(184, 64));
+        	soundButton.setFocusable(false);
+        	
         soundButton.addActionListener(e -> {
             Sound.setMuted(!Sound.isMuted());
-            soundButton.setText(Sound.isMuted() ? "SOUND OFF" : "SOUND ON");
-        });
+            soundButton.setText(Sound.isMuted() ? "Sound Off" : "Sound On");
+            });
         JPanel topButtons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
         topButtons.setOpaque(false);
         topButtons.add(soundButton);
