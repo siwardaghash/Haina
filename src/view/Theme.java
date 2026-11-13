@@ -482,4 +482,55 @@ public final class Theme {
                                       String yesText, Color accent) {
         return neonDialog(parent, title, message, accent, yesText, "CANCEL") == 0;
     }
+
+    /** Dark input with a neon outline and accent bar; the outline brightens while the field has focus. */
+    public static void styleNeonField(javax.swing.text.JTextComponent field, Color accent) {
+        field.setOpaque(true);
+        field.setBackground(new Color(16, 18, 44));
+        field.setForeground(TEXT);
+        field.setCaretColor(accent);
+        field.setSelectionColor(alpha(accent, 120));
+        field.setSelectedTextColor(Color.WHITE);
+        field.setFont(ui(16f, Font.PLAIN));
+        field.setBorder(new javax.swing.border.AbstractBorder() {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public void paintBorder(java.awt.Component c, java.awt.Graphics g, int x, int y, int w, int h) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                boolean focused = c.hasFocus();
+                g2.setColor(alpha(accent, focused ? 255 : 100));
+                g2.setStroke(new java.awt.BasicStroke(focused ? 2f : 1.2f));
+                g2.drawRect(x + 1, y + 1, w - 3, h - 3);
+                g2.setColor(alpha(accent, focused ? 255 : 160));
+                g2.fillRect(x + 1, y + 1, 4, h - 2);      // accent bar on the left
+                g2.dispose();
+            }
+
+            @Override
+            public java.awt.Insets getBorderInsets(java.awt.Component c) {
+                return new java.awt.Insets(10, 16, 10, 12);
+            }
+        });
+        field.addFocusListener(new java.awt.event.FocusAdapter() {
+            @Override
+            public void focusGained(java.awt.event.FocusEvent e) {
+                field.repaint();
+            }
+
+            @Override
+            public void focusLost(java.awt.event.FocusEvent e) {
+                field.repaint();
+            }
+        });
+    }
+
+    /** Makes the corners of an undecorated window see-through, if the computer supports it. */
+    public static void transparentCorners(java.awt.Window window) {
+        java.awt.GraphicsDevice device = window.getGraphicsConfiguration().getDevice();
+        if (device.isWindowTranslucencySupported(
+                java.awt.GraphicsDevice.WindowTranslucency.PERPIXEL_TRANSLUCENT)) {
+            window.setBackground(new Color(0, 0, 0, 0));
+        }
+    }
 }
