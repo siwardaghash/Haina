@@ -40,7 +40,7 @@ public class NeonButton extends JButton {
 
     private static final long serialVersionUID = 1L;
 
-    public enum Glyph { PLAY, HISTORY, LOCK, POWER, BACK, DICE, PLUS, EDIT, TRASH }
+    public enum Glyph { PLAY, HISTORY, LOCK, POWER, SOUND, BACK, DICE, PLUS, EDIT, TRASH }
     public static final int PAD = 10;
 
     private final Color accent;
@@ -285,6 +285,41 @@ public class NeonButton extends JButton {
                 bin.lineTo(cx + s * 0.45f, cy - s * 0.3f);
                 g.draw(bin);
                 g.draw(new Line2D.Float(cx, cy - s * 0.12f, cx, cy + s * 0.42f));
+                break;
+            }
+            case SOUND: {
+                Path2D speaker = new Path2D.Float();
+                speaker.moveTo(cx - s * 0.65f, cy - s * 0.22f);
+                speaker.lineTo(cx - s * 0.35f, cy - s * 0.22f);
+                speaker.lineTo(cx + s * 0.08f, cy - s * 0.58f);
+                speaker.lineTo(cx + s * 0.08f, cy + s * 0.58f);
+                speaker.lineTo(cx - s * 0.35f, cy + s * 0.22f);
+                speaker.lineTo(cx - s * 0.65f, cy + s * 0.22f);
+                speaker.closePath();
+                g.fill(speaker);
+
+                if (Sound.isMuted()) {
+                    // Sound OFF: draw an X beside the speaker
+                    g.draw(new Line2D.Float(
+                        cx + s * 0.24f, cy - s * 0.30f,
+                        cx + s * 0.70f, cy + s * 0.30f));
+
+                    g.draw(new Line2D.Float(
+                        cx + s * 0.70f, cy - s * 0.30f,
+                        cx + s * 0.24f, cy + s * 0.30f));
+
+                } else {
+                    // Sound ON: draw sound waves
+                    g.draw(new Arc2D.Float(
+                        cx - s * 0.20f, cy - s * 0.45f,
+                        s * 0.75f, s * 0.90f,
+                        -60, 120, Arc2D.OPEN));
+
+                    g.draw(new Arc2D.Float(
+                        cx - s * 0.25f, cy - s * 0.65f,
+                        s * 1.15f, s * 1.30f,
+                        -60, 120, Arc2D.OPEN));
+                }
                 break;
             }
             case POWER:
