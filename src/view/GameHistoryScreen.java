@@ -420,6 +420,8 @@ public final class GameHistoryScreen extends JPanel {
         JScrollPane statsScroll = new JScrollPane(statsTable);
         statsScroll.setBorder(BorderFactory.createLineBorder(Theme.alpha(lavender, 140), 1));
         statsScroll.getViewport().setBackground(new Color(32, 37, 70));
+        statsScroll.setOpaque(false);
+        Theme.neonScrollBar(statsScroll, lavender);
         panel.add(statsScroll, BorderLayout.CENTER);
         javax.swing.JDialog dialog = new javax.swing.JDialog(
                 javax.swing.SwingUtilities.getWindowAncestor(this),
