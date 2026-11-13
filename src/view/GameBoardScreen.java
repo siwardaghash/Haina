@@ -1538,8 +1538,14 @@ public final class GameBoardScreen extends JPanel {
             }
             g.setFont(new Font("SansSerif", Font.BOLD, Math.max(9, cell / 3)));
             g.setColor(Color.WHITE);
-            drawCentered(g, color.getLabel().toUpperCase(), px + 3 * cell, py + (int)(.7 * cell));
-        }
+            for (Game.Player player : game.getPlayers()) {
+                if (player.getColor() == color) {
+                    drawCentered(g, player.getName().toUpperCase(),
+                            px + 3 * cell, py + (int)(.7 * cell));
+                    break;
+                }
+            }
+            }
 
         private void drawHomePath(Graphics2D g, int left, int top, int cell, PlayerColor color) {
             for (int i = 0; i < 6; i++) {
