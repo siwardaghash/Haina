@@ -558,6 +558,16 @@ public final class GameBoardScreen extends JPanel {
         if (game.isGameOver() && !resultShown) {
             resultShown = true;
 
+            if (game.isTeamMode()) {
+                // Show the winning team on the board. The dedicated team
+                // results screen will be added in the next commit.
+                status.setText(game.getMessage());
+                status.setForeground(GOLD);
+                status.setFont(status.getFont().deriveFont(Font.BOLD, 24f));
+                Sound.stopMusic();
+                Sound.win();
+                return;
+            }
             Game.Player winner = game.getFinishingOrder().get(0);
             String winnerColor = winner.getColor().getLabel()
                     .toUpperCase(java.util.Locale.ROOT);
@@ -601,7 +611,8 @@ public final class GameBoardScreen extends JPanel {
         extraDice.getParent().setVisible(hasExtra);
         extraDice.setValue(game.getExtraDie() == 0 ? 1 : game.getExtraDie());
         extraCaption.setText(difficulty.hasUltraBoostDie() || lastRollBonus ? "ULTRA" : "BOOST");        Game.Player current = game.getCurrentPlayer();
-        playerTag.setText("●  " + current.getName().toUpperCase() + "'S TURN");
+        playerTag.setText("●  " + current.getName().toUpperCase() + "'S TURN"
+                + (game.isTeamMode() ? (game.getTeamOf(current.getColor()) == 0 ? "  [TEAM A]" : "  [TEAM B]") : ""));
         playerTag.setForeground(BoardCanvas.playerColor(current.getColor()));
         Color playerColor = BoardCanvas.playerColor(current.getColor());
         playerTag.setOpaque(false);
