@@ -218,4 +218,319 @@ public final class Theme {
         }
         return Math.max(0, w);
     }
+
+    /** Big neon title: glowing gradient text with a fading accent bar underneath. */
+    public static javax.swing.JLabel neonHeading(String text, Color accent, float size) {
+        javax.swing.JLabel heading = new javax.swing.JLabel(text) {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            protected void paintComponent(java.awt.Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                applyQuality(g2);
+                g2.setFont(getFont());
+                java.awt.FontMetrics fm = g2.getFontMetrics();
+                int x = 4;
+                int y = fm.getAscent() + 4;
+                int w = fm.stringWidth(getText());
+                float pulse = (float) (0.5 + 0.5 * Math.sin(System.currentTimeMillis() / 600.0));
+
+                // soft glow: the text drawn several times, slightly offset and see-through
+                g2.setColor(alpha(accent, (int) (30 + 35 * pulse)));
+                for (int dx = -3; dx <= 3; dx += 3) {
+                    for (int dy = -3; dy <= 3; dy += 3) {
+                        g2.drawString(getText(), x + dx, y + dy);
+                    }
+                }
+
+                // gradient text: white fading into the accent colour
+                g2.setPaint(new GradientPaint(x, 0, Color.WHITE, x + w, 0, accent));
+                g2.drawString(getText(), x, y);
+
+                // accent bar under the title, fading out to the right
+                g2.setPaint(new GradientPaint(x, 0, accent, x + w * 0.6f, 0, alpha(accent, 0)));
+                g2.fillRoundRect(x, y + 10, (int) (w * 0.6f), 4, 4, 4);
+
+                g2.dispose();
+            }
+        };
+        heading.setFont(display(size));
+        heading.setBorder(javax.swing.BorderFactory.createEmptyBorder(4, 4, 18, 8));
+        return heading;
+    }
+
+    /** Slim rounded neon scrollbar without arrow buttons. */
+    public static void neonScrollBar(javax.swing.JScrollPane pane, Color accent) {
+        javax.swing.JScrollBar bar = pane.getVerticalScrollBar();
+        bar.setUI(new javax.swing.plaf.basic.BasicScrollBarUI() {
+            @Override
+            protected javax.swing.JButton createDecreaseButton(int orientation) {
+                return hiddenButton();
+            }
+
+            @Override
+            protected javax.swing.JButton createIncreaseButton(int orientation) {
+                return hiddenButton();
+            }
+
+            private javax.swing.JButton hiddenButton() {
+                javax.swing.JButton button = new javax.swing.JButton();
+                button.setPreferredSize(new java.awt.Dimension(0, 0));
+                return button;
+            }
+
+            @Override
+            protected void paintTrack(java.awt.Graphics g, javax.swing.JComponent c, java.awt.Rectangle r) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                applyQuality(g2);
+                g2.setColor(alpha(accent, 25));
+                g2.fillRoundRect(r.x + 3, r.y + 4, r.width - 6, r.height - 8, 6, 6);
+                g2.dispose();
+            }
+
+            @Override
+            protected void paintThumb(java.awt.Graphics g, javax.swing.JComponent c, java.awt.Rectangle r) {
+                if (r.isEmpty()) {
+                    return;
+                }
+                Graphics2D g2 = (Graphics2D) g.create();
+                applyQuality(g2);
+                boolean active = isThumbRollover() || isDragging;
+                g2.setColor(alpha(accent, active ? 230 : 150));
+                g2.fillRoundRect(r.x + 2, r.y + 2, r.width - 4, r.height - 4, 8, 8);
+                g2.dispose();
+            }
+        });
+        bar.setOpaque(false);
+        bar.setPreferredSize(new java.awt.Dimension(12, 0));
+    }
+
+    /**
+     * Top-3 podium (2nd | 1st | 3rd) with a glowing pawn, name and caption for each place.
+     * {@code pawnColors} may be null; then every pawn takes its medal colour.
+     */
+    public static javax.swing.JComponent podium(String[] names, String[] captions, Color[] pawnColors) {
+        javax.swing.JComponent podium = new javax.swing.JComponent() {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            protected void paintComponent(java.awt.Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                applyQuality(g2);
+                int h = getHeight();
+                int slotW = Math.min(getWidth() / 3, 300);
+                int left = (getWidth() - slotW * 3) / 2;     // keeps the podium centred
+
+                int[] rankAtSlot = {1, 0, 2};                // left = 2nd, middle = 1st, right = 3rd
+                int[] blockH = {90, 66, 48};                 // block height for 1st, 2nd, 3rd
+                Color[] medal = {
+                        new Color(255, 210, 107),            // gold
+                        new Color(200, 212, 235),            // silver
+                        new Color(222, 150, 100)};           // bronze
+
+                for (int slot = 0; slot < 3; slot++) {
+                    int rank = rankAtSlot[slot];
+                    if (rank >= names.length) continue;      // fewer than 3 players
+                    Color c = medal[rank];
+                    Color pawn = pawnColors == null ? c : pawnColors[rank];
+
+                    int bx = left + slot * slotW + 14;
+                    int bw = slotW - 28;
+                    int by = h - blockH[rank];
+                    float cx = bx + bw / 2f;
+
+                    // podium block (taller than the panel, so only the top corners are round)
+                    java.awt.Shape block = new java.awt.geom.RoundRectangle2D.Float(
+                            bx, by, bw, blockH[rank] + 20, 18, 18);
+                    g2.setPaint(new GradientPaint(0, by, alpha(c, 110), 0, h, alpha(c, 15)));
+                    g2.fill(block);
+                    g2.setColor(alpha(c, 220));
+                    g2.setStroke(new java.awt.BasicStroke(2f));
+                    g2.draw(block);
+
+                    // big rank number on the block
+                    g2.setFont(display(32f));
+                    java.awt.FontMetrics fm = g2.getFontMetrics();
+                    String number = String.valueOf(rank + 1);
+                    g2.setColor(alpha(Color.WHITE, 210));
+                    g2.drawString(number, cx - fm.stringWidth(number) / 2f, by + 6 + fm.getAscent());
+
+                    // caption and name just above the block
+                    g2.setFont(ui(13f, Font.PLAIN));
+                    fm = g2.getFontMetrics();
+                    g2.setColor(MUTED);
+                    g2.drawString(captions[rank], cx - fm.stringWidth(captions[rank]) / 2f, by - 8);
+
+                    g2.setFont(semibold(17f));
+                    fm = g2.getFontMetrics();
+                    g2.setColor(c);
+                    g2.drawString(names[rank], cx - fm.stringWidth(names[rank]) / 2f, by - 26);
+
+                    // glowing pawn above the name
+                    float r = 15f;
+                    float cy = by - 48 - r * 1.5f;
+                    if (rank == 0) {
+                        glow(g2, cx, cy, 70f, c, 70);
+                    }
+                    paintPawn(g2, cx, cy, r, pawn, 255);
+
+                    // crown on the winner
+                    if (rank == 0) {
+                        g2.setFont(new Font("SansSerif", Font.BOLD, 24));
+                        fm = g2.getFontMetrics();
+                        g2.setColor(c);
+                        g2.drawString("\u265B", cx - fm.stringWidth("\u265B") / 2f, cy - r * 0.55f - 6);
+                    }
+                }
+                g2.dispose();
+            }
+        };
+        podium.setOpaque(false);
+        podium.setPreferredSize(new java.awt.Dimension(580, 200));
+        return podium;
+    }
+    
+
+    /**
+     * Themed popup with a neon frame, glowing title, message and one or more neon buttons.
+     * Returns the index of the button that was clicked, or -1 if the popup was closed with Esc.
+     */
+    public static int neonDialog(java.awt.Component parent, String title, String message,
+                                 Color accent, String... buttons) {
+        java.awt.Window owner = parent == null ? null : javax.swing.SwingUtilities.getWindowAncestor(parent);
+        javax.swing.JDialog dialog = new javax.swing.JDialog(
+                owner, title, java.awt.Dialog.ModalityType.APPLICATION_MODAL);
+        dialog.setUndecorated(true);
+        int[] choice = {-1};
+
+        javax.swing.JPanel panel = new javax.swing.JPanel(new java.awt.BorderLayout(0, 16)) {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            protected void paintComponent(java.awt.Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                applyQuality(g2);
+                int w = getWidth();
+                int h = getHeight();
+                g2.setPaint(new GradientPaint(0, 0, new Color(26, 24, 60), 0, h, new Color(13, 18, 42)));
+                g2.fillRect(0, 0, w, h);
+                glow(g2, w / 2f, 0, w * 0.6f, accent, 55);
+                g2.setColor(alpha(accent, 220));
+                g2.setStroke(new java.awt.BasicStroke(2f));
+                g2.drawRect(1, 1, w - 3, h - 3);
+                g2.dispose();
+            }
+        };
+        panel.setBorder(javax.swing.BorderFactory.createEmptyBorder(20, 30, 16, 30));
+        panel.add(neonHeading(title.toUpperCase(), accent, 24f), java.awt.BorderLayout.NORTH);
+
+        // the message, wrapped at about 420 pixels
+        javax.swing.JTextArea text = new javax.swing.JTextArea(message);
+        text.setFont(ui(16f, Font.PLAIN));
+        text.setForeground(TEXT);
+        text.setOpaque(false);
+        text.setEditable(false);
+        text.setFocusable(false);
+        text.setLineWrap(true);
+        text.setWrapStyleWord(true);
+        text.setSize(new java.awt.Dimension(420, Short.MAX_VALUE));
+        text.setPreferredSize(new java.awt.Dimension(420, text.getPreferredSize().height));
+        panel.add(text, java.awt.BorderLayout.CENTER);
+
+        // buttons: the first is the main action in the accent colour, the rest are violet
+        javax.swing.JPanel row = new javax.swing.JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.CENTER, 14, 0));
+        row.setOpaque(false);
+        for (int i = 0; i < buttons.length; i++) {
+            int index = i;
+            NeonButton button = new NeonButton(buttons[i],
+                    i == 0 ? accent : VIOLET,
+                    i == 0 ? NeonButton.Glyph.PLAY : NeonButton.Glyph.BACK, null);
+            button.setChevron(false);
+            button.setFocusable(false);
+            button.setPreferredSize(new java.awt.Dimension(200, 68));
+            button.addActionListener(e -> {
+                choice[0] = index;
+                dialog.dispose();
+            });
+            row.add(button);
+        }
+        panel.add(row, java.awt.BorderLayout.SOUTH);
+
+        // Esc closes, Enter picks the first button
+        dialog.getRootPane().registerKeyboardAction(e -> dialog.dispose(),
+                javax.swing.KeyStroke.getKeyStroke("ESCAPE"), javax.swing.JComponent.WHEN_IN_FOCUSED_WINDOW);
+        dialog.getRootPane().registerKeyboardAction(e -> {
+                    choice[0] = 0;
+                    dialog.dispose();
+                },
+                javax.swing.KeyStroke.getKeyStroke("ENTER"), javax.swing.JComponent.WHEN_IN_FOCUSED_WINDOW);
+
+        dialog.setContentPane(panel);
+        dialog.pack();
+        dialog.setLocationRelativeTo(owner);
+        dialog.setVisible(true);
+        return choice[0];
+    }
+
+    /** Themed message with a single OK button. */
+    public static void neonMessage(java.awt.Component parent, String title, String message, Color accent) {
+        neonDialog(parent, title, message, accent, "OK");
+    }
+
+    /** Themed yes/cancel question; returns true only if the first button was clicked. */
+    public static boolean neonConfirm(java.awt.Component parent, String title, String message,
+                                      String yesText, Color accent) {
+        return neonDialog(parent, title, message, accent, yesText, "CANCEL") == 0;
+    }
+
+    /** Dark input with a neon outline and accent bar; the outline brightens while the field has focus. */
+    public static void styleNeonField(javax.swing.text.JTextComponent field, Color accent) {
+        field.setOpaque(true);
+        field.setBackground(new Color(16, 18, 44));
+        field.setForeground(TEXT);
+        field.setCaretColor(accent);
+        field.setSelectionColor(alpha(accent, 120));
+        field.setSelectedTextColor(Color.WHITE);
+        field.setFont(ui(16f, Font.PLAIN));
+        field.setBorder(new javax.swing.border.AbstractBorder() {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public void paintBorder(java.awt.Component c, java.awt.Graphics g, int x, int y, int w, int h) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                boolean focused = c.hasFocus();
+                g2.setColor(alpha(accent, focused ? 255 : 100));
+                g2.setStroke(new java.awt.BasicStroke(focused ? 2f : 1.2f));
+                g2.drawRect(x + 1, y + 1, w - 3, h - 3);
+                g2.setColor(alpha(accent, focused ? 255 : 160));
+                g2.fillRect(x + 1, y + 1, 4, h - 2);      // accent bar on the left
+                g2.dispose();
+            }
+
+            @Override
+            public java.awt.Insets getBorderInsets(java.awt.Component c) {
+                return new java.awt.Insets(10, 16, 10, 12);
+            }
+        });
+        field.addFocusListener(new java.awt.event.FocusAdapter() {
+            @Override
+            public void focusGained(java.awt.event.FocusEvent e) {
+                field.repaint();
+            }
+
+            @Override
+            public void focusLost(java.awt.event.FocusEvent e) {
+                field.repaint();
+            }
+        });
+    }
+
+    /** Makes the corners of an undecorated window see-through, if the computer supports it. */
+    public static void transparentCorners(java.awt.Window window) {
+        java.awt.GraphicsDevice device = window.getGraphicsConfiguration().getDevice();
+        if (device.isWindowTranslucencySupported(
+                java.awt.GraphicsDevice.WindowTranslucency.PERPIXEL_TRANSLUCENT)) {
+            window.setBackground(new Color(0, 0, 0, 0));
+        }
+    }
 }
