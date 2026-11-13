@@ -40,8 +40,7 @@ public class NeonButton extends JButton {
 
     private static final long serialVersionUID = 1L;
 
-    public enum Glyph { PLAY, HISTORY, LOCK, POWER, BACK, DICE }
-
+    public enum Glyph { PLAY, HISTORY, LOCK, POWER, BACK, DICE, PLUS, EDIT, TRASH }
     public static final int PAD = 10;
 
     private final Color accent;
@@ -256,6 +255,36 @@ public class NeonButton extends JButton {
                 g.fill(new Ellipse2D.Float(cx - s * 0.27f - pr, cy - s * 0.27f - pr, pr * 2, pr * 2));
                 g.fill(new Ellipse2D.Float(cx - pr, cy - pr, pr * 2, pr * 2));
                 g.fill(new Ellipse2D.Float(cx + s * 0.27f - pr, cy + s * 0.27f - pr, pr * 2, pr * 2));
+                break;
+            }
+            case PLUS: {
+                g.draw(new Line2D.Float(cx - s * 0.55f, cy, cx + s * 0.55f, cy));
+                g.draw(new Line2D.Float(cx, cy - s * 0.55f, cx, cy + s * 0.55f));
+                break;
+            }
+            case EDIT: { // a pencil, tilted 45°
+                Graphics2D p = (Graphics2D) g.create();
+                p.rotate(Math.toRadians(-45), cx, cy);
+                p.draw(new RoundRectangle2D.Float(cx - s * 0.6f, cy - s * 0.2f, s * 0.95f, s * 0.4f, 3, 3));
+                Path2D tip = new Path2D.Float();
+                tip.moveTo(cx + s * 0.35f, cy - s * 0.2f);
+                tip.lineTo(cx + s * 0.7f, cy);
+                tip.lineTo(cx + s * 0.35f, cy + s * 0.2f);
+                tip.closePath();
+                p.fill(tip);
+                p.dispose();
+                break;
+            }
+            case TRASH: {
+                g.draw(new Line2D.Float(cx - s * 0.6f, cy - s * 0.42f, cx + s * 0.6f, cy - s * 0.42f));
+                g.draw(new Line2D.Float(cx - s * 0.18f, cy - s * 0.6f, cx + s * 0.18f, cy - s * 0.6f));
+                Path2D bin = new Path2D.Float();
+                bin.moveTo(cx - s * 0.45f, cy - s * 0.3f);
+                bin.lineTo(cx - s * 0.35f, cy + s * 0.62f);
+                bin.lineTo(cx + s * 0.35f, cy + s * 0.62f);
+                bin.lineTo(cx + s * 0.45f, cy - s * 0.3f);
+                g.draw(bin);
+                g.draw(new Line2D.Float(cx, cy - s * 0.12f, cx, cy + s * 0.42f));
                 break;
             }
             case POWER:
