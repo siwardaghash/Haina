@@ -389,4 +389,97 @@ public final class Theme {
         podium.setPreferredSize(new java.awt.Dimension(580, 200));
         return podium;
     }
+    
+
+    /**
+     * Themed popup with a neon frame, glowing title, message and one or more neon buttons.
+     * Returns the index of the button that was clicked, or -1 if the popup was closed with Esc.
+     */
+    public static int neonDialog(java.awt.Component parent, String title, String message,
+                                 Color accent, String... buttons) {
+        java.awt.Window owner = parent == null ? null : javax.swing.SwingUtilities.getWindowAncestor(parent);
+        javax.swing.JDialog dialog = new javax.swing.JDialog(
+                owner, title, java.awt.Dialog.ModalityType.APPLICATION_MODAL);
+        dialog.setUndecorated(true);
+        int[] choice = {-1};
+
+        javax.swing.JPanel panel = new javax.swing.JPanel(new java.awt.BorderLayout(0, 16)) {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            protected void paintComponent(java.awt.Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                applyQuality(g2);
+                int w = getWidth();
+                int h = getHeight();
+                g2.setPaint(new GradientPaint(0, 0, new Color(26, 24, 60), 0, h, new Color(13, 18, 42)));
+                g2.fillRect(0, 0, w, h);
+                glow(g2, w / 2f, 0, w * 0.6f, accent, 55);
+                g2.setColor(alpha(accent, 220));
+                g2.setStroke(new java.awt.BasicStroke(2f));
+                g2.drawRect(1, 1, w - 3, h - 3);
+                g2.dispose();
+            }
+        };
+        panel.setBorder(javax.swing.BorderFactory.createEmptyBorder(20, 30, 16, 30));
+        panel.add(neonHeading(title.toUpperCase(), accent, 24f), java.awt.BorderLayout.NORTH);
+
+        // the message, wrapped at about 420 pixels
+        javax.swing.JTextArea text = new javax.swing.JTextArea(message);
+        text.setFont(ui(16f, Font.PLAIN));
+        text.setForeground(TEXT);
+        text.setOpaque(false);
+        text.setEditable(false);
+        text.setFocusable(false);
+        text.setLineWrap(true);
+        text.setWrapStyleWord(true);
+        text.setSize(new java.awt.Dimension(420, Short.MAX_VALUE));
+        text.setPreferredSize(new java.awt.Dimension(420, text.getPreferredSize().height));
+        panel.add(text, java.awt.BorderLayout.CENTER);
+
+        // buttons: the first is the main action in the accent colour, the rest are violet
+        javax.swing.JPanel row = new javax.swing.JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.CENTER, 14, 0));
+        row.setOpaque(false);
+        for (int i = 0; i < buttons.length; i++) {
+            int index = i;
+            NeonButton button = new NeonButton(buttons[i],
+                    i == 0 ? accent : VIOLET,
+                    i == 0 ? NeonButton.Glyph.PLAY : NeonButton.Glyph.BACK, null);
+            button.setChevron(false);
+            button.setFocusable(false);
+            button.setPreferredSize(new java.awt.Dimension(200, 68));
+            button.addActionListener(e -> {
+                choice[0] = index;
+                dialog.dispose();
+            });
+            row.add(button);
+        }
+        panel.add(row, java.awt.BorderLayout.SOUTH);
+
+        // Esc closes, Enter picks the first button
+        dialog.getRootPane().registerKeyboardAction(e -> dialog.dispose(),
+                javax.swing.KeyStroke.getKeyStroke("ESCAPE"), javax.swing.JComponent.WHEN_IN_FOCUSED_WINDOW);
+        dialog.getRootPane().registerKeyboardAction(e -> {
+                    choice[0] = 0;
+                    dialog.dispose();
+                },
+                javax.swing.KeyStroke.getKeyStroke("ENTER"), javax.swing.JComponent.WHEN_IN_FOCUSED_WINDOW);
+
+        dialog.setContentPane(panel);
+        dialog.pack();
+        dialog.setLocationRelativeTo(owner);
+        dialog.setVisible(true);
+        return choice[0];
+    }
+
+    /** Themed message with a single OK button. */
+    public static void neonMessage(java.awt.Component parent, String title, String message, Color accent) {
+        neonDialog(parent, title, message, accent, "OK");
+    }
+
+    /** Themed yes/cancel question; returns true only if the first button was clicked. */
+    public static boolean neonConfirm(java.awt.Component parent, String title, String message,
+                                      String yesText, Color accent) {
+        return neonDialog(parent, title, message, accent, yesText, "CANCEL") == 0;
+    }
 }
