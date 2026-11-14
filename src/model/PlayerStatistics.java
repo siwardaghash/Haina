@@ -21,7 +21,7 @@ public record PlayerStatistics(String name, int gamesPlayed, int wins) {
                 String name = places[place].strip();
                 if (name.isEmpty()) continue;
 
-                int win = place == 0 ? 1 : 0;
+                int win = game.isTeamMode() ? (place < 2 ? 1 : 0) : (place == 0 ? 1 : 0);
                 PlayerStatistics previous = byName.get(name);
 
                 if (previous == null) {

@@ -11,7 +11,7 @@ public record GameStatistics(int totalGames, int easyGames,
         int hard = 0;
 
         for (GameRecord game : games) {
-            String difficulty = game.getDifficulty();
+            String difficulty = game.getBaseDifficulty();
 
             if ("easy".equalsIgnoreCase(difficulty)) {
                 easy++;
