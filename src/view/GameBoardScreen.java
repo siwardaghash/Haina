@@ -118,19 +118,14 @@ public final class GameBoardScreen extends JPanel {
 
         // Music and sound toggle. Use the screen's existing custom-painted button,
         // avoiding unsupported NeonButton.Glyph values (SOUND / NONE).
-        NeonButton soundButton = new NeonButton(
-                Sound.isMuted() ? "Sound Off" : "Sound On",
-                Theme.VIOLET, NeonButton.Glyph.SOUND, null);
-
-        soundButton.setChevron(false);
-        soundButton.setPreferredSize(new Dimension(184, 64));
-        soundButton.setFocusable(false);
-
+        FancyButton soundButton = new FancyButton(
+                Sound.isMuted() ? "SOUND OFF" : "SOUND ON",
+                new Color(72, 65, 145), Color.WHITE, true);
+        soundButton.setPreferredSize(new Dimension(155, 48));
         soundButton.addActionListener(e -> {
             Sound.setMuted(!Sound.isMuted());
-            soundButton.setText(Sound.isMuted() ? "Sound Off" : "Sound On");
-            soundButton.repaint();
-        });
+            soundButton.setText(Sound.isMuted() ? "SOUND OFF" : "SOUND ON");
+            });
         JPanel topButtons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
         topButtons.setOpaque(false);
         topButtons.add(soundButton);
