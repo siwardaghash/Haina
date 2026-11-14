@@ -333,6 +333,22 @@ public final class GameBoardScreen extends JPanel {
                 animating = false;
                 refresh();
                 blockMessages.forEach(Runnable::run);
+             // Automatically move when there is exactly one legal choice.
+                if (game.isAwaitingPiece()) {
+                    int onlyMovablePiece = -1;
+                    int legalMoves = 0;
+
+                    for (int i = 0; i < game.getCurrentPlayer().getPieces().size(); i++) {
+                        if (game.canMove(i)) {
+                            legalMoves++;
+                            onlyMovablePiece = i;
+                        }
+                    }
+
+                    if (legalMoves == 1) {
+                        moveAnimated(onlyMovablePiece);
+                    }
+                }
             }
         });
         timer.start();
