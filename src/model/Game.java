@@ -239,6 +239,22 @@ public final class Game {
         if (piece.isInCastle() || reachable == requestedMovement(piece)) return true;
         return reachable > 0 && !hasFullMove();
     }
+    
+    public int getPreviewLandingProgress(int index) {
+        if (!canMove(index)) return -1;
+
+        Piece piece = getCurrentPlayer().pieces.get(index);
+
+        // Rolling a 6 can bring a piece out of the castle.
+        if (piece.isInCastle()) {
+            return 0;
+        }
+
+        // Use the existing movement rules, including Double Blocks.
+        int movement = reachableMovement(piece);
+
+        return piece.getProgress() + movement;
+    }
 
     /**
      * FR-17, for the board's messages: the route position of the opposing Double Block that
