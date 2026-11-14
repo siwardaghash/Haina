@@ -1029,6 +1029,8 @@ public final class GameBoardScreen extends JPanel {
         private static final Color OUTLINE = new Color(143, 162, 185);
         private static final int[][] PATH = makePath();
 
+        private int hoveredPieceIndex = -1;
+        
         private Piece hopPiece;
         private int hopProgress;
         private double pulse;
@@ -1079,12 +1081,27 @@ public final class GameBoardScreen extends JPanel {
                     for (int i = stuckBoxes.size() - 1; i >= 0; i--)
                         if (stuckBoxes.get(i).contains(e.getPoint())) { onStuckPieceClicked.accept(stuckIndexes.get(i)); return; }
                 }
+                @Override public void mouseExited(MouseEvent e) {
+                    if (hoveredPieceIndex != -1) {
+                        hoveredPieceIndex = -1;
+                        repaint();
+                    }
+                }
             });
             addMouseMotionListener(new MouseAdapter() {
-                @Override public void mouseMoved(MouseEvent e) {
-                    setCursor(Cursor.getPredefinedCursor(pieceAt(e.getPoint()) >= 0
-                            ? Cursor.HAND_CURSOR : Cursor.DEFAULT_CURSOR));
-                }
+            	@Override public void mouseMoved(MouseEvent e) {
+            	    int index = pieceAt(e.getPoint());
+
+            	    int nextHovered = game.isAwaitingPiece() ? index : -1;
+
+            	    if (hoveredPieceIndex != nextHovered) {
+            	        hoveredPieceIndex = nextHovered;
+            	        repaint();
+            	    }
+
+            	    setCursor(Cursor.getPredefinedCursor(index >= 0
+            	            ? Cursor.HAND_CURSOR : Cursor.DEFAULT_CURSOR));
+            	}
             });
         }
 
@@ -1369,10 +1386,51 @@ public final class GameBoardScreen extends JPanel {
                 }
             }
             drawPieces(g, left, top, cell);
+            drawHoverPreview(g, left, top, cell);
             drawBubbles(g, left, top, cell);
             g.dispose();
         }
+        
+        private void drawHoverPreview(Graphics2D g, int left, int top, int cell) {
+            if (hoveredPieceIndex < 0 || !game.isAwaitingPiece()
+                    || hopPiece != null) {
+                return;
+            }
 
+            int landing = game.getPreviewLandingProgress(hoveredPieceIndex);
+            if (landing < 0) return;
+
+            Piece piece = game.getCurrentPlayer().getPieces().get(hoveredPieceIndex);
+            double[] center = squareCenter(piece, landing, left, top, cell);
+
+            int x = (int) center[0];
+            int y = (int) center[1];
+            int radius = Math.max(10, cell / 2);
+
+            Color color = playerColor(piece.getColor());
+
+            Graphics2D preview = (Graphics2D) g.create();
+            preview.setRenderingHint(
+                    RenderingHints.KEY_ANTIALIASING,
+                    RenderingHints.VALUE_ANTIALIAS_ON);
+
+            // Transparent highlight over the destination.
+            preview.setColor(new Color(
+                    color.getRed(), color.getGreen(), color.getBlue(), 90));
+            preview.fillOval(x - radius, y - radius, radius * 2, radius * 2);
+
+            // Bright outline.
+            preview.setColor(Color.WHITE);
+            preview.setStroke(new BasicStroke(5f));
+            preview.drawOval(x - radius, y - radius, radius * 2, radius * 2);
+
+            preview.setColor(color);
+            preview.setStroke(new BasicStroke(3f));
+            preview.drawOval(x - radius, y - radius, radius * 2, radius * 2);
+
+            preview.dispose();
+        }
+        
         private void drawPieces(Graphics2D g, int left, int top, int cell) {
             // Pieces that share a square (any colour) are drawn smaller, side by side, so none hides another.
             java.util.Map<String, java.util.List<Piece>> sharing = new java.util.HashMap<>();
