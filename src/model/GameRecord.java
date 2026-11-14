@@ -32,11 +32,24 @@ public final class GameRecord {
     public static GameRecord of(Game game, long gameId) {
         if (!game.isGameOver()) throw new IllegalStateException("Only completed games may be saved");
         String[] places = {"", "", "", ""};
-        List<Game.Player> order = game.getFinishingOrder();
-        for (int i = 0; i < order.size() && i < 4; i++) places[i] = order.get(i).getName();
+        if (game.isTeamMode()) {
+            int winner = game.getWinningTeam();
+            if (winner < 0 || winner > 1) throw new IllegalStateException("A finished team game must have a winning team");
+            // Winning partners occupy the first two fields; losing partners the last two.
+            // Team mode is encoded in the difficulty field to retain the required 8-column CSV schema.
+            int nextWinner = 0, nextLoser = 2;
+            for (Game.Player player : game.getPlayers()) {
+                if (game.getTeamOf(player.getColor()) == winner) places[nextWinner++] = player.getName();
+                else places[nextLoser++] = player.getName();
+            }
+        } else {
+            List<Game.Player> order = game.getFinishingOrder();
+            for (int i = 0; i < order.size() && i < 4; i++) places[i] = order.get(i).getName();
+        }
         long sec = game.getDurationSeconds();
         return new GameRecord(gameId,
-                game.getDifficulty().name().toLowerCase(Locale.ROOT),
+                game.getDifficulty().name().toLowerCase(Locale.ROOT)
+                        + (game.isTeamMode() ? " [2v2:" + (game.getWinningTeam() == 0 ? "A" : "B") + "]" : ""),
                 LocalDateTime.ofInstant(Instant.ofEpochMilli(game.getFinishedAtMillis()), ZoneId.systemDefault()).format(TIME),
                 places,
                 String.format(Locale.ROOT, "%02d:%02d:%02d", sec / 3600, sec / 60 % 60, sec % 60));
@@ -64,6 +77,15 @@ public final class GameRecord {
         return fields;
     }
 
+    /** Team records use the standard eight-column history layout with a mode suffix. */
+    public boolean isTeamMode() { return difficulty.matches("(?i).* \\[2v2:[AB]\\]"); }
+    public int getWinningTeam() {
+        if (!isTeamMode()) return -1;
+        return Character.toUpperCase(difficulty.charAt(difficulty.length() - 2)) == 'A' ? 0 : 1;
+    }
+    public String getBaseDifficulty() {
+        return isTeamMode() ? difficulty.substring(0, difficulty.indexOf(" [2v2:")) : difficulty;
+    }
     public long getGameId() { return gameId; }
     public String getDifficulty() { return difficulty; }
     public String getTimestamp() { return timestamp; }

@@ -603,6 +603,13 @@ public final class GameBoardScreen extends JPanel {
             resultShown = true;
 
             if (game.isTeamMode()) {
+                // Record a completed team match once, before leaving the board screen.
+                try {
+                    controller.saveResult();
+                } catch (java.io.IOException ex) {
+                    Theme.neonMessage(this, "History save failed",
+                            "Could not save team match: " + ex.getMessage(), Theme.RED);
+                }
                 status.setText(game.getMessage());
                 status.setForeground(GOLD);
                 status.setFont(status.getFont().deriveFont(Font.BOLD, 24f));

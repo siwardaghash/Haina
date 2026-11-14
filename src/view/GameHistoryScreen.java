@@ -58,15 +58,26 @@ public final class GameHistoryScreen extends JPanel {
         setBackground(new Color(14, 25, 55));
         setBorder(BorderFactory.createEmptyBorder(30, 35, 30, 35));
         JLabel heading = Theme.neonHeading("GAME HISTORY", new Color(198, 166, 255), 36f);
-        String[] headers = {"ID", "Difficulty", "Date / Time", "1st", "2nd", "3rd", "4th", "Duration"};
+        String[] headers = {"ID", "Difficulty / Mode", "Date / Time", "1st / Winner", "2nd / Winner", "3rd / Opponent", "4th / Opponent", "Duration"};
         DefaultTableModel model = new DefaultTableModel(headers, 0) {
             @Override public boolean isCellEditable(int r, int c) { return false; }
         };
         JLabel message = new JLabel(" ");
         message.setForeground(Color.WHITE);
         try {
-            for (GameRecord record : controller.records())
-                model.addRow(record.toCsvFields().toArray());
+            for (GameRecord record : controller.records()) {
+                String[] row = record.toCsvFields().toArray(new String[0]);
+                if (record.isTeamMode()) {
+                    String winningTeam = record.getWinningTeam() == 0 ? "TEAM A" : "TEAM B";
+                    String losingTeam = record.getWinningTeam() == 0 ? "TEAM B" : "TEAM A";
+                    row[1] = record.getBaseDifficulty() + "  |  2 VS 2";
+                    row[3] = winningTeam + " - " + row[3];
+                    row[4] = winningTeam + " - " + row[4];
+                    row[5] = losingTeam + " - " + row[5];
+                    row[6] = losingTeam + " - " + row[6];
+                }
+                model.addRow(row);
+            }
             if (model.getRowCount() == 0) message.setText("No completed games saved yet.");
         } catch (IOException e) { message.setText("Could not load history: " + e.getMessage()); }
 
@@ -152,10 +163,10 @@ public final class GameHistoryScreen extends JPanel {
                     } else if (col == 1) {                       // difficulty
                         setText(text.toUpperCase());
                         setFont(Theme.semibold(14f));
-                        if (text.equalsIgnoreCase("easy")) setForeground(new Color(89, 218, 166));
-                        else if (text.equalsIgnoreCase("medium")) setForeground(new Color(255, 210, 107));
-                        else if (text.equalsIgnoreCase("hard")) setForeground(new Color(255, 120, 150));
-                    } else if (col == 3 && !text.isEmpty()) {    // winner
+                        if (text.toLowerCase(java.util.Locale.ROOT).startsWith("easy")) setForeground(new Color(89, 218, 166));
+                        else if (text.toLowerCase(java.util.Locale.ROOT).startsWith("medium")) setForeground(new Color(255, 210, 107));
+                        else if (text.toLowerCase(java.util.Locale.ROOT).startsWith("hard")) setForeground(new Color(255, 120, 150));
+                    } else if ((col == 3 || (col == 4 && text.startsWith("TEAM "))) && !text.isEmpty()) {    // winner / winning team
                         setText("\u265B  " + text);
                         setFont(new Font("SansSerif", Font.BOLD, 17));
                         setForeground(new Color(255, 210, 107));
