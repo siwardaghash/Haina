@@ -1141,6 +1141,8 @@ public final class GameBoardScreen extends JPanel {
                     }
                 }
             });
+            setToolTipText("");                              // turns on getToolTipText(MouseEvent)
+            ToolTipManager.sharedInstance().setInitialDelay(250);
             addMouseMotionListener(new MouseAdapter() {
             	@Override public void mouseMoved(MouseEvent e) {
             	    int index = pieceAt(e.getPoint());
@@ -1156,6 +1158,100 @@ public final class GameBoardScreen extends JPanel {
             	            ? Cursor.HAND_CURSOR : Cursor.DEFAULT_CURSOR));
             	}
             });
+        }
+
+        // ------------------------------------------------------------ hover explanations (lecturer feedback)
+        private int lastLeft, lastTop, lastCell;
+
+        /** Bonus: hovering a square explains what it does (shown as a tooltip). */
+        @Override public String getToolTipText(MouseEvent e) { return squareInfo(e.getPoint()); }
+
+        @Override public Point getToolTipLocation(MouseEvent e) { return new Point(e.getX() + 16, e.getY() + 18); }
+
+        @Override public JToolTip createToolTip() {
+            JToolTip tip = super.createToolTip();
+            tip.setBackground(new Color(24, 22, 48));
+            tip.setForeground(Color.WHITE);
+            tip.setFont(new Font("SansSerif", Font.PLAIN, 13));
+            tip.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(new Color(160, 130, 245), 1),
+                    BorderFactory.createEmptyBorder(6, 9, 6, 9)));
+            return tip;
+        }
+
+        private String nameOf(PlayerColor color) {
+            for (Game.Player p : game.getPlayers()) if (p.getColor() == color) return p.getName() + " (" + color.getLabel() + ")";
+            return color.getLabel();
+        }
+
+        private static String tip(String title, String text) {
+            return "<html><b>" + title + "</b><br>" + text + "</html>";
+        }
+
+        private String squareInfo(Point p) {
+            int cell = lastCell, left = lastLeft, top = lastTop;
+            if (cell <= 0) return null;
+            // the base track
+            for (int i = 0; i < PATH.length; i++) {
+                Rectangle r = new Rectangle(left + PATH[i][0] * cell, top + PATH[i][1] * cell, cell, cell);
+                if (r.contains(p)) return describe(board.getRings().get(0).get(i), 0);
+            }
+            // outer tracks (Medium, Hard)
+            for (int ring = 1; ring < board.getRings().size(); ring++) {
+                double inset = ring, side = 15 * cell + 2 * cell * inset;
+                int n = board.getRings().get(ring).size();
+                double step = side / (n / 4 + 1);
+                for (int i = 0; i < n; i++) {
+                    double[] c = outerPoint(i, n, left - cell * inset, top - cell * inset, side);
+                    if (Math.abs(p.x - c[0]) <= step / 2 && Math.abs(p.y - c[1]) <= step / 2)
+                        return describe(board.getRings().get(ring).get(i), ring);
+                }
+            }
+            // home paths, Finish Home and the castles
+            for (PlayerColor color : PlayerColor.values()) {
+                for (int i = 0; i < 6; i++) {
+                    int[] c = homeCoordinates(color, i);
+                    if (new Rectangle(left + c[0] * cell, top + c[1] * cell, cell, cell).contains(p))
+                        return tip("Home path of " + nameOf(color),
+                                "Only " + color.getLabel() + " pieces walk here. No captures.<br>Only the step die counts; you need the exact number to reach FINISH.");
+                }
+            }
+            if (new Rectangle(left + 6 * cell, top + 6 * cell, 3 * cell, 3 * cell).contains(p))
+                return tip("FINISH HOME", "Bring all four pieces here, with the exact number, to finish.");
+            int[][] castles = {{0, 0}, {9, 0}, {9, 9}, {0, 9}};
+            PlayerColor[] owners = {PlayerColor.RED, PlayerColor.GREEN, PlayerColor.YELLOW, PlayerColor.BLUE};
+            for (int k = 0; k < 4; k++)
+                if (new Rectangle(left + castles[k][0] * cell, top + castles[k][1] * cell, 6 * cell, 6 * cell).contains(p))
+                    return tip("Castle of " + nameOf(owners[k]), "Pieces wait here. Only a 6 on the step die brings a piece out to the start square (#).");
+            return null;
+        }
+
+        private String describe(Board.Square square, int ring) {
+            String text;
+            switch (square.getType()) {
+                case START: text = tip("# Start square of " + nameOf(square.getOwner()),
+                        "Pieces come out of the castle here on a 6.<br>Safe square: nobody is captured here."); break;
+                case ARROW: text = tip("\u2192 Arrow of " + nameOf(square.getOwner()),
+                        (ring == 0 ? "A " + square.getOwner().getLabel() + " piece turns here into its home path."
+                                   : "A " + square.getOwner().getLabel() + " piece moves here to the next inner track.")
+                        + "<br>For the other colours it is a regular square."); break;
+                case PROTECTION: text = tip("\u2605 Safe square", "Nobody can be captured here, and pieces of different colours can share it."); break;
+                case QUESTION_EASY: text = tip("? Question: easy", "Answer right: 1 step forward. Wrong: 1 step back."); break;
+                case QUESTION_MEDIUM: text = tip("? Question: medium", "Answer right: 2 steps forward. Wrong: 2 steps back."); break;
+                case QUESTION_HARD: text = tip("? Question: hard", "Answer right: 3 steps forward. Wrong: 3 steps back."); break;
+                case SURPRISE: text = tip("! Surprise square", "One random event: straight to FINISH, back to the castle, back 3 squares,<br>lose your next turn, an extra roll, or send an opponent back. Safe square."); break;
+                default: text = null;
+            }
+            for (Game.Player player : game.getPlayers()) {                 // a Double Block on this square
+                int n = 0;
+                for (Piece pc : player.getPieces())
+                    if (pc.isOnCommonPath() && pc.getRing() == square.getRing() && pc.getBoardIndex() == square.getIndex()) n++;
+                if (n >= 2) {
+                    String block = "<b>Double Block of " + player.getName() + "</b>: opponents cannot pass or land here.";
+                    text = text == null ? "<html>" + block + "</html>" : text.replace("</html>", "<br>" + block + "</html>");
+                }
+            }
+            return text;
         }
 
         void setOnPieceClicked(java.util.function.IntConsumer listener) { onPieceClicked = listener; }
@@ -1393,6 +1489,7 @@ public final class GameBoardScreen extends JPanel {
             int size = 15 * cell;
             int left = (getWidth() - size) / 2;
             int top = (getHeight() - size) / 2;
+            lastLeft = left; lastTop = top; lastCell = cell;      // for the hover explanations
             // Draw the actual outer tracks used by the movement model.
             if (extra >= 1) drawOuterTrack(g, board.getRings().get(1), left - cell * 1.0, top - cell * 1.0, size + 2.0 * cell, cell * .64);
             if (extra >= 2) drawOuterTrack(g, board.getRings().get(2), left - cell * 2.0, top - cell * 2.0, size + 4.0 * cell, cell * .56);
