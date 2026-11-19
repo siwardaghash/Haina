@@ -17,8 +17,12 @@ public final class GameConfig {
     public static final class PlayerSetup {
         private final String name;
         private final PlayerColor color;
+        private final boolean bot;
 
-        public PlayerSetup(String name, PlayerColor color) {
+        public PlayerSetup(String name, PlayerColor color) { this(name, color, false); }
+
+        /** Bonus: {@code bot} is true for a computer player (SRS 2.6 lists bots as an allowed addition). */
+        public PlayerSetup(String name, PlayerColor color, boolean bot) {
             if (name == null || name.trim().isEmpty()) {
                 throw new IllegalArgumentException("Player name is required");
             }
@@ -30,10 +34,12 @@ public final class GameConfig {
             }
             this.name = name.trim();
             this.color = color;
+            this.bot = bot;
         }
 
         public String getName()        { return name; }
         public PlayerColor getColor()  { return color; }
+        public boolean isBot()         { return bot; }
 
         @Override
         public String toString() {

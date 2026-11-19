@@ -3,6 +3,7 @@ package controller;
 import java.io.IOException;
 import java.util.Random;
 import model.Board;
+import model.Bot;
 import model.Game;
 import model.GameConfig;
 import model.GameRecord;
@@ -18,6 +19,7 @@ public final class GameController {
     private final Board board;
     private final Game game;
     private final String bankError;
+    private final Bot bot = new Bot(new Random());
 
     /** Builds the board for the chosen level and starts a game (FR-6, FR-7). */
     public GameController(GameConfig config) { this(config, new Board(config.getDifficulty())); }
@@ -58,6 +60,18 @@ public final class GameController {
     public int chooseSurpriseTarget(int playerIndex, int pieceIndex) {
         return game.selectSurpriseTarget(playerIndex, pieceIndex);
     }
+
+    /** Bonus: true when the player whose turn it is is a computer player. */
+    public boolean isBotTurn() { return !game.isGameOver() && game.getCurrentPlayer().isBot(); }
+
+    /** Bonus: the piece the bot moves after its roll (-1 when none can move). */
+    public int botChoosePiece() { return bot.choosePiece(game); }
+
+    /** Bonus: the answer the bot gives to the pending question. */
+    public int botChooseAnswer() { return bot.chooseAnswer(game.getPendingQuestion()); }
+
+    /** Bonus: the opponent piece the bot sends back, as {player, piece}, or null. */
+    public int[] botChooseSurpriseTarget() { return bot.chooseSurpriseTarget(game); }
 
     /** FR-32: saves the finished game to the history. */
     public GameRecord saveResult() throws IOException { return SysData.get().history().append(game); }

@@ -314,7 +314,7 @@ public class GameSetupScreen extends JPanel {
         }
         List<GameConfig.PlayerSetup> players = new ArrayList<>();
         for (int i = 0; i < playerCount; i++) {
-            players.add(new GameConfig.PlayerSetup(nameOf(i), playerCards[i].color));
+            players.add(new GameConfig.PlayerSetup(nameOf(i), playerCards[i].color, playerCards[i].bot));
         }
         if (listener != null) {
             listener.onStart(new GameConfig(difficulty, players, gameMode));
@@ -990,6 +990,8 @@ public String getToolTipText(MouseEvent e) {
 
         final int index;
         PlayerColor color;
+        /** Bonus: this player is played by the computer. */
+        boolean bot;
         final NameField field;
         float pop;                     // colour-change bounce
         float introNow;                // shared with the name field
@@ -1018,13 +1020,21 @@ public String getToolTipText(MouseEvent e) {
 
                 @Override public void mouseMoved(MouseEvent e) {
                     hoverSwatch = isActive() ? swatchAt(e.getPoint()) : -1;
-                    boolean hand = !isActive() || hoverSwatch >= 0;
+                    boolean hand = !isActive() || hoverSwatch >= 0 || (isActive() && botPill().contains(e.getPoint()));
                     setCursor(Cursor.getPredefinedCursor(hand ? Cursor.HAND_CURSOR : Cursor.DEFAULT_CURSOR));
                 }
 
                 @Override public void mousePressed(MouseEvent e) {
                     if (!isActive()) {
                         setPlayerCount(PlayerCard.this.index + 1);   // click an empty slot to add it
+                        return;
+                    }
+                    if (botPill().contains(e.getPoint())) {   // Human <-> Bot
+                        bot = !bot;
+                        if (bot && field.getText().trim().isEmpty()) field.setText("Bot " + (PlayerCard.this.index + 1));
+                        pop = 1f;
+                        refreshStatus();
+                        repaint();
                         return;
                     }
                     int s = swatchAt(e.getPoint());
@@ -1039,6 +1049,14 @@ public String getToolTipText(MouseEvent e) {
 
         boolean isActive() {
             return index < playerCount;
+        }
+
+        /** The HUMAN / BOT switch in the top-right corner (left of the team badge in team mode). */
+        java.awt.geom.RoundRectangle2D botPill() {
+            int pw = 66, ph = 23;
+            float right = getWidth() - 13;
+            if (gameMode == GameConfig.GameMode.TEAMS_2V2) right -= 70;
+            return new java.awt.geom.RoundRectangle2D.Float(right - pw, 24, pw, ph, 12, 12);
         }
 
         void syncActive() {
@@ -1154,6 +1172,17 @@ public String getToolTipText(MouseEvent e) {
                     g2.setColor(TEXT);
                     g2.drawString(teamLabel, badgeX + 8, 39);
                 }
+                java.awt.geom.RoundRectangle2D pill = botPill();
+                g2.setColor(alpha(bot ? acc : MUTED, bot ? 90 : 40));
+                g2.fill(pill);
+                g2.setStroke(new BasicStroke(1.4f));
+                g2.setColor(alpha(bot ? acc : MUTED, 220));
+                g2.draw(pill);
+                g2.setFont(Theme.semibold(10f));
+                String who = bot ? "BOT" : "HUMAN";
+                FontMetrics pf = g2.getFontMetrics();
+                g2.setColor(TEXT);
+                g2.drawString(who, (float) (pill.getCenterX() - pf.stringWidth(who) / 2.0), (float) (pill.getY() + 16));
                 g2.setFont(Theme.display(22f));
                 g2.setColor(acc);
                 g2.drawString(color.getLabel().toUpperCase(), 92, 67);

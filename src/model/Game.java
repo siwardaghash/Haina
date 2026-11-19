@@ -18,6 +18,8 @@ public final class Game {
         public String getName() { return setup.getName(); }
         public PlayerColor getColor() { return setup.getColor(); }
         public List<Piece> getPieces() { return Collections.unmodifiableList(pieces); }
+        /** Bonus: a computer player, whose turns are chosen by {@link Bot}. */
+        public boolean isBot() { return setup.isBot(); }
     }
 
     private final Board board;
@@ -95,6 +97,7 @@ public final class Game {
     }
     public List<Player> getFinishingOrder() { return Collections.unmodifiableList(finishingOrder); }
     public Difficulty getDifficulty() { return difficulty; }
+    public Board getBoard() { return board; }
 
     private void updateFinishingOrder() {
         if (gameOver) return;
