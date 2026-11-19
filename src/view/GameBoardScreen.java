@@ -39,6 +39,9 @@ public final class GameBoardScreen extends JPanel {
     private final DiceView extraDice;
     private final JLabel extraCaption;
     private boolean animating;
+    /** Bonus: the player whose action is being resolved is a bot (the turn may pass before its windows). */
+    private boolean actorIsBot;
+    private boolean botScheduled;
     private boolean lastRollBonus;
     private final Random effects = new Random();
     private JLabel movementInfo;
@@ -206,7 +209,7 @@ public final class GameBoardScreen extends JPanel {
 
         // The dice themselves are the roll control.
         MouseAdapter rollOnClick = new MouseAdapter() {
-            @Override public void mouseClicked(MouseEvent e) { if (canRoll()) rollAnimated(); }
+            @Override public void mouseClicked(MouseEvent e) { if (canRoll() && !controller.isBotTurn()) rollAnimated(); }
         };
         dice.addMouseListener(rollOnClick);
         extraDice.addMouseListener(rollOnClick);
@@ -227,13 +230,14 @@ public final class GameBoardScreen extends JPanel {
         // Space rolls the dice, like a click on the dice (prototype feedback).
         getInputMap(WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke("SPACE"), "rollDice");
         getActionMap().put("rollDice", new AbstractAction() {
-            @Override public void actionPerformed(java.awt.event.ActionEvent e) { if (canRoll()) rollAnimated(); }
+            @Override public void actionPerformed(java.awt.event.ActionEvent e) { if (canRoll() && !controller.isBotTurn()) rollAnimated(); }
         });
         canvas.setOnPieceClicked(index -> {
+            if (controller.isBotTurn()) return;                       // the bot plays its own turn
             if (game.isAwaitingSurpriseTarget()) chooseSurpriseTarget(index / 4, index % 4);
             else moveAnimated(index);
         });
-        canvas.setOnStuckPieceClicked(this::explainStuckPiece);
+        canvas.setOnStuckPieceClicked(index -> { if (!controller.isBotTurn()) explainStuckPiece(index); });
 
         // Only the dice and the arrow are repainted here, and only while a roll is awaited.
         hintTimer = new Timer(90, e -> {
@@ -349,6 +353,7 @@ public final class GameBoardScreen extends JPanel {
                         moveAnimated(onlyMovablePiece);
                     }
                 }
+                scheduleBot(550);
             }
         });
         timer.start();
@@ -378,6 +383,7 @@ public final class GameBoardScreen extends JPanel {
      */
     private void moveAnimated(int index) {
         if (animating || !game.isAwaitingPiece() || !game.canMove(index)) return;
+        actorIsBot = game.getCurrentPlayer().isBot();
         movesMade.merge(game.getCurrentPlayer().getColor(), 1, Integer::sum);
         notice = null;
         Piece piece = game.getCurrentPlayer().getPieces().get(index);
@@ -536,6 +542,11 @@ public final class GameBoardScreen extends JPanel {
                     : "No opponent piece can move back, so this surprise is cancelled."; break;
         }
         Sound.surprise();
+        if (actorIsBot) {                         // a bot does not wait for a click: the message stays in the panel
+            notice = "SURPRISE: " + text.replace('\n', ' ')
+                    .replace("click one of the glowing pieces on the board", "the bot picks one");
+            return;
+        }
         GameDialogs.showSurprise(this, surprise, text);
     }
 
@@ -549,9 +560,12 @@ public final class GameBoardScreen extends JPanel {
         int die = controller.chooseSurpriseTarget(playerIndex, pieceIndex);
         int moved = before - target.getProgress();
         Sound.capture();
-        GameDialogs.info(this, GameDialogs.SURPRISE, "DIE: " + die,
-                owner.getName() + "'s piece " + (pieceIndex + 1) + " moves back " + moved + " step(s)"
-                + (moved < (die + 1) / 2 ? " (stopped by its start square or a Double Block)." : "."), null);
+        String result = owner.getName() + "'s piece " + (pieceIndex + 1) + " moves back " + moved + " step(s)"
+                + (moved < (die + 1) / 2 ? " (stopped by its start square or a Double Block)." : ".");
+        if (actorIsBot) {
+            notice = "SURPRISE: the bot rolled " + die + ". " + result;
+            canvas.say(target, target.getProgress(), "Sent back " + moved + " step(s)", BoardCanvas.playerColor(owner.getColor()));
+        } else GameDialogs.info(this, GameDialogs.SURPRISE, "DIE: " + die, result, null);
         showSurpriseIfAny();
         animateChanges(beforeChoice, this::resolveSpecials);
     }
@@ -583,27 +597,59 @@ public final class GameBoardScreen extends JPanel {
             return;
         }
         Question q = game.getPendingQuestion();
-        int selection = GameDialogs.askQuestion(this, q);
+        int selection = actorIsBot ? controller.botChooseAnswer() : GameDialogs.askQuestion(this, q);
         if (selection < 0) { resolveSpecials(); return; }     // the window only closes through an answer
         java.util.Map<Piece, Integer> beforeAnswer = positions();
         Game.Player answering = game.getCurrentPlayer();
         boolean correct = controller.answer(selection);
         if (correct) Sound.correct(); else Sound.wrong();
         boolean capturedByAnswer = game.getMessage().contains("Captured");
-        GameDialogs.showAnswerResult(this, correct, game.getMessage());
+        if (actorIsBot) notice = answering.getName() + " (bot) answered \"" + q.getText() + "\": " + game.getMessage();
+        else GameDialogs.showAnswerResult(this, correct, game.getMessage());
         java.util.Map<Piece, Integer> afterAnswer = positions();
         showSurpriseIfAny();
         animateChanges(beforeAnswer, () -> {
             for (Piece p : answering.getPieces())     // where the answer took the piece
-                if (beforeAnswer.get(p).intValue() != afterAnswer.get(p).intValue() && afterAnswer.get(p) >= 0)
+                if (beforeAnswer.get(p).intValue() != afterAnswer.get(p).intValue() && afterAnswer.get(p) >= 0) {
                     announceLanding(p, afterAnswer.get(p), capturedByAnswer);
+                    if (actorIsBot) canvas.say(p, afterAnswer.get(p), correct ? "Bot: correct answer!" : "Bot: wrong answer",
+                            BoardCanvas.playerColor(p.getColor()));
+                }
             resolveSpecials();
         });
+    }
+
+    /**
+     * Bonus: when it is a bot's turn, its next step runs after a short pause, so the players can follow it:
+     * roll, choose a piece, choose an opponent for the "move back" surprise. Questions are answered in
+     * {@link #resolveSpecials()}. Every decision comes from the controller (Bot in the model).
+     */
+    private void scheduleBot(int delayMillis) {
+        if (botScheduled || !controller.isBotTurn()) return;
+        botScheduled = true;
+        Timer timer = new Timer(delayMillis, e -> { botScheduled = false; botStep(); });
+        timer.setRepeats(false);
+        timer.start();
+    }
+
+    private void botStep() {
+        if (animating || !isShowing() || !controller.isBotTurn() || game.getPendingQuestion() != null) return;
+        actorIsBot = true;
+        if (game.isAwaitingSurpriseTarget()) {
+            int[] target = controller.botChooseSurpriseTarget();
+            if (target != null) chooseSurpriseTarget(target[0], target[1]);
+        } else if (game.isAwaitingPiece()) {
+            int piece = controller.botChoosePiece();
+            if (piece >= 0) moveAnimated(piece);
+        } else if (canRoll()) {
+            rollAnimated();
+        }
     }
 
     /** Brings the whole screen up to date: the panel, and the final results once the game is over. */
     private void refresh() {
         refreshPanel();
+        scheduleBot(700);
         if (game.isGameOver() && !resultShown) {
             resultShown = true;
 
@@ -679,7 +725,7 @@ public final class GameBoardScreen extends JPanel {
         Game.Player current = game.getCurrentPlayer();
         Color playerColor = BoardCanvas.playerColor(current.getColor());
 
-        playerTag.setText("●  " + current.getName().toUpperCase() + "'S TURN"
+        playerTag.setText("●  " + current.getName().toUpperCase() + "'S TURN" + (current.isBot() ? "  (BOT)" : "")
                 + (game.isTeamMode()
                         ? (game.getTeamOf(current.getColor()) == 0 ? "  [TEAM A]" : "  [TEAM B]")
                         : ""));
@@ -1159,7 +1205,7 @@ public final class GameBoardScreen extends JPanel {
          * player; while the "move an opponent back" surprise waits, it is player * 4 + piece.
          */
         private int clickIndex(Game.Player player, Piece piece) {
-            if (hopPiece != null) return -1;
+            if (hopPiece != null || game.getCurrentPlayer().isBot()) return -1;
             if (game.isAwaitingSurpriseTarget()) {
                 int p = game.getPlayers().indexOf(player);
                 return game.canSelectSurpriseTarget(p, piece.getNumber() - 1) ? p * 4 + piece.getNumber() - 1 : -1;
