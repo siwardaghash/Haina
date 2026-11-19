@@ -315,6 +315,8 @@ public final class GameBoardScreen extends JPanel {
         controller.roll();
         Sound.roll();
         notice = explainUnusedRoll(roller, allInCastle);
+        boolean thirdSix = game.getMessage().contains("third 6");
+        if (thirdSix) botPause = 2600;                   // give everyone time to read it
         java.util.List<Runnable> blockMessages = new java.util.ArrayList<>();
         if (notice != null)
             for (Piece p : roller.getPieces()) {
@@ -365,7 +367,9 @@ public final class GameBoardScreen extends JPanel {
         boolean turnPassed = game.getCurrentPlayer() != roller;
         String extraName = difficulty.hasUltraBoostDie() || lastRollBonus ? "ULTRA" : "BOOST";
         int step = game.getStepDie();
-        if (turnPassed && step == 6) return null; // third 6: the model's message already says so
+        if (game.getMessage().contains("third 6"))
+            return "THIRD 6 IN A ROW! " + roller.getName() + " loses the turn and no piece moves (FR-14)."
+                    + "  Turn passes to " + game.getCurrentPlayer().getName() + ".";
         String rolled = roller.getName() + " rolled " + step
                 + (game.getExtraDie() > 0 ? " and " + game.getExtraDie() + " on the " + extraName + " die" : "") + ". ";
         String reason;
@@ -624,10 +628,15 @@ public final class GameBoardScreen extends JPanel {
      * roll, choose a piece, choose an opponent for the "move back" surprise. Questions are answered in
      * {@link #resolveSpecials()}. Every decision comes from the controller (Bot in the model).
      */
+    /** A longer wait before the next bot roll, so an important message can be read first. */
+    private int botPause;
+
     private void scheduleBot(int delayMillis) {
         if (botScheduled || !controller.isBotTurn()) return;
         botScheduled = true;
-        Timer timer = new Timer(delayMillis, e -> { botScheduled = false; botStep(); });
+        int wait = Math.max(delayMillis, botPause);
+        botPause = 0;
+        Timer timer = new Timer(wait, e -> { botScheduled = false; botStep(); });
         timer.setRepeats(false);
         timer.start();
     }
@@ -1134,17 +1143,18 @@ public final class GameBoardScreen extends JPanel {
                     for (int i = stuckBoxes.size() - 1; i >= 0; i--)
                         if (stuckBoxes.get(i).contains(e.getPoint())) { onStuckPieceClicked.accept(stuckIndexes.get(i)); return; }
                 }
+                @Override public void mousePressed(MouseEvent e) { hideHoverTip(); }
                 @Override public void mouseExited(MouseEvent e) {
+                    hideHoverTip();
                     if (hoveredPieceIndex != -1) {
                         hoveredPieceIndex = -1;
                         repaint();
                     }
                 }
             });
-            setToolTipText("");                              // turns on getToolTipText(MouseEvent)
-            ToolTipManager.sharedInstance().setInitialDelay(250);
             addMouseMotionListener(new MouseAdapter() {
             	@Override public void mouseMoved(MouseEvent e) {
+            	    showHoverTip(e.getPoint());   // the note follows the square under the mouse
             	    int index = pieceAt(e.getPoint());
 
             	    int nextHovered = game.isAwaitingPiece() ? index : -1;
@@ -1163,10 +1173,28 @@ public final class GameBoardScreen extends JPanel {
         // ------------------------------------------------------------ hover explanations (lecturer feedback)
         private int lastLeft, lastTop, lastCell;
 
-        /** Bonus: hovering a square explains what it does (shown as a tooltip). */
-        @Override public String getToolTipText(MouseEvent e) { return squareInfo(e.getPoint()); }
+        /** Bonus: hovering a special square explains what it does. */
+        private Popup hoverPopup;
+        private String hoverText;
 
-        @Override public Point getToolTipLocation(MouseEvent e) { return new Point(e.getX() + 16, e.getY() + 18); }
+        private void showHoverTip(Point mouse) {
+            String text = isShowing() ? squareInfo(mouse) : null;
+            if (text != null && text.equals(hoverText)) return;   // same square: keep the note as it is
+            hideHoverTip();
+            if (text == null) return;
+            hoverText = text;
+            JToolTip tip = createToolTip();
+            tip.setTipText(text);
+            Point at = new Point(mouse.x + 16, mouse.y + 18);
+            SwingUtilities.convertPointToScreen(at, this);
+            hoverPopup = PopupFactory.getSharedInstance().getPopup(this, tip, at.x, at.y);
+            hoverPopup.show();
+        }
+
+        private void hideHoverTip() {
+            hoverText = null;
+            if (hoverPopup != null) { hoverPopup.hide(); hoverPopup = null; }
+        }
 
         @Override public JToolTip createToolTip() {
             JToolTip tip = super.createToolTip();
@@ -1207,22 +1235,7 @@ public final class GameBoardScreen extends JPanel {
                         return describe(board.getRings().get(ring).get(i), ring);
                 }
             }
-            // home paths, Finish Home and the castles
-            for (PlayerColor color : PlayerColor.values()) {
-                for (int i = 0; i < 6; i++) {
-                    int[] c = homeCoordinates(color, i);
-                    if (new Rectangle(left + c[0] * cell, top + c[1] * cell, cell, cell).contains(p))
-                        return tip("Home path of " + nameOf(color),
-                                "Only " + color.getLabel() + " pieces walk here. No captures.<br>Only the step die counts; you need the exact number to reach FINISH.");
-                }
-            }
-            if (new Rectangle(left + 6 * cell, top + 6 * cell, 3 * cell, 3 * cell).contains(p))
-                return tip("FINISH HOME", "Bring all four pieces here, with the exact number, to finish.");
-            int[][] castles = {{0, 0}, {9, 0}, {9, 9}, {0, 9}};
-            PlayerColor[] owners = {PlayerColor.RED, PlayerColor.GREEN, PlayerColor.YELLOW, PlayerColor.BLUE};
-            for (int k = 0; k < 4; k++)
-                if (new Rectangle(left + castles[k][0] * cell, top + castles[k][1] * cell, 6 * cell, 6 * cell).contains(p))
-                    return tip("Castle of " + nameOf(owners[k]), "Pieces wait here. Only a 6 on the step die brings a piece out to the start square (#).");
+            // Castles, home paths and FINISH need no note: only special squares are explained.
             return null;
         }
 
