@@ -184,7 +184,8 @@ public final class Game {
         if (!awaitingPiece) {
             rollAvailable = false;
             String name = getCurrentPlayer().getName();
-            if (!currentRollIsBonus && stepDie == 6) message = name + ": no legal move, but a 6 grants another roll.";
+            if (!currentRollIsBonus && stepDie == 6) message = name + ": no legal move, but a 6 grants another roll."
+                    + (consecutiveSixes == 2 ? " (Second 6 in a row: a third 6 loses the turn.)" : "");
             else {
                 advanceTurn();
                 message = name + ": no legal move. Next player: " + getCurrentPlayer().getName();
@@ -527,7 +528,8 @@ public final class Game {
             return;
         }
         if (currentRollIsBonus || stepDie != 6) advanceTurn();
-        else message += " Rolled 6: roll again.";
+        else message += consecutiveSixes == 2 ? " Second 6 in a row: roll again (a third 6 loses the turn)."
+                                              : " Rolled 6: roll again.";
     }
 
     private void advanceTurn() {
