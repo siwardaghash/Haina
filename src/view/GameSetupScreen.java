@@ -84,6 +84,8 @@ public class GameSetupScreen extends JPanel {
     private Difficulty difficulty = Difficulty.EASY;
     private GameConfig.GameMode gameMode = GameConfig.GameMode.CLASSIC;
     private final ModeTile[] modeTiles = new ModeTile[2];
+    /** Bonus: PLAY WITH FRIENDS / PLAY VS COMPUTER. */
+    private final OpponentTile[] opponentTiles = new OpponentTile[2];
     private boolean triedToStart;
 
     private final CountTile[] countTiles = new CountTile[GameConfig.MAX_PLAYERS - GameConfig.MIN_PLAYERS + 1];
@@ -127,6 +129,10 @@ public class GameSetupScreen extends JPanel {
         modeTiles[1] = new ModeTile(GameConfig.GameMode.TEAMS_2V2, "2 VS 2 TEAMS", "4 players · Two teams share one victory", 1);
         add(modeTiles[0]);
         add(modeTiles[1]);
+        opponentTiles[0] = new OpponentTile(false, "FRIENDS", "Every player is a person", 0);
+        opponentTiles[1] = new OpponentTile(true, "COMPUTER", "Players 2-4 are bots", 1);
+        add(opponentTiles[0]);
+        add(opponentTiles[1]);
 
         backBtn = new NeonButton("Back", VIOLET, NeonButton.Glyph.BACK, null);
         backBtn.setChevron(false);
@@ -175,6 +181,7 @@ public class GameSetupScreen extends JPanel {
         for (CountTile c : countTiles) {
             c.update(dt);
         }
+        for (OpponentTile tile : opponentTiles) tile.update(dt);
         for (ModeTile tile : modeTiles) {
             tile.update(dt);
         }
@@ -327,6 +334,7 @@ public class GameSetupScreen extends JPanel {
      * On shorter windows the vertical dimensions compress proportionally.
      */
     private float layoutScale = 1f;
+    private int opponentX;
 
     private int layoutY(int baseOffset) {
         return top + Math.round(95 + (baseOffset - 95) * layoutScale);
@@ -343,12 +351,17 @@ public class GameSetupScreen extends JPanel {
         top = Math.max(4, (h - 830) / 2);
 
         // Section 01 — number of players. No mode controls in this row.
-        int tileW = Math.min(230, (cw - 2 * GAP) / 3);
+        int half = (cw - GAP) / 2;
+        int tileW = Math.min(230, (half - 2 * GAP) / 3);
         int playersRow = layoutY(118);
         for (int i = 0; i < countTiles.length; i++) {
             countTiles[i].setBounds(x0 + i * (tileW + GAP), playersRow,
                     tileW, Math.round(100 * layoutScale));
         }
+        opponentX = x0 + half + GAP;
+        int oppW = (cw - half - GAP - GAP) / 2;
+        for (int i = 0; i < opponentTiles.length; i++)
+            opponentTiles[i].setBounds(opponentX + i * (oppW + GAP), playersRow, oppW, Math.round(100 * layoutScale));
 
         // Section 02 — difficulty.
         rightX = x0;
@@ -398,6 +411,9 @@ public class GameSetupScreen extends JPanel {
         g2.setComposite(AlphaComposite.SrcOver.derive(intro(0f)));
         paintHeader(g2);
         paintSection(g2, "01", "HOW MANY PLAYERS", x0, layoutY(108));
+        g2.setFont(Theme.ui(12f, Font.BOLD));
+        g2.setColor(TEXT);
+        Theme.drawTracked(g2, "PLAY AGAINST", opponentX, layoutY(108), 2.2f);
         paintSection(g2, "02", "DIFFICULTY", x0, layoutY(240));
         paintSection(g2, "03", "CHOOSE GAME MODE", x0, layoutY(415));
         paintSection(g2, "04", "WHO'S PLAYING", x0, layoutY(551));
@@ -619,6 +635,112 @@ public class GameSetupScreen extends JPanel {
             if (active) {
                 paintCheck(g2, w - 27, 24, 10f, accent);
             }
+            g2.dispose();
+        }
+    }
+
+    /** True when at least one player is a bot. */
+    private boolean vsComputer() {
+        for (int i = 0; i < playerCount; i++) if (playerCards[i].bot) return true;
+        return false;
+    }
+
+    /** Bonus: one click makes players 2-4 bots (vs computer) or makes everyone human again. */
+    private void selectOpponents(boolean computer) {
+        for (int i = 0; i < playerCards.length; i++) {
+            PlayerCard card = playerCards[i];
+            boolean nowBot = computer && i > 0;
+            String name = card.field.getText().trim();
+            if (nowBot && name.isEmpty()) card.field.setText("Bot " + (i + 1));
+            if (!nowBot && card.bot && name.equals("Bot " + (i + 1))) card.field.setText("");
+            card.bot = nowBot;
+            card.pop = 1f;
+        }
+        refreshStatus();
+        repaint();
+    }
+
+    private final class OpponentTile extends javax.swing.JButton {
+        private static final long serialVersionUID = 1L;
+        private final boolean computer;
+        private final String heading;
+        private final String description;
+        private final float delay;
+        private boolean hovered;
+        private float hover;
+        private float selected;
+
+        OpponentTile(boolean computer, String heading, String description, int order) {
+            this.computer = computer;
+            this.heading = heading;
+            this.description = description;
+            this.delay = 0.14f + order * 0.08f;
+            setContentAreaFilled(false);
+            setBorderPainted(false);
+            setFocusPainted(false);
+            setOpaque(false);
+            setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            getAccessibleContext().setAccessibleName(heading + ": " + description);
+            setToolTipText(computer ? "Players 2-4 are played by the computer. You can still switch each player with HUMAN / BOT on its card."
+                                    : "Everyone is a person playing on this computer.");
+            addActionListener(e -> selectOpponents(computer));
+            addMouseListener(new MouseAdapter() {
+                @Override public void mouseEntered(MouseEvent e) { hovered = true; }
+                @Override public void mouseExited(MouseEvent e) { hovered = false; }
+            });
+        }
+
+        void update(float dt) {
+            hover = approach(hover, hovered ? 1f : 0f, dt, 12f);
+            selected = approach(selected, vsComputer() == computer ? 1f : 0f, dt, 12f);
+        }
+
+        @Override protected void paintComponent(Graphics g) {
+            float in = intro(delay);
+            if (in <= 0.001f) return;
+            Graphics2D g2 = (Graphics2D) g.create();
+            applyQuality(g2);
+            int w = getWidth(), h = getHeight();
+            g2.setComposite(AlphaComposite.SrcOver.derive(in));
+            g2.translate(0, (1f - in) * 16f - hover * 2f + 3f);
+            boolean active = vsComputer() == computer;
+            Color accent = computer ? GREEN : BLUE;
+            RoundRectangle2D r = new RoundRectangle2D.Float(3, 3, w - 6, h - 10, 20, 20);
+            paintCardFrame(g2, r, accent, selected, hover);
+            if (active) {
+                g2.setStroke(new BasicStroke(2.6f));
+                g2.setColor(accent);
+                g2.draw(r);
+            }
+            int cy = h / 2 - 3;
+            g2.setColor(alpha(accent, active ? 95 : 42));
+            g2.fillRoundRect(15, cy - 24, 50, 50, 14, 14);
+            if (computer) {                                   // robot head
+                g2.setColor(Color.WHITE);
+                g2.fillRoundRect(26, cy - 11, 28, 22, 8, 8);
+                g2.setStroke(new BasicStroke(2f));
+                g2.drawLine(40, cy - 11, 40, cy - 17);
+                g2.fillOval(37, cy - 21, 6, 6);
+                g2.setColor(alpha(accent, 255));
+                g2.fillOval(31, cy - 5, 6, 6);
+                g2.fillOval(43, cy - 5, 6, 6);
+                g2.fillRoundRect(33, cy + 4, 14, 3, 2, 2);
+            } else {
+                Theme.paintPawn(g2, 33, cy + 2, 8f, BLUE, 255);
+                Theme.paintPawn(g2, 47, cy + 2, 8f, RED, 255);
+            }
+            int room = w - 78 - (active ? 40 : 14);
+            float size = 17f;
+            g2.setFont(Theme.semibold(size));
+            while (size > 11f && g2.getFontMetrics().stringWidth(heading) > room) g2.setFont(Theme.semibold(size -= 1f));
+            g2.setColor(Color.WHITE);
+            g2.drawString(heading, 78, cy - 4);
+            size = 12f;
+            g2.setFont(Theme.ui(size, Font.PLAIN));
+            while (size > 9f && g2.getFontMetrics().stringWidth(description) > w - 78 - 12) g2.setFont(Theme.ui(size -= 0.5f, Font.PLAIN));
+            g2.setColor(active ? TEXT : MUTED);
+            g2.drawString(description, 78, cy + 16);
+            if (active) paintCheck(g2, w - 27, 24, 10f, accent);
             g2.dispose();
         }
     }
@@ -1053,10 +1175,10 @@ public String getToolTipText(MouseEvent e) {
 
         /** The HUMAN / BOT switch in the top-right corner (left of the team badge in team mode). */
         java.awt.geom.RoundRectangle2D botPill() {
-            int pw = 66, ph = 23;
-            float right = getWidth() - 13;
-            if (gameMode == GameConfig.GameMode.TEAMS_2V2) right -= 70;
-            return new java.awt.geom.RoundRectangle2D.Float(right - pw, 24, pw, ph, 12, 12);
+            // Bottom-right, beside the colour swatches: there is room on every card width.
+            float left = swatchCx(PlayerColor.values().length - 1) + SWATCH_R + 12;
+            float pw = Math.min(96, getWidth() - 14 - left), ph = 26;
+            return new java.awt.geom.RoundRectangle2D.Float(getWidth() - 14 - pw, swatchCy() - ph / 2, pw, ph, 13, 13);
         }
 
         void syncActive() {
@@ -1178,11 +1300,12 @@ public String getToolTipText(MouseEvent e) {
                 g2.setStroke(new BasicStroke(1.4f));
                 g2.setColor(alpha(bot ? acc : MUTED, 220));
                 g2.draw(pill);
-                g2.setFont(Theme.semibold(10f));
+                g2.setFont(Theme.semibold(11f));
                 String who = bot ? "BOT" : "HUMAN";
                 FontMetrics pf = g2.getFontMetrics();
+                if (pill.getWidth() >= pf.stringWidth(who + "  \u21C4") + 16) who += "  \u21C4";   // switch arrows when there is room
                 g2.setColor(TEXT);
-                g2.drawString(who, (float) (pill.getCenterX() - pf.stringWidth(who) / 2.0), (float) (pill.getY() + 16));
+                g2.drawString(who, (float) (pill.getCenterX() - pf.stringWidth(who) / 2.0), (float) (pill.getCenterY() + (pf.getAscent() - pf.getDescent()) / 2.0));
                 g2.setFont(Theme.display(22f));
                 g2.setColor(acc);
                 g2.drawString(color.getLabel().toUpperCase(), 92, 67);
