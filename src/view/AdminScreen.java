@@ -20,6 +20,10 @@ public final class AdminScreen extends NeonScreen {
     private final JTextField search = new JTextField(18);
     private final JPanel filterRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
 
+    /** Shows the list, or the "no questions" message when the list is empty. */
+    private final JPanel listCards = new JPanel(new CardLayout());
+    private boolean bankEmpty;
+
     public AdminScreen(AdminController controller, Runnable back) {
         this.controller=controller;
         this.back=back;
@@ -355,7 +359,10 @@ public final class AdminScreen extends NeonScreen {
         JPanel middle = new JPanel(new BorderLayout(0, 10));
         middle.setOpaque(false);
         middle.add(toolbar, BorderLayout.NORTH);
-        middle.add(scrollPane, BorderLayout.CENTER);
+        listCards.setOpaque(false);
+        listCards.add(scrollPane, "list");
+        listCards.add(emptyState(), "empty");
+        middle.add(listCards, BorderLayout.CENTER);
         add(middle, BorderLayout.CENTER);
 
         NeonButton add = new NeonButton("ADD QUESTION", Theme.GREEN, NeonButton.Glyph.PLUS, null);
@@ -381,11 +388,56 @@ public final class AdminScreen extends NeonScreen {
         revalidate();
         repaint();
     }
+    /** Big glowing message shown when no question matches the filter or the search. */
+    private JComponent emptyState() {
+        JComponent empty = new JComponent() {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                Theme.applyQuality(g2);
+                int w = getWidth();
+                int h = getHeight();
+                float cx = w / 2f;
+                float cy = h / 2f - 40;
+
+                // dashed neon frame around the empty area
+                g2.setColor(Theme.alpha(LAVENDER, 90));
+                g2.setStroke(new BasicStroke(1.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND,
+                        10f, new float[]{8f, 8f}, 0f));
+                g2.drawRoundRect(6, 6, w - 12, h - 12, 24, 24);
+
+                // glowing magnifying glass
+                Theme.glow(g2, cx, cy, 70, LAVENDER, 70);
+                g2.setColor(LAVENDER);
+                g2.setStroke(new BasicStroke(4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                g2.draw(new java.awt.geom.Ellipse2D.Float(cx - 24, cy - 26, 40, 40));
+                g2.draw(new java.awt.geom.Line2D.Float(cx + 10, cy + 8, cx + 26, cy + 24));
+
+                String title = bankEmpty ? "NO QUESTIONS YET" : "NO QUESTIONS MATCH";
+                String hint = bankEmpty ? "Click ADD QUESTION to create the first one"
+                        : "Try another difficulty or clear the search";
+                g2.setFont(Theme.display(26f));
+                float tw = Theme.trackedWidth(g2, title, 3);
+                g2.setColor(Theme.TEXT);
+                Theme.drawTracked(g2, title, cx - tw / 2f, cy + 70, 3);
+                g2.setFont(Theme.ui(15f, Font.PLAIN));
+                g2.setColor(Theme.MUTED);
+                FontMetrics fm = g2.getFontMetrics();
+                g2.drawString(hint, cx - fm.stringWidth(hint) / 2f, cy + 100);
+                g2.dispose();
+            }
+        };
+        empty.setOpaque(false);
+        return empty;
+    }
 
     /** Refills the list from the question bank, using the active filter and the search text. */
     private void refresh() {
         java.util.List<Question> all = controller.questions();
         String text = search.getText().trim().toLowerCase();
+        bankEmpty = all.isEmpty();
         listModel.clear();
         int easy = 0, medium = 0, hard = 0;
         for (Question q : all) {
@@ -403,6 +455,9 @@ public final class AdminScreen extends NeonScreen {
         filterRow.add(filterChip("hard", "HARD", hard, Theme.RED));
         filterRow.revalidate();
         filterRow.repaint();
+        ((CardLayout) listCards.getLayout()).show(listCards, listModel.isEmpty() ? "empty" : "list");
+        listCards.repaint();
+        
     }
     /** A label with its input underneath, added to the form. */
     private static void addFormRow(JPanel form, String label, JComponent input) {
