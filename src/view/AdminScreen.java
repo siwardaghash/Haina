@@ -8,7 +8,7 @@ import model.Question;
 
 /** Login-protected local question editor. */
 public final class AdminScreen extends NeonScreen {
-    private static final Color BG = new Color(12,21,46), TEXT = new Color(239,243,255);
+  
     private static final Color LAVENDER = new Color(198, 166, 255);
     private final Runnable back;
     private final AdminController controller;
@@ -404,181 +404,204 @@ public final class AdminScreen extends NeonScreen {
         filterRow.revalidate();
         filterRow.repaint();
     }
+    /** A label with its input underneath, added to the form. */
+    private static void addFormRow(JPanel form, String label, JComponent input) {
+        JLabel l = fieldLabel(label);
+        l.setAlignmentX(Component.LEFT_ALIGNMENT);
+        input.setAlignmentX(Component.LEFT_ALIGNMENT);
+        input.setMaximumSize(new Dimension(Integer.MAX_VALUE, input.getPreferredSize().height));
+        form.add(Box.createVerticalStrut(12));
+        form.add(l);
+        form.add(Box.createVerticalStrut(6));
+        form.add(input);
+    }
 
+    /** Row of pills that works like the combo box: clicking a pill selects that item. */
+    private static JPanel pillGroup(JComboBox<String> combo, String[] labels, Color[] colors) {
+        JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+        row.setOpaque(false);
+        for (int i = 0; i < labels.length; i++) {
+            int index = i;
+            Color accent = colors[i];
+            JButton pill = new JButton(labels[i]) {
+                private static final long serialVersionUID = 1L;
+
+                @Override
+                protected void paintComponent(Graphics g) {
+                    Graphics2D g2 = (Graphics2D) g.create();
+                    Theme.applyQuality(g2);
+                    boolean on = combo.getSelectedIndex() == index;
+                    int w = getWidth();
+                    int h = getHeight();
+                    g2.setColor(Theme.alpha(accent, on ? 120 : 25));
+                    g2.fillRoundRect(1, 1, w - 2, h - 2, h, h);
+                    g2.setColor(Theme.alpha(accent, on ? 255 : 140));
+                    g2.setStroke(new BasicStroke(on ? 2f : 1.3f));
+                    g2.drawRoundRect(1, 1, w - 3, h - 3, h, h);
+                    g2.setFont(getFont());
+                    FontMetrics fm = g2.getFontMetrics();
+                    g2.setColor(on ? Color.WHITE : accent);
+                    g2.drawString(getText(), (w - fm.stringWidth(getText())) / 2f,
+                            (h + fm.getAscent() - fm.getDescent()) / 2f);
+                    g2.dispose();
+                }
+            };
+            pill.setFont(Theme.semibold(13f));
+            pill.setBorder(BorderFactory.createEmptyBorder(8, 22, 8, 22));
+            pill.setContentAreaFilled(false);
+            pill.setFocusable(false);
+            pill.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            pill.addActionListener(e -> { combo.setSelectedIndex(index); row.repaint(); });
+            row.add(pill);
+        }
+        return row;
+    }
+    /** One answer: a round "correct" toggle followed by the answer field. */
+    private static JPanel answerRow(int index, JTextField field, JComboBox<Integer> correct) {
+        JPanel row = new JPanel(new BorderLayout(10, 0));
+        row.setOpaque(false);
+        row.setAlignmentX(Component.LEFT_ALIGNMENT);
+        JButton mark = new JButton() {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                Theme.applyQuality(g2);
+                boolean on = correct.getSelectedIndex() == index;
+                float cx = getWidth() / 2f;
+                float cy = getHeight() / 2f;
+                if (on) Theme.glow(g2, cx, cy, 24, Theme.GREEN, 90);
+                g2.setColor(on ? Theme.GREEN : Theme.alpha(Theme.MUTED, 160));
+                g2.setStroke(new BasicStroke(2f));
+                g2.draw(new java.awt.geom.Ellipse2D.Float(cx - 13, cy - 13, 26, 26));
+                if (on) {
+                    g2.fill(new java.awt.geom.Ellipse2D.Float(cx - 13, cy - 13, 26, 26));
+                    g2.setColor(new Color(12, 30, 26));
+                    g2.setStroke(new BasicStroke(2.6f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                    java.awt.geom.Path2D tick = new java.awt.geom.Path2D.Float();
+                    tick.moveTo(cx - 6, cy);
+                    tick.lineTo(cx - 1.5f, cy + 5);
+                    tick.lineTo(cx + 7, cy - 5);
+                    g2.draw(tick);
+                } else {
+                    g2.setFont(Theme.semibold(13f));
+                    FontMetrics fm = g2.getFontMetrics();
+                    String n = String.valueOf(index + 1);
+                    g2.drawString(n, cx - fm.stringWidth(n) / 2f, cy + (fm.getAscent() - fm.getDescent()) / 2f);
+                }
+                g2.dispose();
+            }
+        };
+        mark.setPreferredSize(new Dimension(40, 40));
+        mark.setContentAreaFilled(false);
+        mark.setBorderPainted(false);
+        mark.setFocusable(false);
+        mark.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        mark.addActionListener(e -> {
+            correct.setSelectedIndex(index);
+            row.getParent().repaint();
+        });
+        row.add(mark, BorderLayout.WEST);
+        row.add(field, BorderLayout.CENTER);
+        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, Math.max(42, field.getPreferredSize().height)));
+        return row;
+    }
     private void editQuestion(Question existing) {
-        JTextField id=new JTextField(existing==null?"":existing.getId(),22);
-        JTextArea prompt=new JTextArea(existing==null?"":existing.getText(),3,32);
-        prompt.setLineWrap(true);prompt.setWrapStyleWord(true);
-        JComboBox<String> level=new JComboBox<>(new String[]{"easy","medium","hard"});
-        if(existing!=null)level.setSelectedItem(existing.getLevel());
-        JTextField[] answers=new JTextField[4];
+        JTextField id = new JTextField(existing == null ? "" : existing.getId(), 22);
+        JTextArea prompt = new JTextArea(existing == null ? "" : existing.getText(), 3, 32);
+        prompt.setLineWrap(true); prompt.setWrapStyleWord(true);
+        JComboBox<String> level = new JComboBox<>(new String[]{"easy", "medium", "hard"});
+        if (existing != null) level.setSelectedItem(existing.getLevel());
+        JComboBox<Integer> correct = new JComboBox<>(new Integer[]{1, 2, 3, 4});
+        if (existing != null) correct.setSelectedItem(existing.getCorrectNumber());
+        JTextField[] answers = new JTextField[4];
+
         JPanel panel = new JPanel();
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-        panel.setAlignmentX(Component.LEFT_ALIGNMENT);
-        panel.setBorder(BorderFactory.createEmptyBorder(15, 20, 15, 20));
-        panel.setBackground(new Color(25, 28, 60));
-        panel.setBorder(
-            BorderFactory.createEmptyBorder(20, 25, 20, 25)
-        );
-        id.setAlignmentX(Component.LEFT_ALIGNMENT);
-        level.setAlignmentX(Component.LEFT_ALIGNMENT);
-        panel.add(formLabel("Question ID (unique):"));
-        panel.add(Box.createVerticalStrut(6));
-        panel.add(id);
-        panel.add(formLabel("Difficulty:"));
-        panel.add(level);
+        panel.setOpaque(false);
+        panel.setBorder(BorderFactory.createEmptyBorder(6, 6, 6, 14));
 
-        panel.add(formLabel("Question:"));
-        JScrollPane promptScroll = new JScrollPane(prompt);
-        promptScroll.setAlignmentX(Component.LEFT_ALIGNMENT);
-        panel.add(promptScroll);
-        for (int i=0;i<4;i++) {
-            answers[i]=new JTextField(existing==null?"":existing.getAnswers()[i],22);
-            answers[i].setAlignmentX(Component.LEFT_ALIGNMENT);
-            panel.add(formLabel("Answer " + (i + 1) + ":"));
-            panel.add(answers[i]);
+        Theme.styleNeonField(id, LAVENDER);
+        Theme.styleNeonField(prompt, LAVENDER);
+        addFormRow(panel, "QUESTION ID", id);
+        addFormRow(panel, "DIFFICULTY", pillGroup(level, new String[]{"EASY", "MEDIUM", "HARD"},
+                new Color[]{Theme.GREEN, Theme.YELLOW, Theme.RED}));
+        addFormRow(panel, "QUESTION", prompt);
+
+        panel.add(Box.createVerticalStrut(12));
+        JLabel answersLabel = fieldLabel("ANSWERS  ·  click the circle of the correct one");
+        answersLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        panel.add(answersLabel);
+        for (int i = 0; i < 4; i++) {
+            answers[i] = new JTextField(existing == null ? "" : existing.getAnswers()[i], 22);
+            Theme.styleNeonField(answers[i], LAVENDER);
+            panel.add(Box.createVerticalStrut(8));
+            panel.add(answerRow(i, answers[i], correct));
         }
-        JComboBox<Integer> correct=new JComboBox<>(new Integer[]{1,2,3,4});
-        if(existing!=null)correct.setSelectedItem(existing.getCorrectNumber());
-        panel.add(formLabel("Correct answer number:"));
-        correct.setAlignmentX(Component.LEFT_ALIGNMENT);
-        panel.add(correct);
 
-		styleInput(id);
-		styleInput(prompt);
-		
-		for (JTextField answer : answers) {
-		    styleInput(answer);
-		}
-		
-		Color fieldBG = new Color(32, 36, 76);
-		Color fieldText = new Color(240, 235, 255);
-		
-		level.setBackground(fieldBG);
-		level.setForeground(fieldText);
-		correct.setBackground(fieldBG);
-		correct.setForeground(fieldText);
-		
-		level.setFont(new Font("SansSerif", Font.PLAIN, 15));
-		correct.setFont(new Font("SansSerif", Font.PLAIN, 15));
-
-        // Limit the content height so the lower fields and dialog buttons remain accessible.
         JScrollPane formScroll = new JScrollPane(panel,
-            JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
-            JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+                JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED, JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        formScroll.setOpaque(false);
+        formScroll.getViewport().setOpaque(false);
         formScroll.setBorder(BorderFactory.createEmptyBorder());
         formScroll.getVerticalScrollBar().setUnitIncrement(16);
-        int screenHeight = GraphicsEnvironment.getLocalGraphicsEnvironment()
-            .getMaximumWindowBounds().height;
-        formScroll.setPreferredSize(new Dimension(480, Math.min(490, Math.max(240, screenHeight - 230))));
-        int result = showQuestionDialog(
-        	    formScroll,
-        	    existing == null ? "ADD QUESTION" : "EDIT QUESTION"
-        	);
-        if(result!=JOptionPane.OK_OPTION)return;
-        String[] values=new String[4];for(int i=0;i<4;i++)values[i]=answers[i].getText().trim();
-        Question entry=new Question(id.getText().trim(),(String)level.getSelectedItem(),prompt.getText().trim(),values,(Integer)correct.getSelectedItem()-1);
+        Theme.neonScrollBar(formScroll, LAVENDER);
+
+        int result = showQuestionDialog(formScroll, existing == null ? "ADD QUESTION" : "EDIT QUESTION");
+        if (result != JOptionPane.OK_OPTION) return;
+        String[] values = new String[4];
+        for (int i = 0; i < 4; i++) values[i] = answers[i].getText().trim();
+        Question entry = new Question(id.getText().trim(), (String) level.getSelectedItem(),
+                prompt.getText().trim(), values, (Integer) correct.getSelectedItem() - 1);
         try {
-            if(existing==null)controller.add(entry);else controller.update(existing.getId(),entry);
+            if (existing == null) controller.add(entry); else controller.update(existing.getId(), entry);
             refresh();
-        } catch(Exception ex) { Theme.neonMessage(this, "Cannot save", ex.getMessage(), Theme.RED); }
+        } catch (Exception ex) { Theme.neonMessage(this, "Cannot save", ex.getMessage(), Theme.RED); }
+    }
+    private int showQuestionDialog(JScrollPane formScroll, String titleText) {
+        JDialog dialog = new JDialog(SwingUtilities.getWindowAncestor(this), titleText,
+                Dialog.ModalityType.APPLICATION_MODAL);
+        dialog.setUndecorated(true);
+        Theme.transparentCorners(dialog);
+        dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
+
+        JPanel container = neonCard(new BorderLayout(0, 10), LAVENDER);
+        container.setBorder(BorderFactory.createEmptyBorder(20, 30, 22, 30));
+        JPanel titleRow = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
+        titleRow.setOpaque(false);
+        titleRow.add(Theme.neonHeading(titleText, LAVENDER, 28f));
+        container.add(titleRow, BorderLayout.NORTH);
+        container.add(formScroll, BorderLayout.CENTER);
+
+        NeonButton cancel = new NeonButton("CANCEL", Theme.VIOLET, NeonButton.Glyph.BACK, null);
+        NeonButton save = new NeonButton("SAVE QUESTION", Theme.GREEN, NeonButton.Glyph.PLUS, null);
+        final int[] result = {JOptionPane.CANCEL_OPTION};
+        for (NeonButton button : new NeonButton[]{cancel, save}) {
+            button.setChevron(false);
+            button.setFocusable(false);
+            button.setPreferredSize(new Dimension(260, 68));
         }
+        cancel.addActionListener(e -> dialog.dispose());
+        save.addActionListener(e -> {
+            result[0] = JOptionPane.OK_OPTION;
+            dialog.dispose();
+        });
+        JPanel buttons = new JPanel(new FlowLayout(FlowLayout.CENTER, 14, 0));
+        buttons.setOpaque(false);
+        buttons.add(cancel);
+        buttons.add(save);
+        container.add(buttons, BorderLayout.SOUTH);
 
-	private int showQuestionDialog(JScrollPane formScroll, String titleText) {
-	    JDialog dialog = new JDialog(
-	        SwingUtilities.getWindowAncestor(this),
-	        titleText,
-	        Dialog.ModalityType.APPLICATION_MODAL
-	    );
-	
-	    dialog.setUndecorated(true);
-	    dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
-	
-	    Color navy = new Color(17, 31, 62);
-	    Color green = new Color(83, 204, 146);
-	
-		JPanel container = new JPanel(new BorderLayout(0, 16)) {
-		    @Override
-		    protected void paintComponent(Graphics g) {
-		        Graphics2D g2 = (Graphics2D) g.create();
-		        Theme.applyQuality(g2);
-		
-		        int w = getWidth();
-		        int h = getHeight();
-		
-		        g2.setPaint(new GradientPaint(
-		            0, 0, new Color(42, 32, 82),
-		            w, h, new Color(18, 35, 69)
-		        ));
-		
-		        g2.fillRoundRect(3, 3, w - 6, h - 6, 26, 26);
-		
-		        g2.setColor(new Color(174, 139, 245));
-		        g2.setStroke(new BasicStroke(2f));
-		        g2.drawRoundRect(3, 3, w - 6, h - 6, 26, 26);
-		
-		        g2.dispose();
-		    }
-		};
-		
-		container.setOpaque(false);
-		container.setBorder(
-		    BorderFactory.createEmptyBorder(24, 28, 24, 28)
-		);
-
-	    JLabel title = new JLabel(titleText, SwingConstants.CENTER);
-	    title.setFont(new Font("SansSerif", Font.BOLD, 24));
-	    title.setForeground(new Color(196, 166, 255));
-	    container.add(title, BorderLayout.NORTH);
-	
-	    formScroll.getViewport().setBackground(navy);
-	    formScroll.setBorder(BorderFactory.createEmptyBorder());
-	    container.add(formScroll, BorderLayout.CENTER);
-	
-	    JPanel buttons = new JPanel(new GridLayout(1, 2, 15, 0));
-	    buttons.setOpaque(false);
-
-		JButton cancel = new GlowActionButton(
-		    "CANCEL",
-		    new Color(145, 197, 255)
-		);
-		
-		JButton save = new GlowActionButton(
-		    "SAVE QUESTION",
-		    new Color(86, 232, 201)
-		);
-		
-		cancel.setPreferredSize(new Dimension(170, 52));
-		save.setPreferredSize(new Dimension(190, 52));
-
-
-	    final int[] result = {JOptionPane.CANCEL_OPTION};
-	
-	    cancel.addActionListener(e -> dialog.dispose());
-	
-	    save.addActionListener(e -> {
-	        result[0] = JOptionPane.OK_OPTION;
-	        dialog.dispose();
-	    });
-	
-	    buttons.add(cancel);
-	    buttons.add(save);
-	    container.add(buttons, BorderLayout.SOUTH);
-	
-	    dialog.setContentPane(container);
-	
-	    int screenHeight = GraphicsEnvironment
-	        .getLocalGraphicsEnvironment()
-	        .getMaximumWindowBounds().height;
-	
-	    dialog.setSize(580, Math.min(680, screenHeight - 80));
-	    dialog.setLocationRelativeTo(this);
-	    dialog.getRootPane().setDefaultButton(save);
-	
-	    dialog.setVisible(true);
-	
-	    return result[0];
-	}
+        dialog.getRootPane().registerKeyboardAction(e -> dialog.dispose(),
+                KeyStroke.getKeyStroke("ESCAPE"), JComponent.WHEN_IN_FOCUSED_WINDOW);
+        dialog.setContentPane(container);
+        int screenHeight = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds().height;
+        dialog.setSize(620, Math.min(720, screenHeight - 60));
+        dialog.setLocationRelativeTo(this);
+        dialog.setVisible(true);
+        return result[0];
+    }
 
     private void deleteQuestion() {
         Question selected=list.getSelectedValue();if(selected==null)return;
@@ -588,122 +611,5 @@ public final class AdminScreen extends NeonScreen {
                 catch(Exception ex) { Theme.neonMessage(this, "Cannot delete", ex.getMessage(), Theme.RED); }
                 }
 
-	private static class GlowActionButton extends JButton {
 	
-	    private final Color accent;
-	    private boolean hovering = false;
-	
-	    GlowActionButton(String text, Color accent) {
-	        super(text);
-	        this.accent = accent;
-	
-	        setFont(new Font("SansSerif", Font.BOLD, 14));
-	        setForeground(Color.WHITE);
-	        setFocusPainted(false);
-	        setContentAreaFilled(false);
-	        setOpaque(false);
-	        setBorder(BorderFactory.createEmptyBorder(12, 18, 12, 18));
-	        setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-	
-	        addMouseListener(new java.awt.event.MouseAdapter() {
-	            @Override
-	            public void mouseEntered(java.awt.event.MouseEvent e) {
-	                hovering = true;
-	                repaint();
-	            }
-	
-	            @Override
-	            public void mouseExited(java.awt.event.MouseEvent e) {
-	                hovering = false;
-	                repaint();
-	            }
-	        });
-	    }
-	
-	    @Override
-	    protected void paintComponent(Graphics g) {
-	        Graphics2D g2 = (Graphics2D) g.create();
-	        Theme.applyQuality(g2);
-	
-	        int w = getWidth();
-	        int h = getHeight();
-	
-	        g2.setPaint(new GradientPaint(
-	            0, 0, hovering
-	                ? accent.darker()
-	                : new Color(39, 33, 79),
-	            w, h, new Color(18, 32, 66)
-	        ));
-	        g2.fillRoundRect(3, 3, w - 6, h - 6, 20, 20);
-	
-	        g2.setColor(accent);
-	        g2.setStroke(new BasicStroke(hovering ? 2.5f : 1.3f));
-	        g2.drawRoundRect(3, 3, w - 6, h - 6, 20, 20);
-	
-	        g2.dispose();
-	        super.paintComponent(g);
-	    }
-	}
-
-    private void styleAdminButton(JButton button, Color bg, Color fg) {
-        button.setFont(new Font("SansSerif", Font.BOLD, 15));
-        button.setBackground(bg);
-        button.setForeground(fg);
-        button.setFocusPainted(false);
-        button.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        button.setPreferredSize(new Dimension(170, 42));
-        button.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(bg.brighter(), 1),
-            BorderFactory.createEmptyBorder(10, 16, 10, 16)
-        ));
-        Theme.solidButton(button);
-    }
-
-		private void styleInput(
-		        javax.swing.text.JTextComponent field) {
-		
-		    field.setBackground(new Color(32, 36, 76));
-		    field.setForeground(new Color(240, 235, 255));
-		    field.setCaretColor(new Color(196, 166, 255));
-		    field.setSelectionColor(new Color(100, 75, 160));
-		
-		    field.setFont(new Font("SansSerif", Font.PLAIN, 15));
-		
-		    field.setBorder(BorderFactory.createCompoundBorder(
-		        BorderFactory.createLineBorder(
-		            new Color(110, 92, 165), 1, true
-		        ),
-		        BorderFactory.createEmptyBorder(8, 12, 8, 12)
-		    ));
-		
-		    field.addFocusListener(new java.awt.event.FocusAdapter() {
-		        @Override
-		        public void focusGained(java.awt.event.FocusEvent e) {
-		            field.setBorder(BorderFactory.createCompoundBorder(
-		                BorderFactory.createLineBorder(
-		                    new Color(196, 166, 255), 2, true
-		                ),
-		                BorderFactory.createEmptyBorder(7, 11, 7, 11)
-		            ));
-		        }
-		
-		        @Override
-		        public void focusLost(java.awt.event.FocusEvent e) {
-		            field.setBorder(BorderFactory.createCompoundBorder(
-		                BorderFactory.createLineBorder(
-		                    new Color(110, 92, 165), 1, true
-		                ),
-		                BorderFactory.createEmptyBorder(8, 12, 8, 12)
-		            ));
-		        }
-		    });
-		}
-
-    private JLabel formLabel(String text) {
-        JLabel label = new JLabel(text);
-        label.setForeground(new Color(235, 242, 255));
-        label.setFont(new Font("SansSerif", Font.BOLD, 13));
-        label.setAlignmentX(Component.LEFT_ALIGNMENT);
-        return label;
-    }
 }
