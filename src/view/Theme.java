@@ -452,7 +452,7 @@ public final class Theme {
                 choice[0] = index;
                 dialog.dispose();
             });
-            row.add(button);
+            row.add(button, 0);   
         }
         panel.add(row, java.awt.BorderLayout.SOUTH);
 
