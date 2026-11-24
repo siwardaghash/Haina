@@ -6,10 +6,8 @@ import model.Game;
 import model.GameConfig;
 
 /** End screen for a 2-vs-2 match; intentionally separate from the classic rankings/history. */
-public final class TeamEndGameScreen extends JPanel {
+public final class TeamEndGameScreen extends NeonScreen {
     private static final long serialVersionUID = 1L;
-    private float animationTime;
-    private final Timer timer = new Timer(60, e -> { animationTime += .04f; repaint(); });
 
     public TeamEndGameScreen(Game game, Runnable back, Runnable rematch) {
         if (!game.isTeamMode() || !game.isGameOver())
@@ -77,12 +75,5 @@ public final class TeamEndGameScreen extends JPanel {
         return String.format("%02d:%02d:%02d", sec / 3600, sec / 60 % 60, sec % 60);
     }
 
-    @Override public void addNotify() { super.addNotify(); timer.start(); }
-    @Override public void removeNotify() { timer.stop(); super.removeNotify(); }
-    @Override protected void paintComponent(Graphics graphics) {
-        super.paintComponent(graphics);
-        Graphics2D g = (Graphics2D) graphics.create();
-        Theme.paintBackdrop(g, getWidth(), getHeight(), animationTime);
-        g.dispose();
-    }
+    
 }

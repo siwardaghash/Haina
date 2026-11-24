@@ -6,49 +6,20 @@ import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 
 /** Game rules for players, as specified in the SRS (FR-6 to FR-30). */
-public class HowToPlayScreen extends JPanel {
+public class HowToPlayScreen extends NeonScreen  {
 
     private static final long serialVersionUID = 1L;
 
-	private float animationTime = 0f;
+	
 
 	/** When the screen appeared; the cards slide in one after another from this moment. */
 	private long introStart = System.currentTimeMillis();
 	
-	private final Timer backgroundTimer = new Timer(40, e -> {
-	    animationTime += 0.04f;
-	    repaint();
-	});
-	
-	@Override
-	public void addNotify() {
-	    super.addNotify();
-	    introStart = System.currentTimeMillis();
-	    backgroundTimer.start();
-	}
-	
-	@Override
-	public void removeNotify() {
-	    backgroundTimer.stop();
-	    super.removeNotify();
-	}
-	
-	@Override
-	protected void paintComponent(Graphics g) {
-	    super.paintComponent(g);
-	
-	    Graphics2D g2 = (Graphics2D) g.create();
-	    Theme.applyQuality(g2);
-	
-	    Theme.paintBackdrop(
-	        g2,
-	        getWidth(),
-	        getHeight(),
-	        animationTime
-	    );
-	
-	    g2.dispose();
-	}
+    /** Hook: restart the card animation every time the screen is shown. */
+    @Override
+    protected void onShown() {
+        introStart = System.currentTimeMillis();
+    }
 
     private static final Color BG = new Color(15, 25, 52);
     private static final Color CARD = new Color(24, 39, 73);
@@ -59,6 +30,7 @@ public class HowToPlayScreen extends JPanel {
     private final java.util.List<Color> cardAccents = new java.util.ArrayList<>();
 
     public HowToPlayScreen(Runnable onBack) {
+        super(40, 0.04f);   
         setLayout(new BorderLayout());
         setBackground(BG);
 

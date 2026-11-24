@@ -7,37 +7,7 @@ import controller.AdminController;
 import model.Question;
 
 /** Login-protected local question editor. */
-public final class AdminScreen extends JPanel {
-	private float animationTime = 0f;
-	private final Timer backgroundTimer = new Timer(60, e -> {
-	    animationTime += 0.04f;
-	    repaint();
-	});
-	
-	@Override
-	public void addNotify() {
-	    super.addNotify();
-	    backgroundTimer.start();
-	}
-	
-	@Override
-	public void removeNotify() {
-	    backgroundTimer.stop();
-	    super.removeNotify();
-	}
-	
-	@Override
-	protected void paintComponent(Graphics g) {
-	    super.paintComponent(g);
-	
-	    Graphics2D g2 = (Graphics2D) g.create();
-	    Theme.applyQuality(g2);
-	    Theme.paintBackdrop(
-	        g2, getWidth(), getHeight(), animationTime
-	    );
-	    g2.dispose();
-	}
-
+public final class AdminScreen extends NeonScreen {
     private static final Color BG = new Color(12,21,46), TEXT = new Color(239,243,255);
     private static final Color LAVENDER = new Color(198, 166, 255);
     private final Runnable back;

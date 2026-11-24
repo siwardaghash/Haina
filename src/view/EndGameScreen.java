@@ -5,44 +5,18 @@ import java.awt.*;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import model.PlayerColor;
-public class EndGameScreen extends JPanel {
+public class EndGameScreen extends NeonScreen {
 
     private static final long serialVersionUID = 1L;
-	private float animationTime = 0f;
-	private final Timer backgroundTimer = new Timer(30, e -> {
-	    animationTime += 0.03f;
-	    repaint();
-	});
 
 	/** Confetti pieces: x (0–1), start y, fall speed, size, sway phase, colour index. */
 	private final float[][] confetti = createConfetti(110);
 	
-	@Override
-	public void addNotify() {
-	    super.addNotify();
-	    backgroundTimer.start();
-	}
-	
-	@Override
-	public void removeNotify() {
-	    backgroundTimer.stop();
-	    super.removeNotify();
-	}
-	
-	@Override
-	protected void paintComponent(Graphics g) {
-	    super.paintComponent(g);
-	
-	    Graphics2D g2 = (Graphics2D) g.create();
-	    Theme.applyQuality(g2);
-	
-	    Theme.paintBackdrop(
-	        g2, getWidth(), getHeight(), animationTime
-	    ); 	    paintConfetti(g2);
-	    
-	
-	    g2.dispose();
-	}
+    /** Hook: falling confetti on top of the backdrop. */
+    @Override
+    protected void paintExtras(Graphics2D g2) {
+        paintConfetti(g2);
+    }
   
     private static final Color MUTED = new Color(175, 190, 215);
     private static final Color GOLD = new Color(255, 210, 107);
@@ -52,6 +26,7 @@ public class EndGameScreen extends JPanel {
     }
 
     public EndGameScreen(String results, Runnable onBack, Runnable onRematch) {
+        super(30, 0.03f);   
         setLayout(new BorderLayout(0, 10));
         setOpaque(false);
         setBorder(new EmptyBorder(20, 50, 28, 50));
