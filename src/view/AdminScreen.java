@@ -672,7 +672,8 @@ public final class AdminScreen extends NeonScreen {
         formScroll.getVerticalScrollBar().setUnitIncrement(16);
         Theme.neonScrollBar(formScroll, LAVENDER);
 
-        int result = showQuestionDialog(formScroll, existing == null ? "ADD QUESTION" : "EDIT QUESTION");
+        int result = showQuestionDialog(formScroll, existing == null ? "ADD QUESTION" : "EDIT QUESTION",
+                () -> checkFields(id, prompt, answers[0], answers[1], answers[2], answers[3]));
         if (result != JOptionPane.OK_OPTION) return;
         String[] values = new String[4];
         for (int i = 0; i < 4; i++) values[i] = answers[i].getText().trim();
@@ -685,7 +686,40 @@ public final class AdminScreen extends NeonScreen {
                     : "Changes to " + entry.getId() + " saved", true);
         } catch (Exception ex) { Theme.neonMessage(this, "Cannot save", ex.getMessage(), Theme.RED); }
     }
-    private int showQuestionDialog(JScrollPane formScroll, String titleText) {
+    /** Paints empty fields red and returns true only when every field has text. */
+    private static boolean checkFields(javax.swing.text.JTextComponent... fields) {
+        boolean ok = true;
+        for (javax.swing.text.JTextComponent field : fields) {
+            boolean empty = field.getText().trim().isEmpty();
+            Theme.styleNeonField(field, empty ? Theme.RED : LAVENDER);
+            field.repaint();
+            if (empty && ok) field.requestFocusInWindow();   // jump to the first empty field
+            if (empty) ok = false;
+        }
+        return ok;
+    }
+
+    /** Quick left-right wiggle of the popup, like a wrong password. */
+    private static void shake(JDialog dialog) {
+        if (dialog.getRootPane().getClientProperty("shaking") != null) return;
+        dialog.getRootPane().putClientProperty("shaking", true);
+        Point start = dialog.getLocation();
+        int[] step = {0};
+        Timer timer = new Timer(25, null);
+        timer.addActionListener(e -> {
+            step[0]++;
+            int dx = (int) (Math.sin(step[0] * 1.8) * 12 * (1 - step[0] / 14.0));
+            dialog.setLocation(start.x + dx, start.y);
+            if (step[0] >= 14) {
+                dialog.setLocation(start);
+                dialog.getRootPane().putClientProperty("shaking", null);
+                timer.stop();
+            }
+        });
+        timer.start();
+    }
+    private int showQuestionDialog(JScrollPane formScroll, String titleText,
+            java.util.function.BooleanSupplier check) {
         JDialog dialog = new JDialog(SwingUtilities.getWindowAncestor(this), titleText,
                 Dialog.ModalityType.APPLICATION_MODAL);
         dialog.setUndecorated(true);
@@ -710,6 +744,7 @@ public final class AdminScreen extends NeonScreen {
         }
         cancel.addActionListener(e -> dialog.dispose());
         save.addActionListener(e -> {
+            if (!check.getAsBoolean()) { shake(dialog); return; }
             result[0] = JOptionPane.OK_OPTION;
             dialog.dispose();
         });
