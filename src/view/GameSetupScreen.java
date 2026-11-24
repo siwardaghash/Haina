@@ -63,7 +63,7 @@ import model.GameConfig;
 import model.PlayerColor;
 
 
-public class GameSetupScreen extends JPanel {
+public class GameSetupScreen extends NeonScreen  {
 
     private static final long serialVersionUID = 1L;
 
@@ -76,7 +76,7 @@ public class GameSetupScreen extends JPanel {
     private static final Color[] DIFFICULTY_ACCENTS = {GREEN, YELLOW, RED};
 
     private final Listener listener;
-    private final Timer ticker;
+  
     private long lastNanos;
     private float t;
 
@@ -104,6 +104,7 @@ public class GameSetupScreen extends JPanel {
     private int rightX;
 
     public GameSetupScreen(Listener listener) {
+        super(16, 0f);                     // ~60 FPS; this screen keeps its own clock t (seconds)
         this.listener = listener;
         setLayout(null);
         setOpaque(true);
@@ -156,24 +157,19 @@ public class GameSetupScreen extends JPanel {
         });
 
         setPlayerCount(GameConfig.MIN_PLAYERS);
-        ticker = new Timer(16, e -> tick());
+      
     }
 
+    /** Hook: start the clock from now and put the cursor in the first name field. */
     @Override
-    public void addNotify() {
-        super.addNotify();
+    protected void onShown() {
         lastNanos = System.nanoTime();
-        ticker.start();
         SwingUtilities.invokeLater(() -> playerCards[0].field.requestFocusInWindow());
     }
 
+    /** Hook: one animation frame (NeonScreen repaints right after it). */
     @Override
-    public void removeNotify() {
-        ticker.stop();
-        super.removeNotify();
-    }
-
-    private void tick() {
+    protected void onTick() {
         long now = System.nanoTime();
         float dt = Math.min(0.05f, (now - lastNanos) / 1_000_000_000f);
         lastNanos = now;
@@ -194,8 +190,7 @@ public class GameSetupScreen extends JPanel {
         backBtn.setIntro(clamp01((t - 0.55f) / 0.4f));
         startBtn.setIntro(clamp01((t - 0.65f) / 0.4f));
         statusPulse = Math.max(0f, statusPulse - dt * 1.6f);
-        repaint();
-    }
+          }
 
     private float intro(float delay) {
         return easeOut(clamp01((t - delay) / 0.45f));
@@ -397,15 +392,18 @@ public class GameSetupScreen extends JPanel {
     }
 
 
+    /** Hook: the backdrop runs on this screen's own clock t. */
     @Override
-    protected void paintComponent(Graphics g) {
-        super.paintComponent(g);
-        Graphics2D g2 = (Graphics2D) g.create();
-        applyQuality(g2);
+    protected void paintBackground(Graphics2D g2) {
+        Theme.paintBackdrop(g2, getWidth(), getHeight(), t);
+    }
+
+    /** Hook: everything drawn on top of the backdrop. */
+    @Override
+    protected void paintExtras(Graphics2D g2) {
         int w = getWidth();
         int h = getHeight();
 
-        Theme.paintBackdrop(g2, w, h, t);
         paintDotGrid(g2, w, h);
 
         g2.setComposite(AlphaComposite.SrcOver.derive(intro(0f)));
@@ -424,7 +422,7 @@ public class GameSetupScreen extends JPanel {
         FontMetrics fm = g2.getFontMetrics();
         g2.drawString(hint, x0 + cw - fm.stringWidth(hint), layoutY(551));
         paintStatus(g2);
-        g2.dispose();
+       
     }
 
     private void paintDotGrid(Graphics2D g, int w, int h) {

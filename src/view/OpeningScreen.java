@@ -51,7 +51,7 @@ import javax.swing.Timer;
  * MVC: this class is a pure View. It only reports user intent through {@link Listener};
  * the controller decides what happens next.
  */
-public class OpeningScreen extends JPanel {
+public class OpeningScreen extends NeonScreen {
 
     private static final long serialVersionUID = 1L;
 
@@ -71,7 +71,6 @@ public class OpeningScreen extends JPanel {
 
     private final Random rnd = new Random();
     private final Floater[] floaters = new Floater[30];
-    private final Timer ticker;
     private long lastNanos;
     private float t;                       // seconds since the screen appeared
 
@@ -80,6 +79,7 @@ public class OpeningScreen extends JPanel {
     private final NeonButton[] buttons;
 
     public OpeningScreen(Listener listener) {
+        super(33, 0f);                     
         setLayout(null);                   // we position the buttons ourselves in doLayout()
         setOpaque(true);
         setBackground(Theme.BG_TOP);
@@ -123,24 +123,18 @@ public class OpeningScreen extends JPanel {
             @Override public void actionPerformed(ActionEvent e) { exitBtn.doClick(); }
         });
 
-        ticker = new Timer(33, e -> tick());   // ~30 FPS: smooth enough, and leaves time for clicks
     }
 
     // ------------------------------------------------------------------ lifecycle
+    /** Hook: start the clock from now when the screen appears. */
     @Override
-    public void addNotify() {
-        super.addNotify();
+    protected void onShown() {
         lastNanos = System.nanoTime();
-        ticker.start();
     }
 
+    /** Hook: one animation frame (NeonScreen repaints right after it). */
     @Override
-    public void removeNotify() {
-        ticker.stop();                     // stop animating when the screen is replaced
-        super.removeNotify();
-    }
-
-    private void tick() {
+    protected void onTick() {
         long now = System.nanoTime();
         float dt = Math.min(0.05f, (now - lastNanos) / 1_000_000_000f);
         lastNanos = now;
@@ -151,7 +145,7 @@ public class OpeningScreen extends JPanel {
         for (int i = 0; i < buttons.length; i++) {
             buttons[i].setIntro(clamp01((t - 0.75f - i * 0.12f) / 0.45f));
         }
-        repaint();
+        
     }
 
     @Override
@@ -168,16 +162,19 @@ public class OpeningScreen extends JPanel {
     }
 
     // ------------------------------------------------------------------ painting
+    /** Hook: the backdrop runs on this screen's own clock t. */
     @Override
-    protected void paintComponent(Graphics g) {
-        super.paintComponent(g);
-        Graphics2D g2 = (Graphics2D) g.create();
-        applyQuality(g2);
+    protected void paintBackground(Graphics2D g2) {
+        Theme.paintBackdrop(g2, getWidth(), getHeight(), t);
+    }
+
+    /** Hook: everything drawn on top of the backdrop. */
+    @Override
+    protected void paintExtras(Graphics2D g2) {
         int w = getWidth();
         int h = getHeight();
         float base = h * 0.335f;           // title baseline
 
-        Theme.paintBackdrop(g2, w, h, t);
         paintGrid(g2, w, h);
         paintFloaters(g2, w, h);
         paintEmblem(g2, w, h);
@@ -187,7 +184,7 @@ public class OpeningScreen extends JPanel {
         paintTerminal(g2, w, base + 64);
         paintVignette(g2, w, h);
         paintFooter(g2, w, h);
-        g2.dispose();
+        
     }
 
     private void paintGrid(Graphics2D g, int w, int h) {
