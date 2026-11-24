@@ -22,38 +22,10 @@ import javax.swing.JOptionPane;
 
 
 /** Read-only listing of completed games. */
-public final class GameHistoryScreen extends JPanel {
-	private float animationTime = 0f;
-	private final javax.swing.Timer backgroundTimer =
-	    new javax.swing.Timer(40, e -> {
-	        animationTime += 0.04f;
-	        repaint();
-	    });
-	@Override
-	public void addNotify() {
-	    super.addNotify();
-	    backgroundTimer.start();
-	}	
-	@Override
-	public void removeNotify() {
-	    backgroundTimer.stop();
-	    super.removeNotify();
-	}	
-	@Override
-	protected void paintComponent(java.awt.Graphics g) {
-	    super.paintComponent(g);	
-	    java.awt.Graphics2D g2 =
-	        (java.awt.Graphics2D) g.create();	
-	    Theme.applyQuality(g2);
-	    Theme.paintBackdrop(
-	        g2,
-	        getWidth(),
-	        getHeight(),
-	        animationTime
-	    );
-		    g2.dispose();
-	}
+public final class GameHistoryScreen extends NeonScreen {
+	
     public GameHistoryScreen(HistoryController controller, Runnable back) {
+        super(40, 0.04f);   
         setLayout(new BorderLayout(12, 12));
         setBackground(new Color(14, 25, 55));
         setBorder(BorderFactory.createEmptyBorder(30, 35, 30, 35));
