@@ -24,6 +24,19 @@ public final class AdminScreen extends NeonScreen {
     private final JPanel listCards = new JPanel(new CardLayout());
     private boolean bankEmpty;
 
+    /** Short neon message under the title after saving or deleting. */
+    private String toastText;
+    private boolean toastGood;
+    private long toastStart;
+    private final JComponent toast = new JComponent() {
+        private static final long serialVersionUID = 1L;
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            paintToast((Graphics2D) g, getWidth(), getHeight());
+        }
+    };
+
     public AdminScreen(AdminController controller, Runnable back) {
         this.controller=controller;
         this.back=back;
@@ -44,6 +57,7 @@ public final class AdminScreen extends NeonScreen {
         JPanel header=new JPanel(new BorderLayout());header.setOpaque(false);
         header.add(returnButton, BorderLayout.EAST);
         header.add(title, BorderLayout.WEST);
+        header.add(toast, BorderLayout.CENTER);
         add(header,BorderLayout.NORTH);
         SwingUtilities.invokeLater(this::authenticate);
     }
@@ -388,6 +402,61 @@ public final class AdminScreen extends NeonScreen {
         revalidate();
         repaint();
     }
+    /** Starts a toast; NeonScreen's timer keeps repainting, so it fades in and out by itself. */
+    private void showToast(String text, boolean good) {
+        toastText = text;
+        toastGood = good;
+        toastStart = System.currentTimeMillis();
+        toast.repaint();
+    }
+
+    private void paintToast(Graphics2D g, int w, int h) {
+        if (toastText == null) return;
+        long age = System.currentTimeMillis() - toastStart;
+        if (age > 2600) { toastText = null; return; }
+        float fade = Math.min(1f, Math.min(age / 250f, (2600 - age) / 400f));
+        Color accent = toastGood ? Theme.GREEN : Theme.RED;
+
+        Graphics2D g2 = (Graphics2D) g.create();
+        Theme.applyQuality(g2);
+        g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, fade));
+        g2.setFont(Theme.semibold(15f));
+        FontMetrics fm = g2.getFontMetrics();
+        int pw = Math.min(w - 10, fm.stringWidth(toastText) + 74);
+        int ph = 44;
+        int px = (w - pw) / 2;
+        int py = (h - ph) / 2 - (int) ((1 - fade) * 12);   // slides down while it fades in
+
+        Theme.glow(g2, w / 2f, py + ph / 2f, pw / 2f, accent, 45);
+        g2.setColor(new Color(16, 18, 44, 235));
+        g2.fillRoundRect(px, py, pw, ph, ph, ph);
+        g2.setColor(accent);
+        g2.setStroke(new BasicStroke(1.6f));
+        g2.drawRoundRect(px, py, pw, ph, ph, ph);
+
+        // round icon: a tick when it went well, an X when something was removed
+        float ix = px + 26;
+        float iy = py + ph / 2f;
+        g2.fill(new java.awt.geom.Ellipse2D.Float(ix - 11, iy - 11, 22, 22));
+        g2.setColor(new Color(16, 18, 44));
+        g2.setStroke(new BasicStroke(2.4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        java.awt.geom.Path2D icon = new java.awt.geom.Path2D.Float();
+        if (toastGood) {
+            icon.moveTo(ix - 5, iy);
+            icon.lineTo(ix - 1.5f, iy + 4);
+            icon.lineTo(ix + 5.5f, iy - 4.5f);
+        } else {
+            icon.moveTo(ix - 4.5f, iy - 4.5f);
+            icon.lineTo(ix + 4.5f, iy + 4.5f);
+            icon.moveTo(ix + 4.5f, iy - 4.5f);
+            icon.lineTo(ix - 4.5f, iy + 4.5f);
+        }
+        g2.draw(icon);
+
+        g2.setColor(Theme.TEXT);
+        g2.drawString(toastText, px + 48, py + (ph + fm.getAscent() - fm.getDescent()) / 2f);
+        g2.dispose();
+    }
     /** Big glowing message shown when no question matches the filter or the search. */
     private JComponent emptyState() {
         JComponent empty = new JComponent() {
@@ -612,6 +681,8 @@ public final class AdminScreen extends NeonScreen {
         try {
             if (existing == null) controller.add(entry); else controller.update(existing.getId(), entry);
             refresh();
+            showToast(existing == null ? "Question " + entry.getId() + " added"
+                    : "Changes to " + entry.getId() + " saved", true);
         } catch (Exception ex) { Theme.neonMessage(this, "Cannot save", ex.getMessage(), Theme.RED); }
     }
     private int showQuestionDialog(JScrollPane formScroll, String titleText) {
@@ -662,7 +733,8 @@ public final class AdminScreen extends NeonScreen {
         Question selected=list.getSelectedValue();if(selected==null)return;
         if (!Theme.neonConfirm(this, "Confirm deletion",
                 "Delete question " + selected.getId() + "? This cannot be undone.",
-                "DELETE", Theme.RED)) return;        try {controller.delete(selected.getId());refresh();}
+                "DELETE", Theme.RED)) return;      
+        try {controller.delete(selected.getId());refresh();showToast("Question " + selected.getId() + " deleted", false);}
                 catch(Exception ex) { Theme.neonMessage(this, "Cannot delete", ex.getMessage(), Theme.RED); }
                 }
 
