@@ -56,6 +56,9 @@ public final class GameBoardScreen extends NeonScreen {
     private final Runnable onRematch;
     /** Bonus: the move log on the right of the board. */
     private final MoveLogPanel moveLog = new MoveLogPanel();
+    
+    /** Bonus: the "achievement unlocked" banner over the board. */
+    private final TrophyBanner trophyBanner = new TrophyBanner();
 
     /** Convenience for tests: a new game controller for this board. */
     public GameBoardScreen(GameConfig config, Board board, Runnable onBackToMenu) {
@@ -142,7 +145,7 @@ public final class GameBoardScreen extends NeonScreen {
         boardCard.setLayout(new BorderLayout());
         boardCard.setBorder(BorderFactory.createEmptyBorder(12, 14, 12, 14));
         boardCard.add(canvas, BorderLayout.CENTER);
-        add(boardCard, BorderLayout.CENTER);
+        add(new JLayer<>(boardCard, trophyBanner), BorderLayout.CENTER);   // the banner is drawn over the board
         add(moveLog, BorderLayout.EAST);
 
         RoundedCard controls = new RoundedCard(Theme.GLASS, 28);
@@ -758,6 +761,7 @@ public final class GameBoardScreen extends NeonScreen {
         updateHints();
         canvas.repaint();
         moveLog.update(game.getLog());
+        trophyBanner.update(game.getAchievements().getUnlocks());
     }
 
     private void showFinalResults() {

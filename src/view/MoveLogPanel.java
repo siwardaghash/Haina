@@ -281,7 +281,8 @@ public final class MoveLogPanel extends JPanel {
             case WRONG:     return Theme.RED;
             case CORRECT:   return Theme.GREEN;
             case FINISH:
-            case WIN:       return GOLD;
+            case WIN:
+            case ACHIEVEMENT: return GOLD;
             case SURPRISE:  return new Color(255, 122, 214);
             case TURN_LOST: return new Color(255, 150, 90);
             case MOVE:      return Theme.TEXT;
@@ -456,6 +457,18 @@ public final class MoveLogPanel extends JPanel {
                     flag.lineTo(cx - 5, cy);
                     flag.closePath();
                     g2.fill(flag);
+                    break;
+                case ACHIEVEMENT:   // a trophy cup
+                    g2.draw(new Line2D.Float(cx - 6, cy - 7, cx + 6, cy - 7));
+                    Path2D cup = new Path2D.Float();
+                    cup.moveTo(cx - 6, cy - 7);
+                    cup.quadTo(cx - 6, cy + 2, cx, cy + 2);
+                    cup.quadTo(cx + 6, cy + 2, cx + 6, cy - 7);
+                    g2.fill(cup);
+                    g2.draw(new Line2D.Float(cx, cy + 2, cx, cy + 6));
+                    g2.draw(new Line2D.Float(cx - 4, cy + 7, cx + 4, cy + 7));
+                    g2.draw(new java.awt.geom.Arc2D.Float(cx - 10, cy - 7, 6, 6, 90, 180, java.awt.geom.Arc2D.OPEN));
+                    g2.draw(new java.awt.geom.Arc2D.Float(cx + 4, cy - 7, 6, 6, 270, 180, java.awt.geom.Arc2D.OPEN));
                     break;
                 default:            // WIN: a crown
                     Path2D crown = new Path2D.Float();
