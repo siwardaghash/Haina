@@ -98,6 +98,38 @@ public final class Game {
     public List<Player> getFinishingOrder() { return Collections.unmodifiableList(finishingOrder); }
     public Difficulty getDifficulty() { return difficulty; }
     public Board getBoard() { return board; }
+    
+    // Bonus: the move log. Every roll, move, capture, answer and surprise adds one entry (newest last).
+    private final List<LogEntry> log = new ArrayList<>();
+    public List<LogEntry> getLog() { return Collections.unmodifiableList(log); }
+
+    private void log(Player player, LogEntry.Kind kind, String text) {
+        long seconds = (System.currentTimeMillis() - startedAtMillis) / 1000;
+        log.add(new LogEntry(player.getColor(), player.getName(), kind, text, seconds));
+    }
+
+    private Player playerOf(PlayerColor color) {
+        for (Player player : players) if (player.getColor() == color) return player;
+        return getCurrentPlayer();
+    }
+
+    private String rollText() {
+        if (extraDie == 0) return "rolled " + stepDie;
+        String die = currentRollIsBonus || difficulty == Difficulty.HARD ? "ULTRA" : "BOOST";
+        return (currentRollIsBonus ? "bonus roll " : "rolled ") + stepDie + ", " + die + " " + extraDie + ": " + steps + (steps == 1 ? " step" : " steps");
+    }
+
+    private static String surpriseText(SurpriseEvent event, Piece piece) {
+        switch (event) {
+            case DIRECT_FINISH:    return "surprise! piece " + piece.getNumber() + " jumps to FINISH";
+            case OPPONENT_BACK:    return "surprise! may send an opponent back";
+            case RETURN_CASTLE:    return "surprise! piece " + piece.getNumber() + " back to the castle";
+            case BACK_THREE:       return "surprise! piece " + piece.getNumber() + " moves back 3";
+            case SKIP_NEXT_TURN:   return "surprise! will skip the next turn";
+            case BONUS_ULTRABOOST: return "surprise! bonus UltraBoost roll";
+            default:               return "surprise!";
+        }
+    }
 
     private void updateFinishingOrder() {
         if (gameOver) return;
@@ -105,7 +137,10 @@ public final class Game {
             if (!finishingOrder.contains(player)) {
                 boolean allFinished = true;
                 for (Piece piece : player.pieces) if (!piece.isFinished()) { allFinished = false; break; }
-                if (allFinished) finishingOrder.add(player);
+                if (allFinished) {
+                    finishingOrder.add(player);
+                    log(player, LogEntry.Kind.WIN, "brought all 4 pieces home (#" + finishingOrder.size() + ")");
+                }
             }
         }
         if (teamMode) {
@@ -176,11 +211,15 @@ public final class Game {
             else consecutiveSixes = 0;
         }
         if (!currentRollIsBonus && consecutiveSixes == 3) {
-            message = getCurrentPlayer().getName() + " rolled a third 6: turn cancelled.";
+            log(getCurrentPlayer(), LogEntry.Kind.TURN_LOST, "rolled a third 6 in a row: turn cancelled");
+        	message = getCurrentPlayer().getName() + " rolled a third 6: turn cancelled.";
             advanceTurn();
             return;
         }
         awaitingPiece = hasAnyLegalMove();
+        log(getCurrentPlayer(), LogEntry.Kind.ROLL, rollText());
+        if (!awaitingPiece) log(getCurrentPlayer(), LogEntry.Kind.TURN_LOST,
+                !currentRollIsBonus && stepDie == 6 ? "no legal move, rolls again" : "no legal move");
         if (!awaitingPiece) {
             rollAvailable = false;
             String name = getCurrentPlayer().getName();
@@ -317,6 +356,8 @@ public final class Game {
             for (Piece opponent : player.pieces) {
                 if (opponent.isOnCommonPath() && opponent.getRing() == movedPiece.getRing() && opponent.getBoardIndex() == square) {
                     opponent.setProgress(-1);
+                    log(playerOf(movedPiece.getColor()), LogEntry.Kind.CAPTURE,
+                            "captured " + player.getName() + "'s piece " + opponent.getNumber());
                     captured++;
                 }
             }
@@ -333,9 +374,12 @@ public final class Game {
         Piece piece = player.pieces.get(index);
         int reachable = reachableMovement(piece);
         boolean shortened = !piece.isInCastle() && reachable < requestedMovement(piece);
-        if (piece.isInCastle()) piece.setProgress(0);
+        boolean leftCastle = piece.isInCastle();
+        if (leftCastle) piece.setProgress(0);
         else piece.setProgress(piece.getProgress() + reachable);
         lastLanding = piece.getProgress();
+        log(player, piece.isFinished() ? LogEntry.Kind.FINISH : LogEntry.Kind.MOVE, "piece " + piece.getNumber()
+                + (leftCastle ? " left the castle" : piece.isFinished() ? " reached FINISH" : " moved " + reachable + (reachable == 1 ? " step" : " steps")));
         int captured = captureOnLanding(piece);
         updateFinishingOrder();
         message = player.getName() + " moved piece " + piece.getNumber() + ".";
@@ -403,6 +447,10 @@ public final class Game {
             }
         }
         moved.setProgress(target);
+        log(getCurrentPlayer(), correct ? LogEntry.Kind.CORRECT : LogEntry.Kind.WRONG,
+                (correct ? "answered " : "missed ") + ("easy".equals(question.getLevel()) ? "an " : "a ")
+                + question.getLevel() + " question ("
+                + (target - original > 0 ? "+" : "") + (target - original) + ")");
         int captured = captureOnLanding(moved);
         message = correct ? "Correct! Moved forward " + (target-original) + " step(s)."
                 : "Incorrect. Correct answer: " + question.getAnswers()[question.getCorrect()]
@@ -423,6 +471,7 @@ public final class Game {
                 : roll < 60 ? SurpriseEvent.BACK_THREE
                 : roll < 90 ? SurpriseEvent.SKIP_NEXT_TURN
                 : SurpriseEvent.BONUS_ULTRABOOST;
+        log(playerOf(piece.getColor()), LogEntry.Kind.SURPRISE, surpriseText(lastSurprise, piece));
         switch (lastSurprise) {
             case DIRECT_FINISH:
                 piece.setProgress(piece.getFinishProgress());
@@ -488,6 +537,8 @@ public final class Game {
         int backward = (die + 1) / 2;
         int before = target.getProgress();
         moveBackwardWithBlock(target, backward);
+        log(getCurrentPlayer(), LogEntry.Kind.SURPRISE, "sent " + players.get(playerIndex).getName()
+                + "'s piece " + target.getNumber() + " back " + (before - target.getProgress()));
         message = "Surprise: opponent rolled " + die + "; piece moved backward up to " + backward + " steps.";
         if (target.getProgress() == before || !triggerSpecial(target)) finishTurnAfterMove();
         return die;
@@ -545,6 +596,7 @@ public final class Game {
             if (finishingOrder.contains(players.get(current))) continue;
             if (players.get(current).skipNextTurn) {
                 players.get(current).skipNextTurn = false;
+                log(players.get(current), LogEntry.Kind.TURN_LOST, "skipped this turn");
                 continue;
             }
             return;

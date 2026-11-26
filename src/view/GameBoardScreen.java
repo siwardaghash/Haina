@@ -54,6 +54,8 @@ public final class GameBoardScreen extends NeonScreen {
     private final Timer clockTimer = new Timer(1000, e -> updateClock());
     
     private final Runnable onRematch;
+    /** Bonus: the move log on the right of the board. */
+    private final MoveLogPanel moveLog = new MoveLogPanel();
 
     /** Convenience for tests: a new game controller for this board. */
     public GameBoardScreen(GameConfig config, Board board, Runnable onBackToMenu) {
@@ -141,6 +143,7 @@ public final class GameBoardScreen extends NeonScreen {
         boardCard.setBorder(BorderFactory.createEmptyBorder(12, 14, 12, 14));
         boardCard.add(canvas, BorderLayout.CENTER);
         add(boardCard, BorderLayout.CENTER);
+        add(moveLog, BorderLayout.EAST);
 
         RoundedCard controls = new RoundedCard(Theme.GLASS, 28);
         controls.setLayout(new BorderLayout(5, 8));
@@ -754,6 +757,7 @@ public final class GameBoardScreen extends NeonScreen {
         status.revalidate();
         updateHints();
         canvas.repaint();
+        moveLog.update(game.getLog());
     }
 
     private void showFinalResults() {
