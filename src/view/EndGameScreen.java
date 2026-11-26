@@ -26,7 +26,13 @@ public class EndGameScreen extends NeonScreen {
     }
 
     public EndGameScreen(String results, Runnable onBack, Runnable onRematch) {
-        super(30, 0.03f);   
+        this(results, onBack, onRematch, java.util.Collections.emptyList());
+    }
+
+    /** Bonus: {@code trophies} are the trophies earned in this game, shown in the Trophy Room. */
+    public EndGameScreen(String results, Runnable onBack, Runnable onRematch,
+                         java.util.List<model.AchievementTracker.Unlock> trophies) {
+        super(30, 0.03f);  
         setLayout(new BorderLayout(0, 10));
         setOpaque(false);
         setBorder(new EmptyBorder(20, 50, 28, 50));
@@ -73,6 +79,10 @@ public class EndGameScreen extends NeonScreen {
         center.setOpaque(false);
         center.add(Box.createVerticalGlue());
         center.add(ranks);
+        if (!trophies.isEmpty()) {           // bonus: the trophies of this game
+            center.add(Box.createVerticalStrut(14));
+            center.add(new TrophyRoom(colors, trophies));
+        }
         center.add(Box.createVerticalStrut(18));
         center.add(info);
         center.add(Box.createVerticalGlue());

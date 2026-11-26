@@ -52,7 +52,7 @@ public final class AchievementTracker {
     }
 
     /** Checks one new log entry against the rules and returns the trophies it unlocked. */
-    public List<Unlock> onEvent(LogEntry e, List<Game.Player> players) {
+    public List<Unlock> onEvent(LogEntry e, List<Game.Player> players, Board board) {
         List<Unlock> found = new ArrayList<>();
         PlayerColor actor = e.getColor();
         switch (e.getKind()) {
@@ -85,12 +85,12 @@ public final class AchievementTracker {
             default:
                 break;
         }
-        checkBoard(found, players, e);
+        checkBoard(found, players, board, e);
         return found;
     }
 
     /** Trophies that depend on where the pieces are, checked after every event. */
-    private void checkBoard(List<Unlock> found, List<Game.Player> players, LogEntry e) {
+    private void checkBoard(List<Unlock> found, List<Game.Player> players, Board board, LogEntry e) {
         boolean helloTaken = anyoneHas(Achievement.HELLO_WORLD);
         boolean deployedTaken = anyoneHas(Achievement.DEPLOYED);
         int mostHome = 0;
@@ -105,18 +105,21 @@ public final class AchievementTracker {
                 unlock(found, players, p.getColor(), Achievement.DEPLOYED, e);
                 deployedTaken = true;
             }
-            if (hasDoubleBlock(pieces)) unlock(found, players, p.getColor(), Achievement.FIREWALL, e);
+            if (hasDoubleBlock(pieces, board)) unlock(found, players, p.getColor(), Achievement.FIREWALL, e);
             if (finished(p) == 0 && mostHome >= 2) wasBehind.add(p.getColor());
         }
     }
 
-    private static boolean hasDoubleBlock(List<Piece> pieces) {
+    /** Two of the pieces on the same common-path square; the coloured start squares do not count. */
+    private static boolean hasDoubleBlock(List<Piece> pieces, Board board) {
         for (int i = 0; i < pieces.size(); i++)
             for (int j = i + 1; j < pieces.size(); j++) {
                 Piece a = pieces.get(i);
                 Piece b = pieces.get(j);
                 if (a.isOnCommonPath() && b.isOnCommonPath()
-                        && a.getRing() == b.getRing() && a.getBoardIndex() == b.getBoardIndex()) return true;
+                        && a.getRing() == b.getRing() && a.getBoardIndex() == b.getBoardIndex()
+                        && board.getRings().get(a.getRing()).get(a.getBoardIndex()).getType() != Board.SquareType.START)
+                    return true;
             }
         return false;
     }

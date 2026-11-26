@@ -780,7 +780,8 @@ public final class GameBoardScreen extends NeonScreen {
             results.append("\n\nUnable to save result: ").append(ex.getMessage());
         }
         JFrame frame = (JFrame) SwingUtilities.getWindowAncestor(this);
-        frame.setContentPane(new EndGameScreen(results.toString(), onBackToMenu, onRematch));
+        frame.setContentPane(new EndGameScreen(results.toString(), onBackToMenu, onRematch,
+                game.getAchievements().getUnlocks()));
         frame.revalidate();
         frame.repaint();    }
 

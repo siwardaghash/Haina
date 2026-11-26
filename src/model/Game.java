@@ -116,7 +116,7 @@ public final class Game {
         long seconds = (System.currentTimeMillis() - startedAtMillis) / 1000;
         LogEntry entry = new LogEntry(player.getColor(), player.getName(), kind, text, seconds, other);
         log.add(entry);
-        for (AchievementTracker.Unlock u : achievements.onEvent(entry, players))
+        for (AchievementTracker.Unlock u : achievements.onEvent(entry, players, board))
             log.add(new LogEntry(u.getColor(), u.getPlayer(), LogEntry.Kind.ACHIEVEMENT,
                     "unlocked " + u.getAchievement().getTitle(), seconds));
     }
