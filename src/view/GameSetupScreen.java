@@ -84,11 +84,10 @@ public class GameSetupScreen extends NeonScreen  {
     private Difficulty difficulty = Difficulty.EASY;
     private GameConfig.GameMode gameMode = GameConfig.GameMode.CLASSIC;
     private final ModeTile[] modeTiles = new ModeTile[2];
-    /** Bonus: PLAY WITH FRIENDS / PLAY VS COMPUTER. */
-    private final OpponentTile[] opponentTiles = new OpponentTile[2];
+  
     private boolean triedToStart;
 
-    private final CountTile[] countTiles = new CountTile[GameConfig.MAX_PLAYERS - GameConfig.MIN_PLAYERS + 1];
+  
     private final DifficultyCard[] difficultyCards = new DifficultyCard[Difficulty.values().length];
     private final PlayerCard[] playerCards = new PlayerCard[GameConfig.MAX_PLAYERS];
     private final NeonButton backBtn;
@@ -111,10 +110,7 @@ public class GameSetupScreen extends NeonScreen  {
         setBackground(Theme.BG_TOP);
         setPreferredSize(new Dimension(1200, 800));
 
-        for (int i = 0; i < countTiles.length; i++) {
-            countTiles[i] = new CountTile(GameConfig.MIN_PLAYERS + i, i);
-            add(countTiles[i]);
-        }
+   
         Difficulty[] levels = Difficulty.values();
         for (int i = 0; i < levels.length; i++) {
             difficultyCards[i] = new DifficultyCard(levels[i], i);
@@ -130,10 +126,7 @@ public class GameSetupScreen extends NeonScreen  {
         modeTiles[1] = new ModeTile(GameConfig.GameMode.TEAMS_2V2, "2 VS 2 TEAMS", "4 players · Two teams share one victory", 1);
         add(modeTiles[0]);
         add(modeTiles[1]);
-        opponentTiles[0] = new OpponentTile(false, "FRIENDS", "Every player is a person", 0);
-        opponentTiles[1] = new OpponentTile(true, "COMPUTER", "Players 2-4 are bots", 1);
-        add(opponentTiles[0]);
-        add(opponentTiles[1]);
+  
 
         backBtn = new NeonButton("Back", VIOLET, NeonButton.Glyph.BACK, null);
         backBtn.setChevron(false);
@@ -174,10 +167,7 @@ public class GameSetupScreen extends NeonScreen  {
         float dt = Math.min(0.05f, (now - lastNanos) / 1_000_000_000f);
         lastNanos = now;
         t += dt;
-        for (CountTile c : countTiles) {
-            c.update(dt);
-        }
-        for (OpponentTile tile : opponentTiles) tile.update(dt);
+    
         for (ModeTile tile : modeTiles) {
             tile.update(dt);
         }
@@ -345,44 +335,24 @@ public class GameSetupScreen extends NeonScreen  {
         layoutScale = Math.min(1f, Math.max(0.78f, (h - 100f) / 730f));
         top = Math.max(4, (h - 830) / 2);
 
-        // Section 01 — number of players. No mode controls in this row.
-        int half = (cw - GAP) / 2;
-        int tileW = Math.min(230, (half - 2 * GAP) / 3);
-        int playersRow = layoutY(118);
-        for (int i = 0; i < countTiles.length; i++) {
-            countTiles[i].setBounds(x0 + i * (tileW + GAP), playersRow,
-                    tileW, Math.round(100 * layoutScale));
+        // Section 01 — who's playing: one card per player (+ adds a player, × removes the last one).
+        int pw = (cw - 3 * GAP) / 4;
+        for (int i = 0; i < playerCards.length; i++) {
+            playerCards[i].setBase(x0 + i * (pw + GAP), layoutY(122), pw, Math.round(190 * layoutScale));
         }
-        opponentX = x0 + half + GAP;
-        int oppW = (cw - half - GAP - GAP) / 2;
-        for (int i = 0; i < opponentTiles.length; i++)
-            opponentTiles[i].setBounds(opponentX + i * (oppW + GAP), playersRow, oppW, Math.round(100 * layoutScale));
 
         // Section 02 — difficulty.
         rightX = x0;
         int cardW = (cw - 2 * GAP) / 3;
-        int difficultyRow = layoutY(252);
         for (int i = 0; i < difficultyCards.length; i++) {
-            difficultyCards[i].setBounds(x0 + i * (cardW + GAP), difficultyRow,
-                    cardW, Math.round(148 * layoutScale));
+            difficultyCards[i].setBounds(x0 + i * (cardW + GAP), layoutY(356), cardW, Math.round(150 * layoutScale));
         }
 
-        // Section 03 — distinct, full-width game mode choice.
-        int modeY = layoutY(429);
-        int modeGap = GAP;
-        int modeW = (cw - modeGap) / 2;
-        int modeH = Math.round(78 * layoutScale);
-        modeTiles[0].setBounds(x0, modeY, modeW, modeH);
-        modeTiles[1].setBounds(x0 + modeW + modeGap, modeY,
-                cw - modeW - modeGap, modeH);
-
-        // Section 04 — player nicknames and colours.
-        int playerCardsRow = layoutY(563);
-        int pw = (cw - 3 * GAP) / 4;
-        for (int i = 0; i < playerCards.length; i++) {
-            playerCards[i].setBase(x0 + i * (pw + GAP), playerCardsRow,
-                    pw, Math.round(185 * layoutScale));
-        }
+        // Section 03 — game mode.
+        int modeW = (cw - GAP) / 2;
+        int modeH = Math.round(80 * layoutScale);
+        modeTiles[0].setBounds(x0, layoutY(552), modeW, modeH);
+        modeTiles[1].setBounds(x0 + modeW + GAP, layoutY(552), cw - modeW - GAP, modeH);
 
         // Footer.
         int by = layoutY(764);
@@ -408,19 +378,16 @@ public class GameSetupScreen extends NeonScreen  {
 
         g2.setComposite(AlphaComposite.SrcOver.derive(intro(0f)));
         paintHeader(g2);
-        paintSection(g2, "01", "HOW MANY PLAYERS", x0, layoutY(108));
-        g2.setFont(Theme.ui(12f, Font.BOLD));
-        g2.setColor(TEXT);
-        Theme.drawTracked(g2, "PLAY AGAINST", opponentX, layoutY(108), 2.2f);
-        paintSection(g2, "02", "DIFFICULTY", x0, layoutY(240));
-        paintSection(g2, "03", "CHOOSE GAME MODE", x0, layoutY(415));
-        paintSection(g2, "04", "WHO'S PLAYING", x0, layoutY(551));
+        paintSection(g2, "01", "WHO'S PLAYING", x0, layoutY(112));
+        paintSection(g2, "02", "DIFFICULTY", x0, layoutY(346));
+        paintSection(g2, "03", "GAME MODE", x0, layoutY(542));
 
         g2.setFont(Theme.ui(12f, Font.PLAIN));
         g2.setColor(MUTED);
-        String hint = "Click a colour to swap its owner  •  max " + GameConfig.NAME_MAX_LENGTH + " characters";
+        String hint = "2–4 players  •  + adds, × removes  •  click a colour to swap it  •  max "
+                + GameConfig.NAME_MAX_LENGTH + " characters";
         FontMetrics fm = g2.getFontMetrics();
-        g2.drawString(hint, x0 + cw - fm.stringWidth(hint), layoutY(551));
+        g2.drawString(hint, x0 + cw - fm.stringWidth(hint), layoutY(112));
         paintStatus(g2);
        
     }
@@ -643,172 +610,7 @@ public class GameSetupScreen extends NeonScreen  {
         return false;
     }
 
-    /** Bonus: one click makes players 2-4 bots (vs computer) or makes everyone human again. */
-    private void selectOpponents(boolean computer) {
-        for (int i = 0; i < playerCards.length; i++) {
-            PlayerCard card = playerCards[i];
-            boolean nowBot = computer && i > 0;
-            String name = card.field.getText().trim();
-            if (nowBot && name.isEmpty()) card.field.setText("Bot " + (i + 1));
-            if (!nowBot && card.bot && name.equals("Bot " + (i + 1))) card.field.setText("");
-            card.bot = nowBot;
-            card.pop = 1f;
-        }
-        refreshStatus();
-        repaint();
-    }
-
-    private final class OpponentTile extends javax.swing.JButton {
-        private static final long serialVersionUID = 1L;
-        private final boolean computer;
-        private final String heading;
-        private final String description;
-        private final float delay;
-        private boolean hovered;
-        private float hover;
-        private float selected;
-
-        OpponentTile(boolean computer, String heading, String description, int order) {
-            this.computer = computer;
-            this.heading = heading;
-            this.description = description;
-            this.delay = 0.14f + order * 0.08f;
-            setContentAreaFilled(false);
-            setBorderPainted(false);
-            setFocusPainted(false);
-            setOpaque(false);
-            setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-            getAccessibleContext().setAccessibleName(heading + ": " + description);
-            setToolTipText(computer ? "Players 2-4 are played by the computer. You can still switch each player with HUMAN / BOT on its card."
-                                    : "Everyone is a person playing on this computer.");
-            addActionListener(e -> selectOpponents(computer));
-            addMouseListener(new MouseAdapter() {
-                @Override public void mouseEntered(MouseEvent e) { hovered = true; }
-                @Override public void mouseExited(MouseEvent e) { hovered = false; }
-            });
-        }
-
-        void update(float dt) {
-            hover = approach(hover, hovered ? 1f : 0f, dt, 12f);
-            selected = approach(selected, vsComputer() == computer ? 1f : 0f, dt, 12f);
-        }
-
-        @Override protected void paintComponent(Graphics g) {
-            float in = intro(delay);
-            if (in <= 0.001f) return;
-            Graphics2D g2 = (Graphics2D) g.create();
-            applyQuality(g2);
-            int w = getWidth(), h = getHeight();
-            g2.setComposite(AlphaComposite.SrcOver.derive(in));
-            g2.translate(0, (1f - in) * 16f - hover * 2f + 3f);
-            boolean active = vsComputer() == computer;
-            Color accent = computer ? GREEN : BLUE;
-            RoundRectangle2D r = new RoundRectangle2D.Float(3, 3, w - 6, h - 10, 20, 20);
-            paintCardFrame(g2, r, accent, selected, hover);
-            if (active) {
-                g2.setStroke(new BasicStroke(2.6f));
-                g2.setColor(accent);
-                g2.draw(r);
-            }
-            int cy = h / 2 - 3;
-            g2.setColor(alpha(accent, active ? 95 : 42));
-            g2.fillRoundRect(15, cy - 24, 50, 50, 14, 14);
-            if (computer) {                                   // robot head
-                g2.setColor(Color.WHITE);
-                g2.fillRoundRect(26, cy - 11, 28, 22, 8, 8);
-                g2.setStroke(new BasicStroke(2f));
-                g2.drawLine(40, cy - 11, 40, cy - 17);
-                g2.fillOval(37, cy - 21, 6, 6);
-                g2.setColor(alpha(accent, 255));
-                g2.fillOval(31, cy - 5, 6, 6);
-                g2.fillOval(43, cy - 5, 6, 6);
-                g2.fillRoundRect(33, cy + 4, 14, 3, 2, 2);
-            } else {
-                Theme.paintPawn(g2, 33, cy + 2, 8f, BLUE, 255);
-                Theme.paintPawn(g2, 47, cy + 2, 8f, RED, 255);
-            }
-            int room = w - 78 - (active ? 40 : 14);
-            float size = 17f;
-            g2.setFont(Theme.semibold(size));
-            while (size > 11f && g2.getFontMetrics().stringWidth(heading) > room) g2.setFont(Theme.semibold(size -= 1f));
-            g2.setColor(Color.WHITE);
-            g2.drawString(heading, 78, cy - 4);
-            size = 12f;
-            g2.setFont(Theme.ui(size, Font.PLAIN));
-            while (size > 9f && g2.getFontMetrics().stringWidth(description) > w - 78 - 12) g2.setFont(Theme.ui(size -= 0.5f, Font.PLAIN));
-            g2.setColor(active ? TEXT : MUTED);
-            g2.drawString(description, 78, cy + 16);
-            if (active) paintCheck(g2, w - 27, 24, 10f, accent);
-            g2.dispose();
-        }
-    }
-
-    // ================================================================== 01: player count tile
-    private final class CountTile extends JComponent {
-        private static final long serialVersionUID = 1L;
-        private final int count;
-        private final float delay;
-        private boolean hovered;
-        private float hover;
-        private float sel;
-
-        CountTile(int count, int order) {
-            this.count = count;
-            this.delay = 0.12f + order * 0.06f;
-            setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-            addMouseListener(new MouseAdapter() {
-                @Override public void mouseEntered(MouseEvent e) { hovered = true; }
-                @Override public void mouseExited(MouseEvent e) { hovered = false; }
-                @Override public void mousePressed(MouseEvent e) { setPlayerCount(CountTile.this.count); }
-            });
-        }
-
-        void update(float dt) {
-            hover = approach(hover, hovered ? 1f : 0f, dt, 12f);
-            sel = approach(sel, playerCount == count ? 1f : 0f, dt, 12f);
-        }
-
-        @Override
-        protected void paintComponent(Graphics g) {
-            float in = intro(delay);
-            if (in <= 0.001f) {
-                return;
-            }
-            Graphics2D g2 = (Graphics2D) g.create();
-            applyQuality(g2);
-            int w = getWidth();
-            int h = getHeight();
-            g2.setComposite(AlphaComposite.SrcOver.derive(in));
-            g2.translate(0, (1f - in) * 24f - hover * 3f + 3f);
-
-            RoundRectangle2D r = new RoundRectangle2D.Float(3, 3, w - 6, h - 10, 22, 22);
-            paintCardFrame(g2, r, VIOLET, sel, hover);
-
-            // big number
-            g2.setFont(Theme.display(Math.min(43f, h * 0.46f)));
-            FontMetrics fm = g2.getFontMetrics();
-            String s = String.valueOf(count);
-            g2.setColor(mix(MUTED, Color.WHITE, Math.max(sel, hover)));
-            g2.drawString(s, w / 2f - fm.stringWidth(s) / 2f, h * 0.49f);
-
-            // row of pawns in the colours that will play
-            float spacing = 17f;
-            float sx = w / 2f - (count - 1) * spacing / 2f;
-            for (int k = 0; k < count; k++) {
-                float bob = (float) Math.sin(t * 3 + k * 0.8) * 2f * sel;
-                Theme.paintPawn(g2, sx + k * spacing, h * 0.69f + bob, 4.0f, PLAYERS[k], (int) (110 + 145 * Math.max(sel, hover)));
-            }
-
-            g2.setFont(Theme.ui(10f, Font.BOLD));
-            g2.setColor(alpha(MUTED, 220));
-            String lbl = "PLAYERS";
-            Theme.drawTracked(g2, lbl, w / 2f - Theme.trackedWidth(g2, lbl, 2f) / 2f, h - 8, 2f);
-
-            paintCheck(g2, w - 20, 20, 9 * sel, VIOLET);
-            g2.dispose();
-        }
-    }
-
+   
     // ================================================================== 02: difficulty card
     private final class DifficultyCard extends JComponent {
         private static final long serialVersionUID = 1L;
@@ -1140,13 +942,18 @@ public String getToolTipText(MouseEvent e) {
 
                 @Override public void mouseMoved(MouseEvent e) {
                     hoverSwatch = isActive() ? swatchAt(e.getPoint()) : -1;
-                    boolean hand = !isActive() || hoverSwatch >= 0 || (isActive() && botPill().contains(e.getPoint()));
+                    boolean hand = !isActive() || hoverSwatch >= 0 || (isActive() && botPill().contains(e.getPoint()))
+                            || (canRemove() && removeButton().contains(e.getPoint()));
                     setCursor(Cursor.getPredefinedCursor(hand ? Cursor.HAND_CURSOR : Cursor.DEFAULT_CURSOR));
                 }
 
                 @Override public void mousePressed(MouseEvent e) {
                     if (!isActive()) {
                         setPlayerCount(PlayerCard.this.index + 1);   // click an empty slot to add it
+                        return;
+                    }
+                    if (canRemove() && removeButton().contains(e.getPoint())) {   // × removes this player
+                        setPlayerCount(playerCount - 1);
                         return;
                     }
                     if (botPill().contains(e.getPoint())) {   // Human <-> Bot
@@ -1170,6 +977,18 @@ public String getToolTipText(MouseEvent e) {
         boolean isActive() {
             return index < playerCount;
         }
+
+        /** Only the last player can be removed, and never below 2 players. */
+        boolean canRemove() {
+            return isActive() && index == playerCount - 1 && playerCount > GameConfig.MIN_PLAYERS
+                    && gameMode != GameConfig.GameMode.TEAMS_2V2;      // 2 vs 2 always needs 4 players
+        }
+
+        /** The × button in the top-right corner of a removable card. */
+        Ellipse2D removeButton() {
+            return new Ellipse2D.Float(getWidth() - 38, 15, 24, 24);
+        }
+        
 
         /** The HUMAN / BOT switch in the top-right corner (left of the team badge in team mode). */
         java.awt.geom.RoundRectangle2D botPill() {
@@ -1301,9 +1120,30 @@ public String getToolTipText(MouseEvent e) {
                 g2.setFont(Theme.semibold(11f));
                 String who = bot ? "BOT" : "HUMAN";
                 FontMetrics pf = g2.getFontMetrics();
-                if (pill.getWidth() >= pf.stringWidth(who + "  \u21C4") + 16) who += "  \u21C4";   // switch arrows when there is room
+                boolean icon = pill.getWidth() >= pf.stringWidth(who) + 34;   // swap arrows when there is room
+                float tx = (float) (pill.getCenterX() - (pf.stringWidth(who) + (icon ? 18 : 0)) / 2.0);
                 g2.setColor(TEXT);
-                g2.drawString(who, (float) (pill.getCenterX() - pf.stringWidth(who) / 2.0), (float) (pill.getCenterY() + (pf.getAscent() - pf.getDescent()) / 2.0));
+                g2.drawString(who, tx, (float) (pill.getCenterY() + (pf.getAscent() - pf.getDescent()) / 2.0));
+                if (icon) {             // drawn, because the arrows symbol is missing in some Windows fonts
+                    float ix = tx + pf.stringWidth(who) + 8;
+                    float iy = (float) pill.getCenterY();
+                    g2.setStroke(new BasicStroke(1.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                    g2.draw(new Line2D.Float(ix, iy - 3, ix + 10, iy - 3));
+                    g2.draw(new Line2D.Float(ix + 7, iy - 6, ix + 10, iy - 3));
+                    g2.draw(new Line2D.Float(ix, iy + 3, ix + 10, iy + 3));
+                    g2.draw(new Line2D.Float(ix, iy + 3, ix + 3, iy + 6));
+                }
+                if (canRemove()) {                                 // × to remove this player
+                    Ellipse2D x = removeButton();
+                    float rx = (float) x.getCenterX();
+                    float ry = (float) x.getCenterY();
+                    g2.setColor(alpha(MUTED, (int) (50 + 60 * hover)));
+                    g2.fill(x);
+                    g2.setColor(TEXT);
+                    g2.setStroke(new BasicStroke(1.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                    g2.draw(new Line2D.Float(rx - 4, ry - 4, rx + 4, ry + 4));
+                    g2.draw(new Line2D.Float(rx + 4, ry - 4, rx - 4, ry + 4));
+                }
                 g2.setFont(Theme.display(22f));
                 g2.setColor(acc);
                 g2.drawString(color.getLabel().toUpperCase(), 92, 67);
