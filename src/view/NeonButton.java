@@ -40,7 +40,7 @@ public class NeonButton extends JButton {
 
     private static final long serialVersionUID = 1L;
 
-    public enum Glyph { PLAY, HISTORY, LOCK, POWER, SOUND, BACK, DICE, PLUS, EDIT, TRASH }
+    public enum Glyph { PLAY, HISTORY, LOCK, POWER, SOUND, BACK, DICE, PLUS, EDIT, TRASH, TROPHY }
     public static final int PAD = 10;
 
     private final Color accent;
@@ -255,6 +255,19 @@ public class NeonButton extends JButton {
                 g.fill(new Ellipse2D.Float(cx - s * 0.27f - pr, cy - s * 0.27f - pr, pr * 2, pr * 2));
                 g.fill(new Ellipse2D.Float(cx - pr, cy - pr, pr * 2, pr * 2));
                 g.fill(new Ellipse2D.Float(cx + s * 0.27f - pr, cy + s * 0.27f - pr, pr * 2, pr * 2));
+                break;
+            }
+            case TROPHY: {          // bonus: a trophy cup with handles
+                Path2D cup = new Path2D.Float();
+                cup.moveTo(cx - s * 0.42f, cy - s * 0.55f);
+                cup.lineTo(cx + s * 0.42f, cy - s * 0.55f);
+                cup.quadTo(cx + s * 0.42f, cy + s * 0.12f, cx, cy + s * 0.12f);
+                cup.quadTo(cx - s * 0.42f, cy + s * 0.12f, cx - s * 0.42f, cy - s * 0.55f);
+                g.fill(cup);
+                g.draw(new java.awt.geom.Arc2D.Float(cx - s * 0.68f, cy - s * 0.5f, s * 0.42f, s * 0.38f, 90, 180, java.awt.geom.Arc2D.OPEN));
+                g.draw(new java.awt.geom.Arc2D.Float(cx + s * 0.26f, cy - s * 0.5f, s * 0.42f, s * 0.38f, 270, 180, java.awt.geom.Arc2D.OPEN));
+                g.draw(new Line2D.Float(cx, cy + s * 0.12f, cx, cy + s * 0.42f));
+                g.draw(new Line2D.Float(cx - s * 0.3f, cy + s * 0.5f, cx + s * 0.3f, cy + s * 0.5f));
                 break;
             }
             case PLUS: {

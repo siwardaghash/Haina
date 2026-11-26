@@ -270,11 +270,33 @@ public final class GameHistoryScreen extends NeonScreen {
         statisticsButton.setChevron(false);
         statisticsButton.setPreferredSize(new java.awt.Dimension(240, 76));
         statisticsButton.addActionListener(e -> showStatistics(controller));
-        footer.add(statisticsButton, BorderLayout.EAST);
+        // Bonus: the Trophy Cabinet, next to the Scoreboard
+        NeonButton trophiesButton = new NeonButton(
+                "Trophies",
+                new Color(255, 199, 92),
+                NeonButton.Glyph.TROPHY,
+                null);
+        trophiesButton.setChevron(false);
+        trophiesButton.setPreferredSize(new java.awt.Dimension(220, 76));
+        trophiesButton.addActionListener(e -> showTrophies(controller));
+        JPanel footerButtons = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.RIGHT, 14, 0));
+        footerButtons.setOpaque(false);
+        footerButtons.add(trophiesButton);
+        footerButtons.add(statisticsButton);
+        footer.add(footerButtons, BorderLayout.EAST);
         add(footer, BorderLayout.SOUTH);
     
         }
-    
+    /** Bonus: opens the Trophy Cabinet with every player from the history. */
+    private void showTrophies(HistoryController controller) {
+        try {
+            java.util.List<String> players = new java.util.ArrayList<>();
+            for (PlayerStatistics p : PlayerStatistics.from(controller.records())) players.add(p.name());
+            TrophyCabinet.show(this, players, controller.trophies());
+        } catch (IOException e) {
+            Theme.neonMessage(this, "Trophies error", "Could not load trophies: " + e.getMessage(), Theme.RED);
+        }
+    }
     private void showStatistics(HistoryController controller) {
         List<GameRecord> games;
         try {
@@ -294,7 +316,7 @@ public final class GameHistoryScreen extends NeonScreen {
         GameStatistics totals = GameStatistics.from(games);
         
         DefaultTableModel statsModel = new DefaultTableModel(
-                new String[]{"Player", "Games played", "Wins", "Win rate (%)"}, 0) {
+                new String[]{"Player", "Games played", "Wins", "Win rate (%)" , "Trophies"}, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
                 return false;
@@ -308,9 +330,17 @@ public final class GameHistoryScreen extends NeonScreen {
             }
         };
 
+        java.util.Map<String, model.TrophyStore.Collection> trophies;
+        try {
+            trophies = controller.trophies();
+        } catch (IOException e) {
+            trophies = java.util.Collections.emptyMap();
+        }
         for (PlayerStatistics player : PlayerStatistics.from(games)) {
             double rate = Math.round(player.winRate() * 10.0) / 10.0;
-            statsModel.addRow(new Object[]{player.name(), player.gamesPlayed(), player.wins(), rate});
+            model.TrophyStore.Collection mine = trophies.get(player.name());
+            statsModel.addRow(new Object[]{player.name(), player.gamesPlayed(), player.wins(), rate,
+                    mine == null ? 0 : mine.distinct()});
         }
 
         Color lavender = new Color(198, 166, 255);
@@ -320,7 +350,7 @@ public final class GameHistoryScreen extends NeonScreen {
         statsTable.setFillsViewportHeight(true);
         int visibleRows = Math.max(1, Math.min(statsModel.getRowCount(), 4));
         statsTable.setPreferredScrollableViewportSize(
-                new java.awt.Dimension(580, visibleRows * 36));        statsTable.setRowHeight(36);
+                new java.awt.Dimension(680, visibleRows * 36));        statsTable.setRowHeight(36);
         statsTable.setBackground(new Color(32, 37, 70));
         statsTable.setForeground(new Color(235, 240, 255));
         statsTable.setSelectionBackground(new Color(78, 62, 137));
@@ -358,6 +388,11 @@ public final class GameHistoryScreen extends NeonScreen {
                             setFont(Theme.semibold(15f));
                             setForeground(rate >= 50 ? Theme.GREEN
                                     : rate > 0 ? Theme.YELLOW : Theme.MUTED);
+                        } else if (col == 4) {          // bonus: trophies out of all of them
+                            int n = ((Number) value).intValue();
+                            setText(n + " / " + model.Achievement.values().length);
+                            setFont(Theme.semibold(15f));
+                            setForeground(n > 0 ? new Color(255, 199, 92) : Theme.MUTED);
                         }
                         return this;
                     }

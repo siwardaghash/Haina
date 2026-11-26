@@ -229,10 +229,11 @@ final class GameDialogs {
             RoundRectangle2D shape = new RoundRectangle2D.Float(1, 1, w - 3, h - 3, 30, 30);
             g2.setPaint(new GradientPaint(0, 0, new Color(30, 22, 58), 0, h, new Color(12, 14, 34)));
             g2.fill(shape);
-            g2.setClip(shape);
+            Shape old = g2.getClip();       // keep Swing's repaint area, only narrow it to the card
+            g2.clip(shape);
             Theme.glow(g2, w / 2f, 0, w * .55f, accent, 60);
             Theme.glow(g2, w, h, w * .35f, LAVENDER, 22);
-            g2.setClip(null);
+            g2.setClip(old);
             // neon line at the top, fading out to the sides
             g2.setPaint(new LinearGradientPaint(w * .15f, 0, w * .85f, 0, new float[]{0f, .5f, 1f},
                     new Color[]{Theme.alpha(accent, 0), accent, Theme.alpha(accent, 0)}));
