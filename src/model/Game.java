@@ -103,9 +103,22 @@ public final class Game {
     private final List<LogEntry> log = new ArrayList<>();
     public List<LogEntry> getLog() { return Collections.unmodifiableList(log); }
 
+    // Bonus: the trophies; they are checked after every log entry.
+    private final AchievementTracker achievements = new AchievementTracker();
+    public AchievementTracker getAchievements() { return achievements; }
+
     private void log(Player player, LogEntry.Kind kind, String text) {
+        log(player, kind, text, null);
+    }
+
+    /** Adds a log entry; {@code other} is the other player involved (e.g. the captured one), or null. */
+    private void log(Player player, LogEntry.Kind kind, String text, PlayerColor other) {
         long seconds = (System.currentTimeMillis() - startedAtMillis) / 1000;
-        log.add(new LogEntry(player.getColor(), player.getName(), kind, text, seconds));
+        LogEntry entry = new LogEntry(player.getColor(), player.getName(), kind, text, seconds, other);
+        log.add(entry);
+        for (AchievementTracker.Unlock u : achievements.onEvent(entry, players, board))
+            log.add(new LogEntry(u.getColor(), u.getPlayer(), LogEntry.Kind.ACHIEVEMENT,
+                    "unlocked " + u.getAchievement().getTitle(), seconds));
     }
 
     private Player playerOf(PlayerColor color) {
@@ -357,7 +370,7 @@ public final class Game {
                 if (opponent.isOnCommonPath() && opponent.getRing() == movedPiece.getRing() && opponent.getBoardIndex() == square) {
                     opponent.setProgress(-1);
                     log(playerOf(movedPiece.getColor()), LogEntry.Kind.CAPTURE,
-                            "captured " + player.getName() + "'s piece " + opponent.getNumber());
+                            "captured " + player.getName() + "'s piece " + opponent.getNumber(), player.getColor());
                     captured++;
                 }
             }
