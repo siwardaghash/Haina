@@ -73,6 +73,10 @@ public final class GameController {
     /** Bonus: the opponent piece the bot sends back, as {player, piece}, or null. */
     public int[] botChooseSurpriseTarget() { return bot.chooseSurpriseTarget(game); }
 
-    /** FR-32: saves the finished game to the history. */
-    public GameRecord saveResult() throws IOException { return SysData.get().history().append(game); }
+    /** FR-32: saves the finished game to the history; bonus: also saves the trophies earned in it. */
+    public GameRecord saveResult() throws IOException {
+        GameRecord record = SysData.get().history().append(game);
+        SysData.get().trophies().append(game);
+        return record;
+    }
 }

@@ -98,6 +98,9 @@ public final class SysData {
     public File adminFile() { return new File(directory, "admin.xml"); }
 
     public GameHistory history() { return new GameHistory(historyFile().toPath()); }
+    // Bonus: the trophies earned by each player (data/achievements.csv).
+    public File trophiesFile() { return new File(directory, "achievements.csv"); }
+    public TrophyStore trophies() { return new TrophyStore(trophiesFile().toPath()); }
     public AdminAuth admin() { return new AdminAuth(adminFile()); }
 
     // ------------------------------------------------------------------ question bank
