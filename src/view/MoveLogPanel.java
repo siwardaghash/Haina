@@ -50,8 +50,8 @@ public final class MoveLogPanel extends JPanel {
     // Bonus: the log can be collapsed to a thin strip, so the board gets the space back.
     private static final int OPEN_WIDTH = 300;
     private static final int CLOSED_WIDTH = 58;
-    /** Remembered for the next game (rematch, new game) while the program runs. */
-    private static boolean startCollapsed;
+    /** Starts closed so the board stays in focus; the choice is remembered while the program runs. */
+    private static boolean startCollapsed = true;
     private boolean collapsed;
     private float width = OPEN_WIDTH;
     /** Events that arrived while the log was collapsed; shown as a badge on the strip. */
