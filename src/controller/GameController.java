@@ -1,12 +1,10 @@
 package controller;
 
-import java.io.IOException;
 import java.util.Random;
 import model.Board;
 import model.Bot;
 import model.Game;
 import model.GameConfig;
-import model.GameRecord;
 import model.QuestionBank;
 import model.SysData;
 
@@ -20,6 +18,11 @@ public final class GameController {
     private final Game game;
     private final String bankError;
     private final Bot bot = new Bot(new Random());
+    /** Observer of the game: saves the result to the history as soon as the game ends. */
+    private final HistoryRecorder recorder = new HistoryRecorder(finished -> {
+        SysData.get().history().append(finished);
+        SysData.get().trophies().append(finished);   // bonus: the trophies earned in it
+    });
 
     /** Builds the board for the chosen level and starts a game (FR-6, FR-7). */
     public GameController(GameConfig config) { this(config, new Board(config.getDifficulty())); }
@@ -36,6 +39,7 @@ public final class GameController {
             error = ex.getMessage();   // 3.6.1: the game still runs, the screen reports the problem
         }
         bankError = error;
+        game.addObserver(recorder);
     }
 
     public GameConfig getConfig() { return config; }
@@ -73,10 +77,12 @@ public final class GameController {
     /** Bonus: the opponent piece the bot sends back, as {player, piece}, or null. */
     public int[] botChooseSurpriseTarget() { return bot.chooseSurpriseTarget(game); }
 
-    /** FR-32: saves the finished game to the history; bonus: also saves the trophies earned in it. */
-    public GameRecord saveResult() throws IOException {
-        GameRecord record = SysData.get().history().append(game);
-        SysData.get().trophies().append(game);
-        return record;
+    /**
+     * FR-32: the finished game was already saved by the {@link HistoryRecorder} observer.
+     * Returns null when it was saved, otherwise why it failed (or that the game is not over).
+     */
+    public String getSaveError() {
+        if (!recorder.isSaved()) return "the game is not over yet";
+        return recorder.getError() == null ? null : recorder.getError().getMessage();
     }
 }

@@ -662,13 +662,11 @@ public final class GameBoardScreen extends NeonScreen {
             resultShown = true;
 
             if (game.isTeamMode()) {
-                // Record a completed team match once, before leaving the board screen.
-                try {
-                    controller.saveResult();
-                } catch (java.io.IOException ex) {
+                // The HistoryRecorder observer already saved the match when it ended.
+                String saveError = controller.getSaveError();
+                if (saveError != null)
                     Theme.neonMessage(this, "History save failed",
-                            "Could not save team match: " + ex.getMessage(), Theme.RED);
-                }
+                            "Could not save team match: " + saveError, Theme.RED);
                 status.setText(game.getMessage());
                 status.setForeground(GOLD);
                 status.setFont(status.getFont().deriveFont(Font.BOLD, 24f));
@@ -773,12 +771,9 @@ public final class GameBoardScreen extends NeonScreen {
         long sec = game.getDurationSeconds();
         results.append("\nDifficulty: ").append(game.getDifficulty().getLabel());   // FR-31
         results.append("\nDuration: ").append(String.format("%02d:%02d:%02d", sec/3600, sec/60%60, sec%60));
-        try {
-            controller.saveResult();
-            results.append("\n\nResult saved to the game history.");
-        } catch (java.io.IOException ex) {
-            results.append("\n\nUnable to save result: ").append(ex.getMessage());
-        }
+        String saveError = controller.getSaveError();     // saved by the HistoryRecorder observer
+        results.append(saveError == null ? "\n\nResult saved to the game history."
+                                         : "\n\nUnable to save result: " + saveError);
         JFrame frame = (JFrame) SwingUtilities.getWindowAncestor(this);
         frame.setContentPane(new EndGameScreen(results.toString(), onBackToMenu, onRematch,
                 game.getAchievements().getUnlocks()));
